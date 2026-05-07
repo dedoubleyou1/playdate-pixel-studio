@@ -12,9 +12,15 @@ import { compileLucideCursor } from "./lucideCursorCompiler";
 const TOOL_CURSORS: Record<Tool, string> = {
   pencil: `url("${pencilCursor}") 1 22, crosshair`,
   eraser: `url("${eraserCursor}") 1 22, crosshair`,
-  fill: compileLucideCursor([{ svg: MousePointer2 }, { svg: PaintBucket, x: 8, y: 8, scale: 0.55 }], {
-    hotspot: { x: 4, y: 4 },
-  }),
+  fill: compileLucideCursor(
+    [
+      { svg: MousePointer2, preserveStrokeWidth: true, scale: 0.5 },
+      { svg: PaintBucket, preserveStrokeWidth: true, x: 8, y: 8, scale: 0.75 },
+    ],
+    {
+      hotspot: { x: 4, y: 4 },
+    },
+  ),
   line: `url("${penToolCursor}") 1 22, crosshair`,
   rect: `url("${squareCursor}") 5 6, crosshair`,
   dither: compileLucideCursor([{ svg: Pen }, { svg: Ellipsis, x: -2, y: 9.5 }], {
