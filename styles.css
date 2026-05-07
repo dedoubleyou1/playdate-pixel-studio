@@ -109,8 +109,6 @@ button {
   justify-content: flex-start;
   width: 100%;
   gap: 4px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
 }
 
 .playdate-stream-trigger {
@@ -152,7 +150,6 @@ h1 {
 .project-name-input {
   width: 100%;
   max-width: 280px;
-  font-weight: 750;
   text-align: center;
 }
 
