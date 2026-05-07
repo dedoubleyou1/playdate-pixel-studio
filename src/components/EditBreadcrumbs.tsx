@@ -1,4 +1,4 @@
-import { Box } from "lucide-react";
+import { ArrowLeft, Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "../state/editorStore";
 
@@ -12,7 +12,8 @@ export function ObjectContextBar(): React.JSX.Element {
   return (
     <nav className="object-context-bar" aria-label="Object editing context">
       <Button variant="outline" size="sm" onClick={switchToRoot}>
-        Return to canvas
+        <ArrowLeft size={15} aria-hidden />
+        Back to canvas
       </Button>
       {object ? (
         <div className="object-context-title">
