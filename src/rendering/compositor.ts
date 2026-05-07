@@ -85,10 +85,20 @@ export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectD
 function drawPixelLayerThumbnail(layer: PixelLayer, pixels: Uint8ClampedArray, width: number, height: number): void {
   const sourceWidth = layer.surface.width;
   const sourceHeight = layer.surface.height;
-  for (let y = 0; y < Math.min(height, sourceHeight); y += 1) {
-    for (let x = 0; x < Math.min(width, sourceWidth); x += 1) {
-      const sourceIndex = y * sourceWidth + x;
-      const pixelOffset = (y * width + x) * 4;
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const targetWidth = Math.max(1, Math.floor(sourceWidth * scale));
+  const targetHeight = Math.max(1, Math.floor(sourceHeight * scale));
+  const offsetX = Math.floor((width - targetWidth) / 2);
+  const offsetY = Math.floor((height - targetHeight) / 2);
+
+  for (let y = 0; y < targetHeight; y += 1) {
+    const sourceY = Math.min(sourceHeight - 1, Math.floor(y / scale));
+    for (let x = 0; x < targetWidth; x += 1) {
+      const sourceX = Math.min(sourceWidth - 1, Math.floor(x / scale));
+      const sourceIndex = sourceY * sourceWidth + sourceX;
+      const targetX = offsetX + x;
+      const targetY = offsetY + y;
+      const pixelOffset = (targetY * width + targetX) * 4;
       const pixel = layer.surface.data[sourceIndex];
       const value = pixel === BLACK_PIXEL ? 0 : pixel === WHITE_PIXEL ? 255 : TRANSPARENT_PREVIEW_SHADE;
       pixels[pixelOffset] = value;
