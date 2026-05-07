@@ -115,7 +115,7 @@ button {
   background: var(--panel);
 }
 
-.topbar > [data-slot="button"] {
+.playdate-stream-trigger {
   margin-left: auto;
 }
 
@@ -962,7 +962,7 @@ input[type="range"] {
     flex-direction: column;
   }
 
-  .topbar > [data-slot="button"] {
+  .playdate-stream-trigger {
     margin-left: 0;
   }
 
