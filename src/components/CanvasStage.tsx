@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
-import { Settings2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
@@ -17,7 +13,6 @@ import { useEditorStore } from "../state/editorStore";
 import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
-const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
 const DEFAULT_ZOOM = 2;
 const MAX_ZOOM = 6;
 const MIN_ZOOM = 1;
@@ -36,16 +31,12 @@ export function CanvasStage(): React.JSX.Element {
   const zoom = useEditorStore((state) => state.zoom);
   const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
-  const setGridVisible = useEditorStore((state) => state.setGridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
-  const setGridSize = useEditorStore((state) => state.setGridSize);
   const activeTool = useEditorStore((state) => state.activeTool);
-  const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
-  const activeLayerName = useEditorStore((state) => activeLayer(state).name);
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const canvasCursor = drawingEnabled ? toolCursor(activeTool) : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
@@ -224,11 +215,7 @@ export function CanvasStage(): React.JSX.Element {
         </div>
       </div>
       <EditorBar className="stage-meta">
-        <EditorBarLeft className="stage-status">
-          <strong className="text-sm">{activeLayerName}</strong>
-          <span className="text-xs text-muted-foreground">{status}</span>
-        </EditorBarLeft>
-        <EditorBarCenter className="stage-view-controls" aria-label="Canvas view controls">
+        <EditorBarLeft className="stage-view-controls" aria-label="Canvas view controls">
           <Label>Zoom</Label>
           <Slider
             min={MIN_ZOOM}
@@ -238,41 +225,8 @@ export function CanvasStage(): React.JSX.Element {
             onValueChange={([value]) => setZoom(clampZoom(value ?? MIN_ZOOM))}
           />
           <strong className="text-right text-xs">{zoom}x</strong>
-          <div className="stage-grid-control">
-            <Switch checked={gridVisible} onCheckedChange={setGridVisible} />
-            <Label>Grid</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="min-w-[66px]" aria-label="Grid settings">
-                  <Settings2 />
-                  {gridSize}px
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="grid-settings-popover">
-                <div className="grid-settings-header">
-                  <strong className="text-sm">Grid Size</strong>
-                  <span className="text-xs text-muted-foreground">
-                    {zoom <= 1 ? "Hidden at 1x zoom" : "Visible above 1x zoom"}
-                  </span>
-                </div>
-                <div className="grid-size-slider">
-                  <Slider
-                    min={0}
-                    max={GRID_SIZE_STEPS.length - 1}
-                    step={1}
-                    value={[GRID_SIZE_STEPS.indexOf(gridSize as (typeof GRID_SIZE_STEPS)[number])]}
-                    onValueChange={([value]) => setGridSize(GRID_SIZE_STEPS[value ?? 0])}
-                  />
-                  <div className="grid-size-readout text-xs text-muted-foreground">
-                    <span>1px</span>
-                    <strong className="text-sm text-foreground">{gridSize}px</strong>
-                    <span>64px</span>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </EditorBarCenter>
+        </EditorBarLeft>
+        <EditorBarCenter aria-hidden="true" />
         <EditorBarRight className="pixel-readout">
           <span className="text-xs text-muted-foreground">{cursorLabel}</span>
         </EditorBarRight>

@@ -3,9 +3,12 @@ import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Menubar,
+  MenubarCheckboxItem,
   MenubarContent,
   MenubarItem,
   MenubarMenu,
+  MenubarRadioGroup,
+  MenubarRadioItem,
   MenubarSeparator,
   MenubarShortcut,
   MenubarSub,
@@ -17,12 +20,18 @@ import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { EditorHeader, EditorHeaderCenter, EditorHeaderLeft, EditorHeaderRight } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
+const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
+
 export function Topbar(): React.JSX.Element {
   const canUndo = useEditorStore((state) => state.canUndo);
   const canRedo = useEditorStore((state) => state.canRedo);
   const projectName = useEditorStore((state) => state.projectName);
   const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
   const recentProjects = useEditorStore((state) => state.recentProjects);
+  const gridVisible = useEditorStore((state) => state.gridVisible);
+  const setGridVisible = useEditorStore((state) => state.setGridVisible);
+  const gridSize = useEditorStore((state) => state.gridSize);
+  const setGridSize = useEditorStore((state) => state.setGridSize);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const newProject = useEditorStore((state) => state.newProject);
@@ -94,6 +103,26 @@ export function Topbar(): React.JSX.Element {
                 Redo
                 <MenubarShortcut>⇧⌘Z</MenubarShortcut>
               </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>View</MenubarTrigger>
+            <MenubarContent>
+              <MenubarCheckboxItem checked={gridVisible} onCheckedChange={(checked) => setGridVisible(Boolean(checked))}>
+                Grid
+              </MenubarCheckboxItem>
+              <MenubarSub>
+                <MenubarSubTrigger>Grid Size</MenubarSubTrigger>
+                <MenubarSubContent>
+                  <MenubarRadioGroup value={String(gridSize)} onValueChange={(value) => setGridSize(Number(value))}>
+                    {GRID_SIZE_STEPS.map((size) => (
+                      <MenubarRadioItem key={size} value={String(size)}>
+                        {size}px
+                      </MenubarRadioItem>
+                    ))}
+                  </MenubarRadioGroup>
+                </MenubarSubContent>
+              </MenubarSub>
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
