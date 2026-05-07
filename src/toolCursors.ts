@@ -14,7 +14,7 @@ const TOOL_CURSORS: Record<Tool, string> = {
   fill: `url("${paintBucketCursor}") 19 20, crosshair`,
   line: `url("${slashCursor}") 5 19, crosshair`,
   rect: `url("${squareCursor}") 5 6, crosshair`,
-  dither: compileLucideCursor([{ svg: Pencil }, { svg: Ellipsis, x: -2, y: 10, scale: 0.6667 }], {
+  dither: compileLucideCursor([{ svg: Pencil }, { svg: Ellipsis, x: 0, y: 18, scale: 0.6667 }], {
     hotspot: { x: 4, y: 20 },
   }),
 };
