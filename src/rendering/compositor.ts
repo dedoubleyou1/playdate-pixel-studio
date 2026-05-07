@@ -77,62 +77,16 @@ export function drawPixelSurfaceThumbnail(
   width: number,
   height: number,
 ): void {
-  const sourceWidth = surface.width;
-  const sourceHeight = surface.height;
-  const scale = Math.min(width / sourceWidth, height / sourceHeight);
-  const targetWidth = Math.max(1, Math.floor(sourceWidth * scale));
-  const targetHeight = Math.max(1, Math.floor(sourceHeight * scale));
-  const offsetX = Math.floor((width - targetWidth) / 2);
-  const offsetY = Math.floor((height - targetHeight) / 2);
-
-  for (let y = 0; y < targetHeight; y += 1) {
-    const sourceTop = y / scale;
-    const sourceBottom = (y + 1) / scale;
-    for (let x = 0; x < targetWidth; x += 1) {
-      const sourceLeft = x / scale;
-      const sourceRight = (x + 1) / scale;
-      const targetX = offsetX + x;
-      const targetY = offsetY + y;
-      const pixelOffset = (targetY * width + targetX) * 4;
-      const value = sampleSurfaceRegion(surface, sourceLeft, sourceTop, sourceRight, sourceBottom);
-
-      pixels[pixelOffset] = value;
-      pixels[pixelOffset + 1] = value;
-      pixels[pixelOffset + 2] = value;
-      pixels[pixelOffset + 3] = 255;
-    }
-  }
-}
-
-function sampleSurfaceRegion(
-  surface: PixelSurface,
-  sourceLeft: number,
-  sourceTop: number,
-  sourceRight: number,
-  sourceBottom: number,
-): number {
-  const minX = Math.max(0, Math.floor(sourceLeft));
-  const minY = Math.max(0, Math.floor(sourceTop));
-  const maxX = Math.min(surface.width, Math.ceil(sourceRight));
-  const maxY = Math.min(surface.height, Math.ceil(sourceBottom));
-  let weightedShade = 0;
-  let totalArea = 0;
-
-  for (let sourceY = minY; sourceY < maxY; sourceY += 1) {
-    const overlapY = Math.min(sourceBottom, sourceY + 1) - Math.max(sourceTop, sourceY);
-    if (overlapY <= 0) continue;
-    for (let sourceX = minX; sourceX < maxX; sourceX += 1) {
-      const overlapX = Math.min(sourceRight, sourceX + 1) - Math.max(sourceLeft, sourceX);
-      if (overlapX <= 0) continue;
-
-      const area = overlapX * overlapY;
-      const pixel = surface.data[sourceY * surface.width + sourceX];
-      weightedShade += pixelToThumbnailShade(pixel) * area;
-      totalArea += area;
-    }
-  }
-
-  return totalArea > 0 ? Math.round(weightedShade / totalArea) : TRANSPARENT_PREVIEW_SHADE;
+  drawThumbnail(
+    {
+      height: surface.height,
+      shadeAt: (x, y) => pixelToThumbnailShade(surface.data[y * surface.width + x]),
+      width: surface.width,
+    },
+    pixels,
+    width,
+    height,
+  );
 }
 
 function pixelToThumbnailShade(pixel: number): number {
@@ -163,9 +117,36 @@ function drawFrameThumbnail(
   width: number,
   height: number,
 ): void {
-  const scale = Math.min(width / sourceWidth, height / sourceHeight);
-  const targetWidth = Math.max(1, Math.floor(sourceWidth * scale));
-  const targetHeight = Math.max(1, Math.floor(sourceHeight * scale));
+  drawThumbnail(
+    {
+      height: sourceHeight,
+      shadeAt: (x, y) => {
+        const index = y * sourceWidth + x;
+        return frame.coverage[index] ? frame.shades[index] : TRANSPARENT_PREVIEW_SHADE;
+      },
+      width: sourceWidth,
+    },
+    pixels,
+    width,
+    height,
+  );
+}
+
+interface ThumbnailSource {
+  width: number;
+  height: number;
+  shadeAt: (x: number, y: number) => number;
+}
+
+function drawThumbnail(
+  source: ThumbnailSource,
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+): void {
+  const scale = Math.min(width / source.width, height / source.height);
+  const targetWidth = Math.max(1, Math.floor(source.width * scale));
+  const targetHeight = Math.max(1, Math.floor(source.height * scale));
   const offsetX = Math.floor((width - targetWidth) / 2);
   const offsetY = Math.floor((height - targetHeight) / 2);
 
@@ -178,7 +159,7 @@ function drawFrameThumbnail(
       const targetX = offsetX + x;
       const targetY = offsetY + y;
       const pixelOffset = (targetY * width + targetX) * 4;
-      const value = sampleFrameRegion(frame, sourceWidth, sourceHeight, sourceLeft, sourceTop, sourceRight, sourceBottom);
+      const value = sampleThumbnailRegion(source, sourceLeft, sourceTop, sourceRight, sourceBottom);
 
       pixels[pixelOffset] = value;
       pixels[pixelOffset + 1] = value;
@@ -188,10 +169,8 @@ function drawFrameThumbnail(
   }
 }
 
-function sampleFrameRegion(
-  frame: ComposedFrame,
-  width: number,
-  height: number,
+function sampleThumbnailRegion(
+  source: ThumbnailSource,
   sourceLeft: number,
   sourceTop: number,
   sourceRight: number,
@@ -199,8 +178,8 @@ function sampleFrameRegion(
 ): number {
   const minX = Math.max(0, Math.floor(sourceLeft));
   const minY = Math.max(0, Math.floor(sourceTop));
-  const maxX = Math.min(width, Math.ceil(sourceRight));
-  const maxY = Math.min(height, Math.ceil(sourceBottom));
+  const maxX = Math.min(source.width, Math.ceil(sourceRight));
+  const maxY = Math.min(source.height, Math.ceil(sourceBottom));
   let weightedShade = 0;
   let totalArea = 0;
 
@@ -212,8 +191,7 @@ function sampleFrameRegion(
       if (overlapX <= 0) continue;
 
       const area = overlapX * overlapY;
-      const index = sourceY * width + sourceX;
-      weightedShade += (frame.coverage[index] ? frame.shades[index] : TRANSPARENT_PREVIEW_SHADE) * area;
+      weightedShade += source.shadeAt(sourceX, sourceY) * area;
       totalArea += area;
     }
   }
