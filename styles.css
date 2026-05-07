@@ -110,7 +110,7 @@ button {
   min-height: 76px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
-  background: #fcf8ee;
+  background: var(--panel);
 }
 
 .brand-block {
