@@ -68,15 +68,18 @@ export function CanvasStage(): React.JSX.Element {
       if (event.operation.target?.id !== CANVAS_DROP_ID) return null;
 
       const objectId = getDraggedObjectId(event.operation.source?.data);
+      const object = objects.find((candidate) => candidate.id === objectId);
       const coordinates = getClientCoordinates(event.nativeEvent);
-      if (!objectId || !coordinates || !canvas) return null;
+      if (!objectId || !object || !coordinates || !canvas) return null;
 
+      const center = getCanvasPixelFromClient(coordinates, canvas, stack.width, stack.height);
       return {
         objectId,
-        ...getCanvasPixelFromClient(coordinates, canvas, stack.width, stack.height),
+        x: center.x - Math.floor(object.width / 2),
+        y: center.y - Math.floor(object.height / 2),
       };
     },
-    [canvas, stack.height, stack.width],
+    [canvas, objects, stack.height, stack.width],
   );
 
   const previewObject = objectDropPreview
