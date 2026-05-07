@@ -13,12 +13,26 @@ import { useEditorStore } from "../state/editorStore";
 export function App(): React.JSX.Element {
   useAutosave();
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [projectReady, setProjectReady] = useState(false);
 
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const setTool = useEditorStore((state) => state.setTool);
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
+  const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
+
+  useEffect(() => {
+    let canceled = false;
+
+    void loadMostRecentProject().finally(() => {
+      if (!canceled) setProjectReady(true);
+    });
+
+    return () => {
+      canceled = true;
+    };
+  }, [loadMostRecentProject]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -72,6 +86,10 @@ export function App(): React.JSX.Element {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [newProject, redo, saveProject, setTool, undo]);
+
+  if (!projectReady) {
+    return <div className="app-shell" aria-label="Opening recent project" />;
+  }
 
   return (
     <>

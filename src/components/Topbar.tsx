@@ -1,5 +1,5 @@
 import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -18,16 +18,11 @@ export function Topbar(): React.JSX.Element {
   const renameProject = useEditorStore((state) => state.renameProject);
   const saveProject = useEditorStore((state) => state.saveProject);
   const loadProject = useEditorStore((state) => state.loadProject);
-  const refreshProjects = useEditorStore((state) => state.refreshProjects);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
   const importProjectFile = useEditorStore((state) => state.importProjectFile);
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportBundle = useEditorStore((state) => state.exportBundle);
   const importInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    void refreshProjects();
-  }, [refreshProjects]);
 
   return (
     <header className="topbar">

@@ -110,6 +110,7 @@ interface EditorStoreState extends EditorSnapshot {
   renameProject: (name: string) => void;
   saveProject: () => Promise<void>;
   loadProject: (id: string) => Promise<void>;
+  loadMostRecentProject: () => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   exportProjectFile: () => void;
@@ -626,6 +627,45 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       }));
     } catch {
       set({ status: "Unable to load project" });
+    }
+  },
+
+  loadMostRecentProject: async () => {
+    try {
+      const recentProjects = await listProjectSummaries();
+      const mostRecentProject = recentProjects[0];
+      set({ recentProjects });
+
+      if (!mostRecentProject) {
+        set({ status: "New project" });
+        return;
+      }
+
+      const document = await loadProjectDocument(mostRecentProject.id);
+      if (!document) {
+        set({ status: "Most recent project was not found" });
+        return;
+      }
+
+      const snapshot = deserializeProject(document);
+      set((state) => ({
+        ...snapshotState(snapshot),
+        projectName: document.name,
+        currentProjectId: document.id,
+        savedRevision: state.revision + 1,
+        pendingCommand: null,
+        undoStack: [],
+        redoStack: [],
+        canUndo: false,
+        canRedo: false,
+        shapePreview: null,
+        status: "Most recent project loaded",
+        revision: state.revision + 1,
+        hasUnsavedChanges: false,
+        recentProjects,
+      }));
+    } catch {
+      set({ recentProjects: [], status: "Unable to read local projects" });
     }
   },
 
