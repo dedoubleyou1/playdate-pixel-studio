@@ -15,7 +15,7 @@ const TOOL_CURSORS: Record<Tool, string> = {
   fill: compileLucideCursor(
     [
       { svg: MousePointer2, preserveStrokeWidth: true, scale: 0.5 },
-      { svg: PaintBucket, preserveStrokeWidth: true, x: 8, y: 8, scale: 0.75 },
+      { svg: PaintBucket, preserveStrokeWidth: true, x: 6, y: 6, scale: 0.75 },
     ],
     {
       hotspot: { x: 4, y: 4 },
