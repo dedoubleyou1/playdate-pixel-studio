@@ -272,6 +272,25 @@ local function drawOverlay()
     gfx.drawTextInRect(text, 6, 5, 388, 46)
 end
 
+local function drawTextEntryPreview()
+    if not keyboardOpen or not pendingKeyboardField then return end
+
+    local keyboardLeft = keyboard.left()
+    local width = math.max(110, keyboardLeft - 14)
+    local value = keyboard.text
+    if value == nil or value == "" then
+        value = "(empty)"
+    end
+
+    gfx.setImageDrawMode(gfx.kDrawModeCopy)
+    gfx.setColor(gfx.kColorWhite)
+    gfx.fillRect(8, 66, width, 68)
+    gfx.setColor(gfx.kColorBlack)
+    gfx.drawRect(8, 66, width, 68)
+    gfx.drawText("Editing " .. pendingKeyboardField, 16, 74)
+    gfx.drawTextInRect(value, 16, 98, width - 16, 28)
+end
+
 function playdate.update()
     if pendingKeyboardField and not keyboardOpen then
         beginKeyboard(pendingKeyboardField)
@@ -297,6 +316,7 @@ function playdate.update()
         frame:draw(0, 0)
     end
     drawOverlay()
+    drawTextEntryPreview()
 end
 
 function playdate.AButtonDown()
