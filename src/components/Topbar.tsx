@@ -38,7 +38,7 @@ export function Topbar(): React.JSX.Element {
   return (
     <EditorHeader aria-label="Application menu">
       <EditorHeaderLeft>
-        <Menubar>
+        <Menubar className="h-auto border-0 bg-transparent p-0 shadow-none">
           <MenubarMenu>
             <MenubarTrigger>File</MenubarTrigger>
             <MenubarContent>
