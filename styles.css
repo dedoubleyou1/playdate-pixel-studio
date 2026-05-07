@@ -59,6 +59,7 @@
   --blue: #2857b8;
   --green: #1b7f63;
   --shadow: 0 18px 45px rgba(28, 28, 31, 0.18);
+  --stage-meta-height: 64px;
   --zoom: 3;
 }
 
@@ -186,7 +187,9 @@ h1 {
 .workspace {
   display: grid;
   grid-template-columns: 240px minmax(420px, 1fr) 300px;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .tools-panel,
@@ -439,9 +442,11 @@ input[type="range"] {
 
 .canvas-stage {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) var(--stage-meta-height);
+  height: 100%;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   background:
     linear-gradient(90deg, rgba(28, 28, 31, 0.04) 1px, transparent 1px),
     linear-gradient(rgba(28, 28, 31, 0.04) 1px, transparent 1px), #f1ece3;
@@ -463,7 +468,8 @@ input[type="range"] {
   grid-template-columns: minmax(150px, 1fr) minmax(260px, 520px) minmax(110px, 1fr);
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
+  height: var(--stage-meta-height);
+  padding: 0 16px;
   border-top: 1px solid var(--line);
   background: rgba(255, 250, 240, 0.86);
 }
@@ -882,6 +888,8 @@ input[type="range"] {
 
   .workspace {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
   }
 
   .tools-panel,
@@ -897,6 +905,9 @@ input[type="range"] {
   .stage-meta {
     grid-template-columns: 1fr;
     align-items: stretch;
+    height: auto;
+    min-height: var(--stage-meta-height);
+    padding: 12px 16px;
   }
 
   .stage-view-controls {
