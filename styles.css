@@ -107,10 +107,8 @@ button {
   position: relative;
   align-items: center;
   justify-content: flex-start;
+  width: 100%;
   gap: 4px;
-  height: auto;
-  min-height: 76px;
-  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
