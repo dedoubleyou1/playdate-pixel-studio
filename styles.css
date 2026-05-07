@@ -142,8 +142,7 @@ h1 {
   line-height: 1.1;
 }
 
-.brand-block p,
-.preview-header p {
+.brand-block p {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
@@ -528,45 +527,6 @@ input[type="range"] {
   background: #e8f1ee;
 }
 
-.preview-overlay {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(20, 20, 22, 0.56);
-  z-index: 10;
-}
-
-.preview-overlay[hidden] {
-  display: none;
-}
-
-.preview-dialog {
-  width: min(1080px, 96vw);
-  max-height: min(94vh, 860px);
-  overflow: auto;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 14px;
-  background: #f9f4e8;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px;
-}
-
-.segmented-control {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
 .command-dialog {
   max-width: 520px;
   padding: 18px;
@@ -583,131 +543,31 @@ input[type="range"] {
   width: 100%;
 }
 
-.preview-header h2 {
-  margin: 0;
-  font-size: 16px;
-  text-transform: none;
-}
-
-.playdate-device {
-  margin: 0 20px 16px;
-  padding: 30px 34px;
-  border: 3px solid #151515;
-  border-radius: 22px;
-  background: var(--yellow);
-  box-shadow:
-    inset -10px -12px 0 rgba(236, 185, 0, 0.45),
-    0 16px 36px rgba(0, 0, 0, 0.22);
-}
-
-.device-screen {
-  border: 12px solid #202024;
-  border-radius: 4px;
-  background: #d9d5c8;
-}
-
-#previewCanvas {
-  display: block;
-  width: 100%;
-  max-height: 55vh;
-  aspect-ratio: 5 / 3;
-  background: white;
-  image-rendering: pixelated;
-}
-
-.device-controls {
-  display: grid;
-  grid-template-columns: 120px 1fr 110px 58px;
-  align-items: center;
-  gap: 28px;
-  margin-top: 24px;
-}
-
-.dpad {
-  position: relative;
-  width: 82px;
-  height: 82px;
-}
-
-.dpad::before,
-.dpad::after,
-.dpad span {
-  content: "";
-  position: absolute;
-  inset: 28px 0;
-  border-radius: 8px;
-  background: #19191d;
-}
-
-.dpad::after {
-  inset: 0 28px;
-}
-
-.dpad span {
-  inset: 28px;
-  border-radius: 4px;
-  background: #2d2d33;
-}
-
-.menu-button {
-  justify-self: center;
-  width: 54px;
-  height: 16px;
-  border-radius: 10px;
-  background: #202024;
-}
-
-.ab-buttons {
-  display: flex;
-  gap: 14px;
-}
-
-.ab-buttons span {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  background: #202024;
-  color: white;
-  font-weight: 850;
-}
-
-.crank {
-  justify-self: end;
-  width: 28px;
-  height: 88px;
-  border: 3px solid #202024;
-  border-radius: 16px;
-  background: #f5f0e4;
-}
-
-.physical-preview-panel {
+.playdate-stream-menu {
   display: grid;
   gap: 14px;
-  margin: 0 20px 22px;
-  padding: 16px;
-  border-top: 1px solid var(--line);
+  width: 360px;
 }
 
-.physical-preview-header,
-.physical-preview-actions,
+.stream-menu-header,
+.stream-menu-actions,
 .bridge-status {
   display: flex;
   align-items: center;
 }
 
-.physical-preview-header {
+.stream-menu-header {
   justify-content: space-between;
   gap: 16px;
 }
 
-.physical-preview-header h3 {
+.stream-menu-header h2 {
   margin: 0;
   font-size: 14px;
+  text-transform: none;
 }
 
-.physical-preview-header p {
+.stream-menu-header p {
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
@@ -736,13 +596,13 @@ input[type="range"] {
   color: var(--destructive);
 }
 
-.physical-preview-grid {
+.stream-readout-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.connection-readout {
+.stream-readout {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -752,14 +612,14 @@ input[type="range"] {
   background: #fffdf8;
 }
 
-.connection-readout span {
+.stream-readout span {
   color: var(--muted);
   font-size: 11px;
   font-weight: 720;
   text-transform: uppercase;
 }
 
-.connection-readout strong {
+.stream-readout strong {
   overflow: hidden;
   color: var(--ink);
   font-size: 13px;
@@ -767,25 +627,16 @@ input[type="range"] {
   white-space: nowrap;
 }
 
-.physical-preview-actions {
+.stream-menu-actions {
   gap: 8px;
 }
 
-.physical-preview-actions button {
+.stream-menu-actions button {
   gap: 7px;
 }
 
-.physical-preview-setup {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 8px 12px;
+.stream-menu-footnote {
   color: var(--muted);
-  font-size: 12px;
-}
-
-.physical-preview-setup code {
-  overflow: auto;
-  color: var(--ink);
   font-size: 12px;
 }
 
@@ -822,10 +673,6 @@ input[type="range"] {
     grid-template-columns: auto minmax(120px, 1fr) 36px auto;
   }
 
-  .physical-preview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .pixel-readout {
     text-align: left;
   }
@@ -846,22 +693,13 @@ input[type="range"] {
 }
 
 @media (max-width: 620px) {
-  .playdate-device {
-    padding: 18px;
-  }
-
-  .device-controls {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .physical-preview-header,
-  .physical-preview-actions {
+  .stream-menu-header,
+  .stream-menu-actions {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .physical-preview-grid,
-  .physical-preview-setup {
+  .stream-readout-grid {
     grid-template-columns: 1fr;
   }
 }

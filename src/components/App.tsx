@@ -3,7 +3,6 @@ import { useState } from "react";
 import { CanvasStage } from "./CanvasStage";
 import { CommandPalette } from "./CommandPalette";
 import { LayersPanel } from "./LayersPanel";
-import { PlaydatePreview } from "./PlaydatePreview";
 import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
 import { useAutosave } from "../hooks/useAutosave";
@@ -15,7 +14,6 @@ export function App(): React.JSX.Element {
 
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
-  const closePreview = useEditorStore((state) => state.closePreview);
   const setTool = useEditorStore((state) => state.setTool);
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
@@ -54,10 +52,6 @@ export function App(): React.JSX.Element {
         return;
       }
 
-      if (event.key === "Escape") {
-        closePreview();
-      }
-
       if (event.target instanceof HTMLInputElement) return;
 
       const shortcuts = {
@@ -75,7 +69,7 @@ export function App(): React.JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closePreview, newProject, redo, saveProject, setTool, undo]);
+  }, [newProject, redo, saveProject, setTool, undo]);
 
   return (
     <>
@@ -87,7 +81,6 @@ export function App(): React.JSX.Element {
           <LayersPanel />
         </main>
       </div>
-      <PlaydatePreview />
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </>
   );

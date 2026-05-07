@@ -1,32 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RadioTower, RefreshCw, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { fetchBridgeHealth, fetchBridgeSession, sendFrameToBridge, type BridgeSession } from "../companion/client";
-import type { PreviewMode } from "../export/playdateExport";
-import type { PixelLayer } from "../domain/types";
-
-interface PhysicalPreviewPanelProps {
-  open: boolean;
-  layers: PixelLayer[];
-  previewMode: PreviewMode;
-  revision: number;
-}
+import { useEditorStore } from "../state/editorStore";
 
 type BridgeState = "checking" | "online" | "offline";
 
-export function PhysicalPreviewPanel({
-  open,
-  layers,
-  previewMode,
-  revision,
-}: PhysicalPreviewPanelProps): React.JSX.Element {
+export function PlaydateStreamMenu(): React.JSX.Element {
+  const layers = useEditorStore((state) => state.layers);
+  const revision = useEditorStore((state) => state.revision);
+  const previewMode = useEditorStore((state) => state.previewMode);
   const [enabled, setEnabled] = useState(false);
   const [bridgeState, setBridgeState] = useState<BridgeState>("checking");
   const [session, setSession] = useState<BridgeSession | null>(null);
   const [lastSentRevision, setLastSentRevision] = useState<number | null>(null);
   const [roundTripMs, setRoundTripMs] = useState<number | null>(null);
   const [connectedDevices, setConnectedDevices] = useState(0);
-  const [statusText, setStatusText] = useState("Start the local bridge to stream to hardware.");
+  const [statusText, setStatusText] = useState("Start the bridge, connect the companion, then stream.");
 
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
 
@@ -37,7 +28,7 @@ export function PhysicalPreviewPanel({
         setSession(nextSession);
         setConnectedDevices(health.connectedDevices);
         setBridgeState("online");
-        if (!enabled) setStatusText("Bridge is ready. Start streaming when the Playdate companion is open.");
+        if (!enabled) setStatusText("Bridge ready. Stream when the companion says waiting for frames.");
       } catch {
         if (!signal?.aborted) {
           setBridgeState("offline");
@@ -51,13 +42,10 @@ export function PhysicalPreviewPanel({
   );
 
   useEffect(() => {
-    if (!open) return;
-
     const controller = new AbortController();
     const initial = window.setTimeout(() => {
       void refreshSession(controller.signal);
     }, 0);
-
     const interval = window.setInterval(() => {
       void refreshSession(controller.signal);
     }, 3000);
@@ -67,10 +55,10 @@ export function PhysicalPreviewPanel({
       window.clearTimeout(initial);
       window.clearInterval(interval);
     };
-  }, [open, refreshSession]);
+  }, [refreshSession]);
 
   useEffect(() => {
-    if (!open || !enabled) return;
+    if (!enabled) return;
 
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
@@ -92,63 +80,58 @@ export function PhysicalPreviewPanel({
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [enabled, layers, open, previewMode, revision]);
+  }, [enabled, layers, previewMode, revision]);
 
   return (
-    <section className="physical-preview-panel" aria-label="Physical Playdate preview">
-      <div className="physical-preview-header">
-        <div>
-          <h3>Physical Device</h3>
-          <p>{statusText}</p>
-        </div>
-        <div className={`bridge-status is-${bridgeState}`}>
-          <Wifi size={15} aria-hidden />
-          {bridgeState === "online" ? "Bridge online" : bridgeState === "checking" ? "Checking" : "Bridge offline"}
-        </div>
-      </div>
-
-      <div className="physical-preview-grid">
-        <div className="connection-readout">
-          <span>Session</span>
-          <strong>{session?.sessionCode ?? "------"}</strong>
-        </div>
-        <div className="connection-readout">
-          <span>Device target</span>
-          <strong>
-            {primaryHost}:{session?.streamPort ?? 9138}
-          </strong>
-        </div>
-        <div className="connection-readout">
-          <span>Sent revision</span>
-          <strong>{lastSentRevision ?? "--"}</strong>
-        </div>
-        <div className="connection-readout">
-          <span>Latency</span>
-          <strong>{roundTripMs === null ? "--" : `${roundTripMs} ms`}</strong>
-        </div>
-        <div className="connection-readout">
-          <span>Devices</span>
-          <strong>{connectedDevices}</strong>
-        </div>
-      </div>
-
-      <div className="physical-preview-actions">
-        <Button onClick={() => setEnabled((current) => !current)} variant={enabled ? "secondary" : "default"}>
-          {enabled ? <Square size={16} aria-hidden /> : <RadioTower size={16} aria-hidden />}
-          {enabled ? "Stop stream" : "Start stream"}
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant={enabled ? "secondary" : "default"}>
+          <RadioTower />
+          {enabled ? "Streaming" : "Playdate Stream"}
         </Button>
-        <Button variant="outline" onClick={() => void refreshSession()}>
-          <RefreshCw size={16} aria-hidden />
-          Refresh
-        </Button>
-      </div>
+      </PopoverTrigger>
+      <PopoverContent className="playdate-stream-menu" align="end">
+        <div className="stream-menu-header">
+          <div>
+            <h2>Playdate Stream</h2>
+            <p>{statusText}</p>
+          </div>
+          <div className={`bridge-status is-${bridgeState}`}>
+            <Wifi size={15} aria-hidden />
+            {bridgeState === "online" ? "Online" : bridgeState === "checking" ? "Checking" : "Offline"}
+          </div>
+        </div>
 
-      <div className="physical-preview-setup">
-        <span>Bridge</span>
-        <code>npm run companion:bridge</code>
-        <span>Companion app</span>
-        <code>companion/playdate-preview</code>
-      </div>
-    </section>
+        <div className="stream-readout-grid">
+          <Readout label="Session" value={session?.sessionCode ?? "------"} />
+          <Readout label="Target" value={`${primaryHost}:${session?.streamPort ?? 9138}`} />
+          <Readout label="Revision" value={lastSentRevision?.toString() ?? "--"} />
+          <Readout label="Latency" value={roundTripMs === null ? "--" : `${roundTripMs} ms`} />
+          <Readout label="Devices" value={connectedDevices.toString()} />
+        </div>
+
+        <div className="stream-menu-actions">
+          <Button onClick={() => setEnabled((current) => !current)} variant={enabled ? "secondary" : "default"}>
+            {enabled ? <Square size={16} aria-hidden /> : <RadioTower size={16} aria-hidden />}
+            {enabled ? "Stop stream" : "Start stream"}
+          </Button>
+          <Button variant="outline" onClick={() => void refreshSession()}>
+            <RefreshCw size={16} aria-hidden />
+            Refresh
+          </Button>
+        </div>
+
+        <div className="stream-menu-footnote">Closing this menu does not stop an active stream.</div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Readout({ label, value }: { label: string; value: string }): React.JSX.Element {
+  return (
+    <div className="stream-readout">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }

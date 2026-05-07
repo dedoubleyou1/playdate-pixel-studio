@@ -3,7 +3,6 @@ import {
   Download,
   FileDown,
   FilePlus2,
-  Gamepad2,
   PaintBucket,
   Pencil,
   RotateCcwSquare,
@@ -35,7 +34,6 @@ export function CommandPalette({
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
   const exportBundle = useEditorStore((state) => state.exportBundle);
-  const openPreview = useEditorStore((state) => state.openPreview);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
 
@@ -49,14 +47,11 @@ export function CommandPalette({
       <DialogContent className="command-dialog" aria-describedby="commandDescription">
         <DialogHeader>
           <DialogTitle>Command Palette</DialogTitle>
-          <DialogDescription id="commandDescription">
-            Quick project, export, preview, and tool actions
-          </DialogDescription>
+          <DialogDescription id="commandDescription">Quick project, export, and tool actions</DialogDescription>
         </DialogHeader>
         <div className="command-list">
           <CommandButton icon={FilePlus2} label="New project" onClick={() => run(newProject)} />
           <CommandButton icon={Save} label="Save project" onClick={() => run(saveProject)} />
-          <CommandButton icon={Gamepad2} label="Preview on Playdate" onClick={() => run(openPreview)} />
           <CommandButton icon={Download} label="Export PNG" onClick={() => run(exportPng)} />
           <CommandButton icon={FileDown} label="Export project JSON" onClick={() => run(exportProjectFile)} />
           <CommandButton icon={Archive} label="Export project bundle" onClick={() => run(exportBundle)} />

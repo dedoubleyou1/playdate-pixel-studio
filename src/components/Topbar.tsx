@@ -1,8 +1,9 @@
-import { Archive, Download, FileDown, FilePlus2, Gamepad2, Redo2, Save, Undo2, Upload } from "lucide-react";
+import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { useEditorStore } from "../state/editorStore";
 
 export function Topbar(): React.JSX.Element {
@@ -13,7 +14,6 @@ export function Topbar(): React.JSX.Element {
   const recentProjects = useEditorStore((state) => state.recentProjects);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
-  const openPreview = useEditorStore((state) => state.openPreview);
   const newProject = useEditorStore((state) => state.newProject);
   const renameProject = useEditorStore((state) => state.renameProject);
   const saveProject = useEditorStore((state) => state.saveProject);
@@ -100,10 +100,7 @@ export function Topbar(): React.JSX.Element {
         <TopbarIconButton label="Export project bundle" onClick={() => void exportBundle()}>
           <Archive />
         </TopbarIconButton>
-        <Button onClick={openPreview}>
-          <Gamepad2 />
-          Preview on Playdate
-        </Button>
+        <PlaydateStreamMenu />
       </div>
     </header>
   );
