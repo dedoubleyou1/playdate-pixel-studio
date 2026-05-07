@@ -11,6 +11,8 @@ import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
 
+const GRID_SIZE_STEPS = [1, 2, 4, 8, 16] as const;
+
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const zoom = useEditorStore((state) => state.zoom);
@@ -71,17 +73,19 @@ export function CanvasStage(): React.JSX.Element {
                   <strong>Grid Size</strong>
                   <span>{zoom <= 1 ? "Hidden at 1x zoom" : "Visible above 1x zoom"}</span>
                 </div>
-                <div className="grid-size-options">
-                  {[1, 2, 4, 8, 16].map((size) => (
-                    <Button
-                      key={size}
-                      variant={gridSize === size ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setGridSize(size)}
-                    >
-                      {size}px
-                    </Button>
-                  ))}
+                <div className="grid-size-slider">
+                  <Slider
+                    min={0}
+                    max={GRID_SIZE_STEPS.length - 1}
+                    step={1}
+                    value={[GRID_SIZE_STEPS.indexOf(gridSize as (typeof GRID_SIZE_STEPS)[number])]}
+                    onValueChange={([value]) => setGridSize(GRID_SIZE_STEPS[value ?? 0])}
+                  />
+                  <div className="grid-size-readout">
+                    <span>1px</span>
+                    <strong>{gridSize}px</strong>
+                    <span>16px</span>
+                  </div>
                 </div>
               </PopoverContent>
             </Popover>

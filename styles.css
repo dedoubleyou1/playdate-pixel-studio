@@ -446,10 +446,22 @@ input[type="range"] {
   font-size: 12px;
 }
 
-.grid-size-options {
+.grid-size-slider {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 10px;
+}
+
+.grid-size-readout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.grid-size-readout strong {
+  color: var(--ink);
+  font-size: 13px;
 }
 
 .layer-list {
