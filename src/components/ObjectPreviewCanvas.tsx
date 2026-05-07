@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
+import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import type { ObjectDefinition } from "../domain/types";
 import { renderObjectThumbnail } from "../rendering/compositor";
 
@@ -8,23 +9,28 @@ export function ObjectPreviewCanvas({
   canvasWidth,
   className,
   object,
-  revision,
+  thumbnailKey = objectThumbnailKey(object),
   style,
 }: {
   canvasHeight?: number;
   canvasWidth?: number;
   className?: string;
   object: ObjectDefinition;
-  revision?: number;
+  thumbnailKey?: string;
   style?: CSSProperties;
 }): React.JSX.Element {
   const previewRef = useRef<HTMLCanvasElement | null>(null);
+  const objectRef = useRef(object);
+
+  useEffect(() => {
+    objectRef.current = object;
+  }, [object]);
 
   useEffect(() => {
     if (previewRef.current) {
-      renderObjectThumbnail(previewRef.current, object);
+      renderObjectThumbnail(previewRef.current, objectRef.current);
     }
-  }, [object, revision]);
+  }, [canvasHeight, canvasWidth, thumbnailKey]);
 
   return (
     <canvas

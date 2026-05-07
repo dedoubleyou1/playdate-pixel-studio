@@ -8,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
+import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
@@ -40,7 +41,6 @@ export function CanvasStage(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
-  const revision = useEditorStore((state) => state.revision);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
@@ -215,7 +215,7 @@ export function CanvasStage(): React.JSX.Element {
             <ObjectPreviewCanvas
               className="canvas-object-drop-preview"
               object={previewObject}
-              revision={revision}
+              thumbnailKey={objectThumbnailKey(previewObject)}
               style={{
                 height: `${previewObject.height * zoom}px`,
                 left: `${objectDropPreview.x * zoom}px`,

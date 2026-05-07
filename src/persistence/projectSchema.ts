@@ -13,7 +13,7 @@ import type {
   PixelValue,
 } from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 4;
+export const PROJECT_SCHEMA_VERSION = 5;
 
 export interface SerializedSurface {
   width: number;
@@ -26,6 +26,7 @@ export interface SerializedBaseLayer {
   name: string;
   visible: boolean;
   pixelEditable: boolean;
+  contentRevision: number;
   opacity: number;
 }
 
@@ -59,7 +60,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 4;
+  schemaVersion: 5;
   id: string;
   name: string;
   width: number;
@@ -95,6 +96,10 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
 }
 
 export function deserializeProject(document: PlaydateProjectDocument): EditorSnapshot {
+  if (document.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+    throw new Error("Unsupported project schema version.");
+  }
+
   if (document.width !== PLAYDATE_WIDTH || document.height !== PLAYDATE_HEIGHT) {
     throw new Error(`Unsupported project size ${document.width}x${document.height}.`);
   }
@@ -179,6 +184,7 @@ function serializePixelLayer(layer: PixelLayer): SerializedPixelLayer {
     name: layer.name,
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
+    contentRevision: layer.contentRevision,
     opacity: layer.opacity,
     surface: serializeSurface(layer.surface),
   };
@@ -191,6 +197,7 @@ function deserializePixelLayer(layer: SerializedPixelLayer): PixelLayer {
     name: layer.name,
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
+    contentRevision: layer.contentRevision,
     opacity: layer.opacity,
     surface: deserializeSurface(layer.surface),
   };
@@ -203,6 +210,7 @@ function serializeObjectInstanceLayer(layer: ObjectInstanceLayer): SerializedObj
     name: layer.name,
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
+    contentRevision: layer.contentRevision,
     opacity: layer.opacity,
     objectId: layer.objectId,
     x: layer.x,
@@ -217,6 +225,7 @@ function deserializeObjectInstanceLayer(layer: SerializedObjectInstanceLayer): O
     name: layer.name,
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
+    contentRevision: layer.contentRevision,
     opacity: layer.opacity,
     objectId: layer.objectId,
     x: layer.x,

@@ -173,7 +173,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   markDocumentChanged: (status) =>
     set((state) => ({
-      ...touchActiveStack(state),
+      ...bumpActiveLayerContent(state),
       status: status ?? state.status,
       revision: state.revision + 1,
       hasUnsavedChanges: true,
@@ -302,6 +302,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
               height: nextHeight,
               layers: object.layers.map((layer) => ({
                 ...layer,
+                contentRevision: layer.contentRevision + 1,
                 surface: resizeSurface(layer.surface, nextWidth, nextHeight),
               })),
             }
@@ -518,6 +519,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!isPixelEditableLayer(layer)) {
         return { status: "Active layer does not support pixel drawing" };
       }
+      if (!layer.surface.data.some((pixel) => pixel !== TRANSPARENT_PIXEL)) {
+        return { status: "Layer is already clear" };
+      }
       return {
         ...replaceActiveStack(state, {
           ...stack,
@@ -525,6 +529,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
             index === stack.activeLayerIndex
               ? {
                   ...layer,
+                  contentRevision: layer.contentRevision + 1,
                   surface: { ...layer.surface, data: new Uint8Array(layer.surface.data.length) },
                 }
               : candidate,
@@ -546,6 +551,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!isPixelEditableLayer(layer)) {
         return { status: "Active layer does not support pixel drawing" };
       }
+      if (!layer.surface.data.some((pixel) => pixel === BLACK_PIXEL || pixel === WHITE_PIXEL)) {
+        return { status: "Layer has no black or white pixels to invert" };
+      }
       const data = new Uint8Array(layer.surface.data.length);
       for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {
         data[pixel] =
@@ -559,7 +567,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ...replaceActiveStack(state, {
           ...stack,
           layers: stack.layers.map((candidate, index) =>
-            index === stack.activeLayerIndex ? { ...layer, surface: { ...layer.surface, data } } : candidate,
+            index === stack.activeLayerIndex
+              ? { ...layer, contentRevision: layer.contentRevision + 1, surface: { ...layer.surface, data } }
+              : candidate,
           ),
         }),
         status: "Layer inverted",
@@ -845,8 +855,14 @@ function replaceActiveStack(
   };
 }
 
-function touchActiveStack(state: EditorStoreState): Pick<EditorSnapshot, "root" | "objects"> {
-  return replaceActiveStack(state, activeStack(state));
+function bumpActiveLayerContent(state: EditorStoreState): Pick<EditorSnapshot, "root" | "objects"> {
+  const stack = activeStack(state);
+  return replaceActiveStack(state, {
+    ...stack,
+    layers: stack.layers.map((layer, index) =>
+      index === stack.activeLayerIndex ? { ...layer, contentRevision: layer.contentRevision + 1 } : layer,
+    ),
+  });
 }
 
 function isPixelLayer(layer: Layer): layer is PixelLayer {

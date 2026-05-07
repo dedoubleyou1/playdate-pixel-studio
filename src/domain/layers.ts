@@ -42,6 +42,7 @@ export function createLayer(id: number, name: string, width = PLAYDATE_WIDTH, he
     name,
     visible: true,
     pixelEditable: true,
+    contentRevision: 0,
     opacity: 100,
     surface: createSurface(width, height),
   };
@@ -54,6 +55,7 @@ export function createObjectInstanceLayer(id: number, name: string, objectId: st
     name,
     visible: true,
     pixelEditable: false,
+    contentRevision: 0,
     opacity: 100,
     objectId,
     x: 0,

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
+import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 import { EditorList, EditorListItem, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
@@ -15,7 +16,6 @@ export function ObjectLibrary(): React.JSX.Element {
   const addObject = useEditorStore((state) => state.addObject);
   const renameObject = useEditorStore((state) => state.renameObject);
   const switchToObject = useEditorStore((state) => state.switchToObject);
-  const revision = useEditorStore((state) => state.revision);
   const { target } = useDragOperation();
   const hideDragOverlay = target?.id === CANVAS_DROP_ID;
 
@@ -45,7 +45,6 @@ export function ObjectLibrary(): React.JSX.Element {
               object={object}
               onRename={renameObject}
               onSelect={switchToObject}
-              revision={revision}
             />
           ))
         )}
@@ -57,13 +56,14 @@ export function ObjectLibrary(): React.JSX.Element {
           if (!object) return null;
 
           const thumbnailSize = getObjectThumbnailSize(object.width, object.height, 96, 72);
+          const thumbnailKey = objectThumbnailKey(object);
           return (
             <ObjectPreviewCanvas
               canvasHeight={thumbnailSize.height}
               canvasWidth={thumbnailSize.width}
               className="object-thumb object-drag-preview"
               object={object}
-              revision={revision}
+              thumbnailKey={thumbnailKey}
               style={{
                 height: `${thumbnailSize.height}px`,
                 width: `${thumbnailSize.width}px`,
@@ -82,16 +82,15 @@ function ObjectRow({
   object,
   onRename,
   onSelect,
-  revision,
 }: {
   active: boolean;
   draggable: boolean;
   object: ObjectDefinition;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
-  revision: number;
 }): React.JSX.Element {
   const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
+  const thumbnailKey = objectThumbnailKey(object);
   const { isDragging, ref: draggableRef } = useDraggable({
     id: `object:${object.id}`,
     type: "object",
@@ -115,7 +114,7 @@ function ObjectRow({
           canvasWidth={thumbnailSize.width}
           className="object-thumb"
           object={object}
-          revision={revision}
+          thumbnailKey={thumbnailKey}
           style={{
             height: `${thumbnailSize.height}px`,
             width: `${thumbnailSize.width}px`,

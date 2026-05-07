@@ -27,7 +27,7 @@ describe("project schema", () => {
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(document.width).toBe(PLAYDATE_WIDTH);
     expect(document.height).toBe(PLAYDATE_HEIGHT);
-    expect(document.snapshot.root.layers[0]).toMatchObject({ pixelEditable: true });
+    expect(document.snapshot.root.layers[0]).toMatchObject({ pixelEditable: true, contentRevision: 0 });
     expect("locked" in document.snapshot.root.layers[0]).toBe(false);
     expect(restored.root.background).toBe(BLACK_PIXEL);
     expect(restored.objects[0]?.background).toBe(TRANSPARENT_PIXEL);
@@ -40,5 +40,8 @@ describe("project schema", () => {
 
   it("rejects unsupported imported files", () => {
     expect(() => parseProjectJson("{}")).toThrow(/not a Playdate Pixel Studio project/);
+    expect(() => parseProjectJson(JSON.stringify({ schemaVersion: PROJECT_SCHEMA_VERSION - 1 }))).toThrow(
+      /not a Playdate Pixel Studio project/,
+    );
   });
 });

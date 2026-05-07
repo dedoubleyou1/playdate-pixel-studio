@@ -20,6 +20,7 @@ export interface BaseLayer {
   name: string;
   visible: boolean;
   pixelEditable: boolean;
+  contentRevision: number;
   opacity: number;
 }
 

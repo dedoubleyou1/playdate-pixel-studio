@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Box, Copy, Eye, EyeOff, Minus, Plus, RotateCcwSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack, isPixelEditableLayer } from "../domain/layers";
+import { layerThumbnailKey } from "../domain/thumbnailKeys";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
@@ -28,7 +29,6 @@ export function LayersPanel(): React.JSX.Element {
   const activeLayerIndex = stack.activeLayerIndex;
   const activeLayer = layers[activeLayerIndex];
   const objects = useEditorStore((state) => state.objects);
-  const revision = useEditorStore((state) => state.revision);
   const addLayer = useEditorStore((state) => state.addLayer);
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer);
   const deleteLayer = useEditorStore((state) => state.deleteLayer);
@@ -67,7 +67,6 @@ export function LayersPanel(): React.JSX.Element {
               index={index}
               active={index === activeLayerIndex}
               objects={objects}
-              revision={revision}
             />
           ))}
         <BackgroundRow background={stack.background} onChange={setStackBackground} />
@@ -152,24 +151,16 @@ function LayerRow({
   index,
   active,
   objects,
-  revision,
 }: {
   layer: Layer;
   index: number;
   active: boolean;
   objects: ObjectDefinition[];
-  revision: number;
 }): React.JSX.Element {
-  const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const renameLayer = useEditorStore((state) => state.renameLayer);
   const setLayerVisible = useEditorStore((state) => state.setLayerVisible);
-
-  useEffect(() => {
-    if (thumbnailRef.current) {
-      renderLayerThumbnail(thumbnailRef.current, layer, objects);
-    }
-  }, [layer, objects, revision]);
+  const thumbnailKey = layerThumbnailKey(layer, objects);
 
   return (
     <EditorListItem
@@ -181,7 +172,7 @@ function LayerRow({
       }
       onClick={() => setActiveLayer(index)}
     >
-      <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />
+      <LayerThumbnail layer={layer} objects={objects} thumbnailKey={thumbnailKey} />
       {layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       <Input
         className="min-w-0"
@@ -201,6 +192,32 @@ function LayerRow({
       </IconAction>
     </EditorListItem>
   );
+}
+
+const LayerThumbnail = memo(function LayerThumbnail({
+  layer,
+  objects,
+}: {
+  layer: Layer;
+  objects: ObjectDefinition[];
+  thumbnailKey: string;
+}): React.JSX.Element {
+  const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (thumbnailRef.current) {
+      renderLayerThumbnail(thumbnailRef.current, layer, objects);
+    }
+  }, [layer, objects]);
+
+  return <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />;
+}, areThumbnailPropsEqual);
+
+function areThumbnailPropsEqual(
+  previous: { thumbnailKey: string },
+  next: { thumbnailKey: string },
+): boolean {
+  return previous.thumbnailKey === next.thumbnailKey;
 }
 
 function IconAction({
