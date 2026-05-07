@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RadioTower, RefreshCw, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { fetchBridgeHealth, fetchBridgeSession, sendFrameToBridge, type BridgeSession } from "../companion/client";
+import {
+  fetchBridgeHealth,
+  fetchBridgeSession,
+  sendFrameToBridge,
+  type BridgeDevice,
+  type BridgeSession,
+} from "../companion/client";
 import { useEditorStore } from "../state/editorStore";
 
 type BridgeState = "checking" | "online" | "offline";
@@ -17,6 +23,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const [lastSentRevision, setLastSentRevision] = useState<number | null>(null);
   const [roundTripMs, setRoundTripMs] = useState<number | null>(null);
   const [connectedDevices, setConnectedDevices] = useState(0);
+  const [devices, setDevices] = useState<BridgeDevice[]>([]);
   const [statusText, setStatusText] = useState("Start the bridge, connect the companion, then stream.");
 
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
@@ -27,12 +34,14 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         const [nextSession, health] = await Promise.all([fetchBridgeSession(signal), fetchBridgeHealth(signal)]);
         setSession(nextSession);
         setConnectedDevices(health.connectedDevices);
+        setDevices(nextSession.devices ?? []);
         setBridgeState("online");
         if (!enabled) setStatusText("Bridge ready. Stream when the companion says waiting for frames.");
       } catch {
         if (!signal?.aborted) {
           setBridgeState("offline");
           setConnectedDevices(0);
+          setDevices([]);
           setSession(null);
           if (!enabled) setStatusText("Bridge offline. Run npm run companion:bridge.");
         }
@@ -68,6 +77,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           setLastSentRevision(result.revision);
           setRoundTripMs(result.roundTripMs);
           setStatusText(`Streaming revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`);
+          void refreshSession();
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
@@ -80,7 +90,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, [enabled, layers, previewMode, revision]);
+  }, [enabled, layers, previewMode, refreshSession, revision]);
 
   return (
     <Popover>
@@ -108,6 +118,23 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           <Readout label="Revision" value={lastSentRevision?.toString() ?? "--"} />
           <Readout label="Latency" value={roundTripMs === null ? "--" : `${roundTripMs} ms`} />
           <Readout label="Devices" value={connectedDevices.toString()} />
+        </div>
+
+        <div className="stream-device-list" aria-label="Connected Playdate devices">
+          {devices.length === 0 ? (
+            <p>No authenticated devices yet.</p>
+          ) : (
+            devices.map((device) => (
+              <div className="stream-device-row" key={device.id}>
+                <div>
+                  <strong>{device.id}</strong>
+                  <span>{device.address}</span>
+                </div>
+                <span>rev {device.lastRevisionSent ?? "--"}</span>
+                <span>{device.packetsSent} packets</span>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="stream-menu-actions">

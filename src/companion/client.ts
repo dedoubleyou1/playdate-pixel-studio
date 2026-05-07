@@ -11,6 +11,7 @@ export interface BridgeHealth {
   streamPort: number;
   latestRevision: number | null;
   connectedDevices: number;
+  devices?: BridgeDevice[];
 }
 
 export interface BridgeSession {
@@ -20,6 +21,18 @@ export interface BridgeSession {
   hostCandidates: string[];
   latestRevision: number | null;
   connectedDevices: number;
+  devices?: BridgeDevice[];
+}
+
+export interface BridgeDevice {
+  id: string;
+  address: string;
+  connectedForMs: number;
+  authenticatedForMs: number | null;
+  lastFrameAgeMs: number | null;
+  lastRevisionSent: number | null;
+  packetsSent: number;
+  bytesSent: number;
 }
 
 export interface FrameSendResult {
@@ -35,6 +48,12 @@ export async function fetchBridgeHealth(signal?: AbortSignal): Promise<BridgeHea
 
 export async function fetchBridgeSession(signal?: AbortSignal): Promise<BridgeSession> {
   return fetchBridgeJson<BridgeSession>("/v1/session", signal);
+}
+
+export async function fetchBridgeDevices(
+  signal?: AbortSignal,
+): Promise<{ connectedDevices: number; devices: BridgeDevice[] }> {
+  return fetchBridgeJson<{ connectedDevices: number; devices: BridgeDevice[] }>("/v1/devices", signal);
 }
 
 export async function sendFrameToBridge(

@@ -635,6 +635,44 @@ input[type="range"] {
   gap: 7px;
 }
 
+.stream-device-list {
+  display: grid;
+  gap: 6px;
+}
+
+.stream-device-list p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.stream-device-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fffdf8;
+  font-size: 12px;
+}
+
+.stream-device-row div {
+  display: grid;
+  min-width: 0;
+}
+
+.stream-device-row strong,
+.stream-device-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-device-row span {
+  color: var(--muted);
+}
+
 .stream-menu-footnote {
   color: var(--muted);
   font-size: 12px;

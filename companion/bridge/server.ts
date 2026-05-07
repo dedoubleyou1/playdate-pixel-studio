@@ -20,13 +20,21 @@ interface LatestFrame {
 }
 
 interface StreamClient {
+  id: string;
   socket: net.Socket;
   remoteAddress: string;
   ready: boolean;
   buffer: string;
+  connectedAt: number;
+  authenticatedAt: number | null;
+  lastSentAt: number | null;
+  lastRevisionSent: number | null;
+  packetsSent: number;
+  bytesSent: number;
 }
 
 let latestFrame: LatestFrame | null = null;
+let nextClientId = 1;
 const streamClients = new Set<StreamClient>();
 
 const httpServer = http.createServer((request, response) => {
@@ -59,6 +67,15 @@ const httpServer = http.createServer((request, response) => {
       hostCandidates: getLanAddresses(),
       latestRevision: latestFrame?.revision ?? null,
       connectedDevices: readyClientCount(),
+      devices: readyClientSnapshots(),
+    });
+    return;
+  }
+
+  if (request.method === "GET" && url.pathname === "/v1/devices") {
+    writeJson(response, 200, {
+      connectedDevices: readyClientCount(),
+      devices: readyClientSnapshots(),
     });
     return;
   }
@@ -88,13 +105,21 @@ const httpServer = http.createServer((request, response) => {
 
 const tcpServer = net.createServer((socket) => {
   const client: StreamClient = {
+    id: `pd-${nextClientId.toString().padStart(2, "0")}`,
     socket,
     remoteAddress: `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`,
     ready: false,
     buffer: "",
+    connectedAt: Date.now(),
+    authenticatedAt: null,
+    lastSentAt: null,
+    lastRevisionSent: null,
+    packetsSent: 0,
+    bytesSent: 0,
   };
+  nextClientId += 1;
   streamClients.add(client);
-  console.log(`Playdate TCP client connected from ${client.remoteAddress}`);
+  console.log(`Playdate TCP client ${client.id} connected from ${client.remoteAddress}`);
 
   socket.on("data", (chunk) => {
     if (client.ready) return;
@@ -109,19 +134,20 @@ const tcpServer = net.createServer((socket) => {
     }
 
     client.ready = true;
+    client.authenticatedAt = Date.now();
     socket.write(`OK ${SESSION_CODE}\n`);
-    if (latestFrame) socket.write(Buffer.from(latestFrame.packet));
-    console.log(`Playdate TCP client authenticated from ${client.remoteAddress}`);
+    if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
+    console.log(`Playdate TCP client ${client.id} authenticated from ${client.remoteAddress}`);
   });
 
   socket.on("close", () => {
     streamClients.delete(client);
-    console.log(`Playdate TCP client disconnected from ${client.remoteAddress}`);
+    console.log(`Playdate TCP client ${client.id} disconnected from ${client.remoteAddress}`);
   });
 
   socket.on("error", (error) => {
     streamClients.delete(client);
-    console.warn(`Playdate TCP client error from ${client.remoteAddress}: ${error.message}`);
+    console.warn(`Playdate TCP client ${client.id} error from ${client.remoteAddress}: ${error.message}`);
   });
 });
 
@@ -160,12 +186,13 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
       packet,
       receivedAt: Date.now(),
     };
-    broadcast(packet);
+    broadcast(packet, revision);
     writeJson(response, 200, {
       ok: true,
       revision,
       bytes: body.byteLength,
       connectedDevices: readyClientCount(),
+      devices: readyClientSnapshots(),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to read frame.";
@@ -173,12 +200,19 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
   }
 }
 
-function broadcast(packet: Uint8Array): void {
-  const buffer = Buffer.from(packet);
+function broadcast(packet: Uint8Array, revision: number): void {
   for (const client of streamClients) {
     if (!client.ready || client.socket.destroyed) continue;
-    client.socket.write(buffer);
+    writeFrameToClient(client, packet, revision);
   }
+}
+
+function writeFrameToClient(client: StreamClient, packet: Uint8Array, revision: number): void {
+  client.socket.write(Buffer.from(packet));
+  client.lastSentAt = Date.now();
+  client.lastRevisionSent = revision;
+  client.packetsSent += 1;
+  client.bytesSent += packet.byteLength;
 }
 
 function readRequestBody(request: http.IncomingMessage, expectedBytes: number): Promise<Uint8Array> {
@@ -219,6 +253,7 @@ function healthPayload(): Record<string, unknown> {
     latestFrameAgeMs: latestFrame ? Date.now() - latestFrame.receivedAt : null,
     latestFrameBytes: latestFrame?.payload.byteLength ?? null,
     connectedDevices: readyClientCount(),
+    devices: readyClientSnapshots(),
   };
 }
 
@@ -244,6 +279,22 @@ function readyClientCount(): number {
     if (client.ready && !client.socket.destroyed) count += 1;
   }
   return count;
+}
+
+function readyClientSnapshots(): Array<Record<string, unknown>> {
+  const now = Date.now();
+  return [...streamClients]
+    .filter((client) => client.ready && !client.socket.destroyed)
+    .map((client) => ({
+      id: client.id,
+      address: client.remoteAddress,
+      connectedForMs: now - client.connectedAt,
+      authenticatedForMs: client.authenticatedAt ? now - client.authenticatedAt : null,
+      lastFrameAgeMs: client.lastSentAt ? now - client.lastSentAt : null,
+      lastRevisionSent: client.lastRevisionSent,
+      packetsSent: client.packetsSent,
+      bytesSent: client.bytesSent,
+    }));
 }
 
 function getLanAddresses(): string[] {
