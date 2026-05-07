@@ -149,7 +149,6 @@ h1 {
   font-size: 12px;
 }
 
-.top-actions,
 .project-actions,
 .mini-actions,
 .layer-actions {
@@ -981,10 +980,6 @@ input[type="range"] {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .top-actions {
-    flex-wrap: wrap;
   }
 
   .project-actions {
