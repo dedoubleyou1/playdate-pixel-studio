@@ -174,7 +174,7 @@ export function CanvasStage(): React.JSX.Element {
   });
 
   return (
-    <section className={`canvas-stage${activeContext.type === "object" ? " has-context-bar" : ""}`} aria-label="Pixel art canvas">
+    <section className="canvas-stage" aria-label="Pixel art canvas">
       {activeContext.type === "object" ? (
         <div className="canvas-context-bar">
           <ObjectContextBar />
