@@ -139,19 +139,6 @@ body {
   grid-area: context;
 }
 
-.stage-meta {
-  grid-area: meta;
-  height: var(--stage-meta-height);
-  min-height: var(--stage-meta-height);
-  border-top: 1px solid var(--line);
-  border-bottom: 0;
-}
-
-.pixel-readout {
-  min-width: 110px;
-  text-align: right;
-}
-
 .canvas-rail {
   display: grid;
   grid-area: canvas;
@@ -216,14 +203,6 @@ body {
 
 .grid-overlay-canvas {
   pointer-events: none;
-}
-
-.stage-view-controls {
-  display: grid;
-  grid-template-columns: auto minmax(120px, 1fr) 36px;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
 }
 
 .layer-thumb {
@@ -350,22 +329,6 @@ body {
   .canvas-stage {
     grid-template-rows: auto minmax(0, 1fr) auto;
     min-height: 520px;
-  }
-
-  .stage-meta {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-    height: auto;
-    min-height: var(--stage-meta-height);
-    padding: 12px 16px;
-  }
-
-  .stage-view-controls {
-    grid-template-columns: auto minmax(120px, 1fr) 36px;
-  }
-
-  .pixel-readout {
-    text-align: left;
   }
 
   [data-slot="editor-header"] {
