@@ -16,6 +16,10 @@ import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
+const DEFAULT_ZOOM = 2;
+const MAX_ZOOM = 6;
+const MIN_ZOOM = 1;
+const WHEEL_ZOOM_STEP = 80;
 
 interface ObjectDropPreview {
   objectId: string;
@@ -25,6 +29,7 @@ interface ObjectDropPreview {
 
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [canvasWrap, setCanvasWrap] = useState<HTMLDivElement | null>(null);
   const [objectDropPreview, setObjectDropPreview] = useState<ObjectDropPreview | null>(null);
   const zoom = useEditorStore((state) => state.zoom);
   const setZoom = useEditorStore((state) => state.setZoom);
@@ -45,6 +50,8 @@ export function CanvasStage(): React.JSX.Element {
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const pointerInsideCanvasRef = useRef(false);
+  const wheelZoomDeltaRef = useRef(0);
   const objectDropsEnabled = activeContext.type === "root";
   const { isDropTarget, ref: droppableRef } = useDroppable({
     id: CANVAS_DROP_ID,
@@ -61,10 +68,65 @@ export function CanvasStage(): React.JSX.Element {
   const setCanvasWrapRef = useCallback(
     (element: HTMLDivElement | null) => {
       wrapRef.current = element;
+      setCanvasWrap((current) => (current === element ? current : element));
       droppableRef(element);
     },
     [droppableRef],
   );
+
+  const adjustZoom = useCallback(
+    (direction: -1 | 1) => {
+      setZoom(clampZoom(zoom + direction));
+    },
+    [setZoom, zoom],
+  );
+
+  useEffect(() => {
+    if (!canvasWrap) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+
+      event.preventDefault();
+      wheelZoomDeltaRef.current += event.deltaY;
+
+      if (Math.abs(wheelZoomDeltaRef.current) < WHEEL_ZOOM_STEP) return;
+
+      adjustZoom(wheelZoomDeltaRef.current < 0 ? 1 : -1);
+      wheelZoomDeltaRef.current = 0;
+    };
+
+    canvasWrap.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvasWrap.removeEventListener("wheel", handleWheel);
+  }, [adjustZoom, canvasWrap]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!pointerInsideCanvasRef.current) return;
+      if (!event.metaKey && !event.ctrlKey) return;
+      if (event.altKey) return;
+
+      if (event.key === "+" || event.key === "=") {
+        event.preventDefault();
+        adjustZoom(1);
+        return;
+      }
+
+      if (event.key === "-" || event.key === "_") {
+        event.preventDefault();
+        adjustZoom(-1);
+        return;
+      }
+
+      if (event.key === "0") {
+        event.preventDefault();
+        setZoom(DEFAULT_ZOOM);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [adjustZoom, setZoom]);
 
   const getDropPreviewFromEvent = useCallback(
     (event: {
@@ -119,7 +181,17 @@ export function CanvasStage(): React.JSX.Element {
         </div>
       ) : null}
       <div className="canvas-rail">
-        <div ref={setCanvasWrapRef} className={`canvas-wrap${isDropTarget ? " is-drop-target" : ""}`}>
+        <div
+          ref={setCanvasWrapRef}
+          className={`canvas-wrap${isDropTarget ? " is-drop-target" : ""}`}
+          onPointerEnter={() => {
+            pointerInsideCanvasRef.current = true;
+          }}
+          onPointerLeave={() => {
+            pointerInsideCanvasRef.current = false;
+            wheelZoomDeltaRef.current = 0;
+          }}
+        >
           <canvas
             id="artCanvas"
             ref={setCanvas}
@@ -161,7 +233,13 @@ export function CanvasStage(): React.JSX.Element {
         </div>
         <div className="stage-view-controls" aria-label="Canvas view controls">
           <Label>Zoom</Label>
-          <Slider min={1} max={6} step={1} value={[zoom]} onValueChange={([value]) => setZoom(value ?? 1)} />
+          <Slider
+            min={MIN_ZOOM}
+            max={MAX_ZOOM}
+            step={1}
+            value={[zoom]}
+            onValueChange={([value]) => setZoom(clampZoom(value ?? MIN_ZOOM))}
+          />
           <strong>{zoom}x</strong>
           <div className="stage-grid-control">
             <Switch checked={gridVisible} onCheckedChange={setGridVisible} />
@@ -215,6 +293,10 @@ function getCanvasPixelFromClient(
     x: Math.max(0, Math.min(width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * width))),
     y: Math.max(0, Math.min(height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * height))),
   };
+}
+
+function clampZoom(zoom: number): number {
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 }
 
 function previewsEqual(left: ObjectDropPreview | null, right: ObjectDropPreview | null): boolean {
