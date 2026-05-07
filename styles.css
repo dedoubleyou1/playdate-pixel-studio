@@ -171,13 +171,6 @@ h1 {
   font-weight: 750;
 }
 
-.recent-project-select-trigger {
-  min-height: 36px;
-  width: 150px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
 .workspace {
   display: grid;
   grid-template-columns: 240px minmax(420px, 1fr) 300px;

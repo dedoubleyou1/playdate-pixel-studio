@@ -8,9 +8,11 @@ import {
   MenubarMenu,
   MenubarSeparator,
   MenubarShortcut,
+  MenubarSub,
+  MenubarSubContent,
+  MenubarSubTrigger,
   MenubarTrigger,
 } from "@/components/ui/menubar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { useEditorStore } from "../state/editorStore";
 
@@ -49,18 +51,6 @@ export function Topbar(): React.JSX.Element {
             value={projectName}
             onChange={(event) => renameProject(event.target.value)}
           />
-          <Select value="" onValueChange={(projectId) => void loadProject(projectId)}>
-            <SelectTrigger className="recent-project-select-trigger" aria-label="Open recent project">
-              <SelectValue placeholder="Open recent" />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {recentProjects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <input
             ref={importInputRef}
             hidden
@@ -86,6 +76,16 @@ export function Topbar(): React.JSX.Element {
               {hasUnsavedChanges ? "Save Project*" : "Save Project"}
               <MenubarShortcut>⌘S</MenubarShortcut>
             </MenubarItem>
+            <MenubarSub>
+              <MenubarSubTrigger disabled={recentProjects.length === 0}>Open Recent</MenubarSubTrigger>
+              <MenubarSubContent>
+                {recentProjects.map((project) => (
+                  <MenubarItem key={project.id} onSelect={() => void loadProject(project.id)}>
+                    {project.name}
+                  </MenubarItem>
+                ))}
+              </MenubarSubContent>
+            </MenubarSub>
             <MenubarItem onSelect={() => importInputRef.current?.click()}>
               <Upload />
               Import Project
