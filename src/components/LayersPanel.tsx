@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -171,8 +172,8 @@ function LayerRow({
     <div className={`layer-item${active ? " is-active" : ""}`} onClick={() => setActiveLayer(index)}>
       <canvas ref={thumbnailRef} className="layer-thumb" width={64} height={40} />
       {layer.type === "object" ? <Box className="layer-object-icon" aria-label="Object layer" /> : null}
-      <input
-        className="layer-name"
+      <Input
+        className="min-w-0"
         aria-label="Layer name"
         value={layer.name}
         onChange={(event) => renameLayer(index, event.target.value.trim() || `Layer ${index + 1}`)}

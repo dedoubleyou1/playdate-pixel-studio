@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { CanvasStage } from "./CanvasStage";
 import { CommandPalette } from "./CommandPalette";
 import { LayersPanel } from "./LayersPanel";
@@ -92,7 +93,7 @@ export function App(): React.JSX.Element {
   }
 
   return (
-    <>
+    <TooltipProvider>
       <div className="app-shell">
         <Topbar />
         <DragDropProvider>
@@ -104,6 +105,6 @@ export function App(): React.JSX.Element {
         </DragDropProvider>
       </div>
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
-    </>
+    </TooltipProvider>
   );
 }

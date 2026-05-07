@@ -1,6 +1,7 @@
 import { DragOverlay, useDraggable, useDragOperation } from "@dnd-kit/react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import type { ObjectDefinition } from "../domain/types";
@@ -117,8 +118,8 @@ function ObjectRow({
           }}
         />
       </div>
-      <input
-        className="object-name"
+      <Input
+        className="min-w-0"
         aria-label="Object name"
         value={object.name}
         onChange={(event) => onRename(object.id, event.target.value.trim() || object.name)}

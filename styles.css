@@ -451,23 +451,6 @@ input[type="range"] {
   box-shadow: 0 10px 24px rgba(23, 23, 25, 0.2);
 }
 
-.object-name {
-  overflow: hidden;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 750;
-  outline: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.object-name:focus {
-  box-shadow: inset 0 -2px 0 var(--blue);
-}
-
 .canvas-stage {
   display: grid;
   grid-template-areas:
@@ -781,19 +764,6 @@ input[type="range"] {
   border: 1px solid #9f9688;
   background: #b8b8b8;
   image-rendering: pixelated;
-}
-
-.layer-name {
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-weight: 750;
-  outline: none;
-}
-
-.layer-name:focus {
-  box-shadow: inset 0 -2px 0 var(--blue);
 }
 
 .layer-toggle {
