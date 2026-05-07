@@ -19,27 +19,24 @@ export function GridOverlay({ visible, zoom }: { visible: boolean; zoom: number 
     const context = canvas.getContext("2d");
     if (!context) return;
 
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-    context.clearRect(0, 0, cssWidth, cssHeight);
+    const physicalWidth = canvas.width;
+    const physicalHeight = canvas.height;
+    const physicalCellSize = zoom * dpr;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, physicalWidth, physicalHeight);
     if (!visible) return;
 
-    context.strokeStyle = GRID_COLOR;
-    context.lineWidth = 1;
-    context.beginPath();
+    context.fillStyle = GRID_COLOR;
 
-    for (let x = zoom; x < cssWidth; x += zoom) {
-      const crispX = Math.round(x) + 0.5;
-      context.moveTo(crispX, 0);
-      context.lineTo(crispX, cssHeight);
+    for (let column = 1; column < PLAYDATE_WIDTH; column += 1) {
+      const x = Math.round(column * physicalCellSize);
+      context.fillRect(x, 0, 1, physicalHeight);
     }
 
-    for (let y = zoom; y < cssHeight; y += zoom) {
-      const crispY = Math.round(y) + 0.5;
-      context.moveTo(0, crispY);
-      context.lineTo(cssWidth, crispY);
+    for (let row = 1; row < PLAYDATE_HEIGHT; row += 1) {
+      const y = Math.round(row * physicalCellSize);
+      context.fillRect(0, y, physicalWidth, 1);
     }
-
-    context.stroke();
   }, [visible, zoom]);
 
   return (
