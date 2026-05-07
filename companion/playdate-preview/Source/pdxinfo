@@ -1,0 +1,6 @@
+name=PD Pixel Preview
+author=Playdate Pixel Studio
+description=Physical-device preview companion for Playdate Pixel Studio.
+bundleID=com.playdatepixelstudio.physicalpreview
+version=0.1.0
+buildNumber=1

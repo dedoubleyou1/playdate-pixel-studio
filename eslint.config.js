@@ -5,7 +5,14 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: ["dist", "node_modules", "eslint.config.js"],
+    ignores: [
+      "dist",
+      "node_modules",
+      "eslint.config.js",
+      "companion/playdate-preview/build",
+      "companion/playdate-preview/Source/pdex.*",
+      "companion/playdate-preview/*.pdx",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

@@ -17,8 +17,11 @@
 - `src/state`: Zustand orchestration and command history.
 - `src/persistence`: Versioned project schema and local database.
 - `src/export`: Playdate-oriented PNG, metadata, and bundle exports.
+- `src/companion`: Physical preview frame packing, wire protocol helpers, and browser bridge client.
 - `src/components`: React UI shell and reusable UI primitives.
 - `src/hooks`: Browser/editor services such as canvas input and autosave.
+- `companion/bridge`: Local Node bridge that receives browser frames and streams the newest packet to Playdate over TCP.
+- `companion/playdate-preview`: Playdate SDK companion app source, with Lua networking/UI and a native C bitmap update helper.
 
 ## Undo and Redo
 
@@ -32,9 +35,14 @@ Projects are stored locally in IndexedDB using a versioned Playdate project docu
 
 The editor canvas renders through a requestAnimationFrame scheduler. Domain pixel buffers remain 1-bit per layer, and preview/export paths flatten those layers into true Playdate-sized 400 x 240 outputs. Preview modes are post-processing passes over device image data.
 
+## Physical Preview
+
+Physical preview is intentionally experimental and local-first. The browser packs the visible layer stack into a fixed 12,000-byte, MSB-first, 1-bit Playdate frame where set bits mean black pixels. The bridge keeps only the newest frame in memory, exposes local HTTP health/session/frame endpoints, and streams authenticated binary packets to a companion app over LAN TCP. The Playdate app validates packet shape and CRC before a C extension copies payload rows into an `LCDBitmap`.
+
 ## Extension Points
 
 - Add new tools by implementing pure domain operations and committing them as document commands.
 - Add new exports in `src/export` without touching React UI internals.
+- Improve physical preview by adding delta frames, animation frame streaming, or HTTP polling behind the same packet format.
 - Move expensive rendering/export work into a worker by preserving the current domain/rendering boundary.
 - Add cloud sync by swapping persistence adapters while preserving the project schema.

@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .DS_Store
+companion/playdate-preview/build/
+companion/playdate-preview/Source/pdex.*
+companion/playdate-preview/*.pdx/

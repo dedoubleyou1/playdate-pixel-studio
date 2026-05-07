@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "companion:bridge": "node --experimental-strip-types companion/bridge/server.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

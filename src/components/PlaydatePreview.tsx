@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import type { PreviewMode } from "../export/playdateExport";
+import { PhysicalPreviewPanel } from "./PhysicalPreviewPanel";
 import { PreviewCanvas } from "../rendering/previewCanvas";
 import { useEditorStore } from "../state/editorStore";
 
@@ -64,6 +65,7 @@ export function PlaydatePreview(): React.JSX.Element | null {
             <div className="crank" />
           </div>
         </div>
+        <PhysicalPreviewPanel open={previewOpen} layers={layers} previewMode={previewMode} revision={revision} />
       </DialogContent>
     </Dialog>
   );
