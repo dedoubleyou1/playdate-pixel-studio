@@ -98,7 +98,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
 }
 
@@ -187,7 +187,7 @@ h1 {
 .workspace {
   display: grid;
   grid-template-columns: 240px minmax(420px, 1fr) 300px;
-  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -443,7 +443,6 @@ input[type="range"] {
 .canvas-stage {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) var(--stage-meta-height);
-  height: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -888,7 +887,6 @@ input[type="range"] {
 
   .workspace {
     grid-template-columns: 1fr;
-    height: auto;
     overflow: visible;
   }
 
