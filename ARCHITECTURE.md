@@ -1,0 +1,40 @@
+# Playdate Pixel Studio Architecture
+
+## Stack
+
+- Vite 8, React 19, and TypeScript for the app shell.
+- Zustand for editor session state.
+- Plain TypeScript domain modules for pixels, layers, commands, project schemas, and exports.
+- Canvas 2D for the editor surface and Playdate preview rendering.
+- Radix/shadcn-style local UI primitives for buttons, dialogs, sliders, switches, labels, and tooltips.
+- Dexie/IndexedDB for local project persistence.
+- Vitest, ESLint, and Prettier for guardrails.
+
+## Boundaries
+
+- `src/domain`: Framework-free editor model and pixel operations.
+- `src/rendering`: Canvas compositing, thumbnails, and editor preview rendering.
+- `src/state`: Zustand orchestration and command history.
+- `src/persistence`: Versioned project schema and local database.
+- `src/export`: Playdate-oriented PNG, metadata, and bundle exports.
+- `src/components`: React UI shell and reusable UI primitives.
+- `src/hooks`: Browser/editor services such as canvas input and autosave.
+
+## Undo and Redo
+
+Document mutations are represented as commands with immutable `before` and `after` snapshots. Drawing tools capture a command at pointer down and commit it at pointer up. Layer and project actions use the same command boundary. This keeps future operations such as selection transforms, paste, tile edits, and animation frame edits on one undo model.
+
+## Persistence
+
+Projects are stored locally in IndexedDB using a versioned Playdate project document. Layer pixel buffers are serialized as base64 so the same schema can be used for database storage, JSON import/export, and zipped project bundles. Autosave is debounced at the app layer so command execution stays independent of persistence.
+
+## Rendering
+
+The editor canvas renders through a requestAnimationFrame scheduler. Domain pixel buffers remain 1-bit per layer, and preview/export paths flatten those layers into true Playdate-sized 400 x 240 outputs. Preview modes are post-processing passes over device image data.
+
+## Extension Points
+
+- Add new tools by implementing pure domain operations and committing them as document commands.
+- Add new exports in `src/export` without touching React UI internals.
+- Move expensive rendering/export work into a worker by preserving the current domain/rendering boundary.
+- Add cloud sync by swapping persistence adapters while preserving the project schema.

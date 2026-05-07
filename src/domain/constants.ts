@@ -1,0 +1,4 @@
+export const PLAYDATE_WIDTH = 400;
+export const PLAYDATE_HEIGHT = 240;
+export const PLAYDATE_PIXELS = PLAYDATE_WIDTH * PLAYDATE_HEIGHT;
+export const MAX_HISTORY = 48;
