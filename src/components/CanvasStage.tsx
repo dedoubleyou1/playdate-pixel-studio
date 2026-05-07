@@ -12,6 +12,7 @@ import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
+import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
@@ -40,6 +41,7 @@ export function CanvasStage(): React.JSX.Element {
   const activeContext = useEditorStore((state) => state.activeContext);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
   const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
+  const canvasCursor = drawingEnabled ? toolCursor(activeTool) : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -121,7 +123,7 @@ export function CanvasStage(): React.JSX.Element {
           <canvas
             id="artCanvas"
             ref={setCanvas}
-            className={`canvas-cursor-${drawingEnabled ? activeTool : "disabled"}`}
+            style={{ cursor: canvasCursor }}
             width={stack.width}
             height={stack.height}
             onPointerDown={handlers.onPointerDown}
