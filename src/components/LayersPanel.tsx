@@ -10,6 +10,7 @@ import { activeStack } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
+import { EditorPanel, EditorPane, EditorPaneHeader } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 export function LayersPanel(): React.JSX.Element {
@@ -30,8 +31,8 @@ export function LayersPanel(): React.JSX.Element {
   const setStackBackground = useEditorStore((state) => state.setStackBackground);
 
   return (
-    <aside className="layers-panel" aria-label="Layers">
-      <div className="panel-header">
+    <EditorPanel side="right" aria-label="Layers">
+      <EditorPaneHeader>
         <h2>Layers</h2>
         <div className="mini-actions">
           <IconAction label="Add layer" onClick={addLayer}>
@@ -44,7 +45,7 @@ export function LayersPanel(): React.JSX.Element {
             <Minus />
           </IconAction>
         </div>
-      </div>
+      </EditorPaneHeader>
       <div className="layer-list">
         {layers
           .map((layer, index) => ({ layer, index }))
@@ -61,7 +62,7 @@ export function LayersPanel(): React.JSX.Element {
           ))}
         <BackgroundRow background={stack.background} onChange={setStackBackground} />
       </div>
-      <div className="panel-section">
+      <EditorPane>
         <div className="control-row">
           <Label>Opacity</Label>
           <Slider
@@ -92,8 +93,8 @@ export function LayersPanel(): React.JSX.Element {
             Invert
           </Button>
         </div>
-      </div>
-    </aside>
+      </EditorPane>
+    </EditorPanel>
   );
 }
 

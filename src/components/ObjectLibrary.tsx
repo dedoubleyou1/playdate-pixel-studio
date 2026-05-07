@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
+import { EditorPane } from "./layout/editor-layout";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 export function ObjectLibrary(): React.JSX.Element {
@@ -19,7 +20,7 @@ export function ObjectLibrary(): React.JSX.Element {
   const hideDragOverlay = target?.id === CANVAS_DROP_ID;
 
   return (
-    <div className="panel-section object-library">
+    <EditorPane className="object-library">
       <div className="object-library-header">
         <h2>Objects</h2>
         <Tooltip>
@@ -69,7 +70,7 @@ export function ObjectLibrary(): React.JSX.Element {
           );
         }}
       </DragOverlay>
-    </div>
+    </EditorPane>
   );
 }
 

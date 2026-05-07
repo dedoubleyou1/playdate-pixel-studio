@@ -33,7 +33,7 @@
   --radius: 0.5rem;
   --background: #ffffff;
   --foreground: #000000;
-  --card: #fffaf0;
+  --card: rgb(245.55, 237.15, 255);
   --card-foreground: #1c1c1f;
   --popover: #fffaf0;
   --popover-foreground: #1c1c1f;
@@ -52,7 +52,6 @@
   --ink: #1c1c1f;
   --muted: #65656f;
   --paper: #f6f3eb;
-  --panel: rgb(245.55, 237.15, 255);
   --line: #d6d0c4;
   --yellow: #ffd23f;
   --yellow-deep: #ecb900;
@@ -94,12 +93,6 @@ input {
 
 button {
   cursor: pointer;
-}
-
-.app-shell {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100vh;
 }
 
 .topbar {
@@ -151,43 +144,6 @@ h1 {
   width: 100%;
   max-width: 280px;
   text-align: center;
-}
-
-.workspace {
-  display: grid;
-  grid-template-columns: 240px minmax(420px, 1fr) 300px;
-  grid-template-rows: minmax(0, 1fr);
-  min-height: 0;
-  overflow: hidden;
-}
-
-.tools-panel,
-.layers-panel {
-  min-height: 0;
-  overflow: auto;
-  border-right: 1px solid var(--line);
-  background: var(--panel);
-}
-
-.layers-panel {
-  border-right: 0;
-  border-left: 1px solid var(--line);
-}
-
-.panel-section,
-.panel-header {
-  padding: 18px;
-  border-bottom: 1px solid var(--line);
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.panel-section.is-disabled h2 {
-  color: var(--muted);
 }
 
 h2 {
@@ -915,20 +871,19 @@ input[type="range"] {
     overflow: auto;
   }
 
-  .app-shell {
+  [data-slot="editor-shell"] {
     min-height: 100vh;
     height: auto;
   }
 
-  .workspace {
+  [data-slot="editor-workspace"] {
     grid-template-columns: 1fr;
     overflow: visible;
   }
 
-  .tools-panel,
-  .layers-panel {
+  [data-slot="editor-panel"] {
     border: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--border);
   }
 
   .canvas-stage {

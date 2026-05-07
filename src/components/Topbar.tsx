@@ -2,7 +2,6 @@ import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } fr
 import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
-  Menubar,
   MenubarContent,
   MenubarItem,
   MenubarMenu,
@@ -14,6 +13,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
+import { EditorHeader } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 export function Topbar(): React.JSX.Element {
@@ -35,7 +35,7 @@ export function Topbar(): React.JSX.Element {
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <Menubar className="topbar" aria-label="Application menu">
+    <EditorHeader aria-label="Application menu">
       <MenubarMenu>
         <MenubarTrigger>File</MenubarTrigger>
         <MenubarContent>
@@ -113,6 +113,6 @@ export function Topbar(): React.JSX.Element {
         />
       </div>
       <PlaydateStreamMenu />
-    </Menubar>
+    </EditorHeader>
   );
 }

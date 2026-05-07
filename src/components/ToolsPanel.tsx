@@ -8,6 +8,7 @@ import { activeLayer, isDrawableLayer } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
+import { EditorPanel, EditorPane } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -39,8 +40,8 @@ export function ToolsPanel(): React.JSX.Element {
   const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
 
   return (
-    <aside className="tools-panel" aria-label="Drawing tools">
-      <div className={`panel-section${drawingEnabled ? "" : " is-disabled"}`}>
+    <EditorPanel side="left" aria-label="Drawing tools">
+      <EditorPane disabled={!drawingEnabled}>
         <h2>Tools</h2>
         <div className="tool-grid">
           {TOOLS.map((tool) => {
@@ -66,9 +67,9 @@ export function ToolsPanel(): React.JSX.Element {
             );
           })}
         </div>
-      </div>
+      </EditorPane>
 
-      <div className={`panel-section${drawingEnabled ? "" : " is-disabled"}`}>
+      <EditorPane disabled={!drawingEnabled}>
         <h2>Brush</h2>
         <div className="paint-value-control" aria-label="Paint value">
           {PAINT_VALUES.map((paint) => (
@@ -103,9 +104,9 @@ export function ToolsPanel(): React.JSX.Element {
         </div>
         <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!drawingEnabled} onCheckedChange={setMirrorX} />
         <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!drawingEnabled} onCheckedChange={setMirrorY} />
-      </div>
+      </EditorPane>
       <ObjectLibrary />
-    </aside>
+    </EditorPanel>
   );
 }
 

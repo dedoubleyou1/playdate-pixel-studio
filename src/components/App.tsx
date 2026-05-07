@@ -7,6 +7,7 @@ import { CommandPalette } from "./CommandPalette";
 import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
+import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isDrawableLayer } from "../domain/layers";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
@@ -89,21 +90,21 @@ export function App(): React.JSX.Element {
   }, [newProject, redo, saveProject, setTool, undo]);
 
   if (!projectReady) {
-    return <div className="app-shell" aria-label="Opening recent project" />;
+    return <EditorShell aria-label="Opening recent project" />;
   }
 
   return (
     <TooltipProvider>
-      <div className="app-shell">
+      <EditorShell>
         <Topbar />
         <DragDropProvider>
-          <main className="workspace">
+          <EditorWorkspace>
             <ToolsPanel />
             <CanvasStage />
             <LayersPanel />
-          </main>
+          </EditorWorkspace>
         </DragDropProvider>
-      </div>
+      </EditorShell>
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </TooltipProvider>
   );
