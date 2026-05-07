@@ -13,6 +13,7 @@ import {
   createObjectDefinition,
   createObjectInstanceLayer,
   createRootStack,
+  isDrawableLayer,
   resizeSurface,
 } from "../domain/layers";
 import type {
@@ -145,7 +146,12 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   canRedo: false,
   hasUnsavedChanges: false,
 
-  setTool: (tool) => set({ activeTool: tool, status: `${TOOL_LABELS[tool]} ready` }),
+  setTool: (tool) =>
+    set((state) =>
+      isDrawableLayer(activeLayer(state))
+        ? { activeTool: tool, status: `${TOOL_LABELS[tool]} ready` }
+        : { status: "Active layer is not editable" },
+    ),
   setBrushSize: (brushSize) => set({ brushSize }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),

@@ -6,6 +6,7 @@ import { CommandPalette } from "./CommandPalette";
 import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
+import { activeLayer, isDrawableLayer } from "../domain/layers";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -65,7 +66,7 @@ export function App(): React.JSX.Element {
         d: "dither",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
-      if (tool) setTool(tool);
+      if (tool && isDrawableLayer(activeLayer(useEditorStore.getState()))) setTool(tool);
     };
 
     window.addEventListener("keydown", onKeyDown);

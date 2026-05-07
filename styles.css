@@ -214,6 +214,10 @@ h1 {
   justify-content: space-between;
 }
 
+.panel-section.is-disabled h2 {
+  color: var(--muted);
+}
+
 h2 {
   margin-bottom: 12px;
   font-size: 13px;
@@ -265,6 +269,13 @@ h2 {
 .primary-button:hover {
   transform: translateY(-1px);
   border-color: var(--ink);
+}
+
+.tool-button:disabled:hover,
+.icon-button:disabled:hover,
+.text-button:disabled:hover,
+.primary-button:disabled:hover {
+  transform: none;
 }
 
 .tool-button.is-active {

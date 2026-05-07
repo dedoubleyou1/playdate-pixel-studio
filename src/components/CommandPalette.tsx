@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { activeLayer, isDrawableLayer } from "../domain/layers";
 import type { Tool } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 
@@ -36,6 +37,7 @@ export function CommandPalette({
   const exportBundle = useEditorStore((state) => state.exportBundle);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
+  const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
 
   const run = (action: () => void | Promise<void>) => {
     void action();
@@ -62,6 +64,7 @@ export function CommandPalette({
               key={command.tool}
               icon={command.icon}
               label={`Select ${command.label}`}
+              disabled={!drawingEnabled}
               onClick={() => run(() => setTool(command.tool))}
             />
           ))}
@@ -74,14 +77,16 @@ export function CommandPalette({
 function CommandButton({
   icon: Icon,
   label,
+  disabled,
   onClick,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  disabled?: boolean;
   onClick: () => void;
 }): React.JSX.Element {
   return (
-    <Button variant="outline" className="command-button" onClick={onClick}>
+    <Button variant="outline" className="command-button" disabled={disabled} onClick={onClick}>
       <Icon />
       {label}
     </Button>

@@ -143,6 +143,10 @@ export function activePixelLayer(
   return layer?.type === "pixel" ? layer : null;
 }
 
+export function isDrawableLayer(layer: Layer | null | undefined): layer is PixelLayer {
+  return layer?.type === "pixel" && !layer.locked;
+}
+
 export function cloneEditContext(context: EditContext): EditContext {
   return context.type === "root" ? { type: "root" } : { type: "object", objectId: context.objectId };
 }

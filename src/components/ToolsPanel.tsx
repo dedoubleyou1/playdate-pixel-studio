@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { activeLayer, isDrawableLayer } from "../domain/layers";
 import type { Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { useEditorStore } from "../state/editorStore";
@@ -26,23 +27,26 @@ export function ToolsPanel(): React.JSX.Element {
   const mirrorY = useEditorStore((state) => state.mirrorY);
   const setMirrorX = useEditorStore((state) => state.setMirrorX);
   const setMirrorY = useEditorStore((state) => state.setMirrorY);
+  const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
 
   return (
     <aside className="tools-panel" aria-label="Drawing tools">
-      <div className="panel-section">
+      <div className={`panel-section${drawingEnabled ? "" : " is-disabled"}`}>
         <h2>Tools</h2>
         <div className="tool-grid">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
+            const active = drawingEnabled && activeTool === tool.tool;
 
             return (
               <Tooltip key={tool.tool}>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={activeTool === tool.tool ? "secondary" : "outline"}
+                    variant={active ? "secondary" : "outline"}
                     size="icon"
-                    className={`tool-button${activeTool === tool.tool ? " is-active" : ""}`}
+                    className={`tool-button${active ? " is-active" : ""}`}
                     aria-label={tool.label}
+                    disabled={!drawingEnabled}
                     onClick={() => setTool(tool.tool)}
                   >
                     <Icon />
@@ -55,15 +59,22 @@ export function ToolsPanel(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="panel-section">
+      <div className={`panel-section${drawingEnabled ? "" : " is-disabled"}`}>
         <h2>Brush</h2>
         <div className="control-row">
           <Label>Size</Label>
-          <Slider min={1} max={8} step={1} value={[brushSize]} onValueChange={([value]) => setBrushSize(value ?? 1)} />
+          <Slider
+            disabled={!drawingEnabled}
+            min={1}
+            max={8}
+            step={1}
+            value={[brushSize]}
+            onValueChange={([value]) => setBrushSize(value ?? 1)}
+          />
           <strong>{brushSize}</strong>
         </div>
-        <ControlSwitch label="Mirror X" checked={mirrorX} onCheckedChange={setMirrorX} />
-        <ControlSwitch label="Mirror Y" checked={mirrorY} onCheckedChange={setMirrorY} />
+        <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!drawingEnabled} onCheckedChange={setMirrorX} />
+        <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!drawingEnabled} onCheckedChange={setMirrorY} />
       </div>
       <ObjectLibrary />
     </aside>
@@ -73,15 +84,17 @@ export function ToolsPanel(): React.JSX.Element {
 function ControlSwitch({
   label,
   checked,
+  disabled,
   onCheckedChange,
 }: {
   label: string;
   checked: boolean;
+  disabled?: boolean;
   onCheckedChange: (checked: boolean) => void;
 }): React.JSX.Element {
   return (
     <div className="toggle-row">
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
       <Label>{label}</Label>
     </div>
   );
