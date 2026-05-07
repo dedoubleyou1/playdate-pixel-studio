@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 
 const GRID_COLOR = "rgba(40, 87, 184, 0.28)";
@@ -6,48 +6,47 @@ const GRID_COLOR = "rgba(40, 87, 184, 0.28)";
 export function GridOverlay({ visible, zoom }: { visible: boolean; zoom: number }): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const cssWidth = PLAYDATE_WIDTH * zoom;
-    const cssHeight = PLAYDATE_HEIGHT * zoom;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(cssWidth * dpr);
-    canvas.height = Math.round(cssHeight * dpr);
+    const drawGrid = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const physicalWidth = Math.round(rect.width * dpr);
+      const physicalHeight = Math.round(rect.height * dpr);
+      canvas.width = physicalWidth;
+      canvas.height = physicalHeight;
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
+      const context = canvas.getContext("2d");
+      if (!context) return;
 
-    const physicalWidth = canvas.width;
-    const physicalHeight = canvas.height;
-    const physicalCellSize = zoom * dpr;
-    context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, physicalWidth, physicalHeight);
-    if (!visible) return;
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, physicalWidth, physicalHeight);
+      if (!visible) return;
 
-    context.fillStyle = GRID_COLOR;
+      const cellWidth = physicalWidth / PLAYDATE_WIDTH;
+      const cellHeight = physicalHeight / PLAYDATE_HEIGHT;
+      context.fillStyle = GRID_COLOR;
 
-    for (let column = 1; column < PLAYDATE_WIDTH; column += 1) {
-      const x = Math.round(column * physicalCellSize);
-      context.fillRect(x, 0, 1, physicalHeight);
-    }
+      for (let column = 1; column < PLAYDATE_WIDTH; column += 1) {
+        context.fillRect(Math.round(column * cellWidth), 0, 1, physicalHeight);
+      }
 
-    for (let row = 1; row < PLAYDATE_HEIGHT; row += 1) {
-      const y = Math.round(row * physicalCellSize);
-      context.fillRect(0, y, physicalWidth, 1);
-    }
+      for (let row = 1; row < PLAYDATE_HEIGHT; row += 1) {
+        context.fillRect(0, Math.round(row * cellHeight), physicalWidth, 1);
+      }
+    };
+
+    drawGrid();
+
+    const observer = new ResizeObserver(drawGrid);
+    observer.observe(canvas);
+
+    return () => {
+      observer.disconnect();
+    };
   }, [visible, zoom]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="grid-overlay-canvas"
-      aria-hidden="true"
-      style={{
-        width: `${PLAYDATE_WIDTH * zoom}px`,
-        height: `${PLAYDATE_HEIGHT * zoom}px`,
-      }}
-    />
-  );
+  return <canvas ref={canvasRef} className="grid-overlay-canvas" aria-hidden="true" />;
 }
