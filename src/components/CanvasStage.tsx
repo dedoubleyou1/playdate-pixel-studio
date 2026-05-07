@@ -11,12 +11,20 @@ import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
+import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
 const CANVAS_DROP_ID = "canvas-stage";
 
+interface ObjectDropPreview {
+  objectId: string;
+  x: number;
+  y: number;
+}
+
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [objectDropPreview, setObjectDropPreview] = useState<ObjectDropPreview | null>(null);
   const zoom = useEditorStore((state) => state.zoom);
   const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
@@ -25,7 +33,9 @@ export function CanvasStage(): React.JSX.Element {
   const setGridSize = useEditorStore((state) => state.setGridSize);
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
+  const revision = useEditorStore((state) => state.revision);
   const stack = useEditorStore((state) => activeStack(state));
+  const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
@@ -50,25 +60,44 @@ export function CanvasStage(): React.JSX.Element {
     [droppableRef],
   );
 
-  useDragDropMonitor({
-    onDragEnd(event) {
-      if (event.canceled || event.operation.target?.id !== CANVAS_DROP_ID) return;
+  const getDropPreviewFromEvent = useCallback(
+    (event: {
+      nativeEvent?: Event;
+      operation: { source?: { data?: unknown } | null; target?: { id?: unknown } | null };
+    }) => {
+      if (event.operation.target?.id !== CANVAS_DROP_ID) return null;
 
       const objectId = getDraggedObjectId(event.operation.source?.data);
       const coordinates = getClientCoordinates(event.nativeEvent);
-      if (!objectId || !coordinates || !canvas) return;
+      if (!objectId || !coordinates || !canvas) return null;
 
-      const rect = canvas.getBoundingClientRect();
-      const x = Math.max(
-        0,
-        Math.min(stack.width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * stack.width)),
-      );
-      const y = Math.max(
-        0,
-        Math.min(stack.height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * stack.height)),
-      );
+      return {
+        objectId,
+        ...getCanvasPixelFromClient(coordinates, canvas, stack.width, stack.height),
+      };
+    },
+    [canvas, stack.height, stack.width],
+  );
 
-      placeObjectOnRoot(objectId, { x, y });
+  const previewObject = objectDropPreview
+    ? objects.find((candidate) => candidate.id === objectDropPreview.objectId)
+    : null;
+
+  useDragDropMonitor({
+    onDragStart() {
+      setObjectDropPreview(null);
+    },
+    onDragMove(event) {
+      const preview = getDropPreviewFromEvent(event);
+      setObjectDropPreview((current) => (previewsEqual(current, preview) ? current : preview));
+    },
+    onDragEnd(event) {
+      const preview = getDropPreviewFromEvent(event) ?? objectDropPreview;
+      setObjectDropPreview(null);
+
+      if (!event.canceled && preview) {
+        placeObjectOnRoot(preview.objectId, { x: preview.x, y: preview.y });
+      }
     },
   });
 
@@ -99,6 +128,19 @@ export function CanvasStage(): React.JSX.Element {
             width={stack.width}
             height={stack.height}
           />
+          {previewObject && objectDropPreview ? (
+            <ObjectPreviewCanvas
+              className="canvas-object-drop-preview"
+              object={previewObject}
+              revision={revision}
+              style={{
+                height: `${previewObject.height * zoom}px`,
+                left: `${objectDropPreview.x * zoom}px`,
+                top: `${objectDropPreview.y * zoom}px`,
+                width: `${previewObject.width * zoom}px`,
+              }}
+            />
+          ) : null}
         </div>
       </div>
       <div className="stage-meta">
@@ -149,6 +191,25 @@ export function CanvasStage(): React.JSX.Element {
       </div>
     </section>
   );
+}
+
+function getCanvasPixelFromClient(
+  coordinates: { clientX: number; clientY: number },
+  canvas: HTMLCanvasElement,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * width))),
+    y: Math.max(0, Math.min(height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * height))),
+  };
+}
+
+function previewsEqual(left: ObjectDropPreview | null, right: ObjectDropPreview | null): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  return left.objectId === right.objectId && left.x === right.x && left.y === right.y;
 }
 
 function getDraggedObjectId(data: unknown): string | null {

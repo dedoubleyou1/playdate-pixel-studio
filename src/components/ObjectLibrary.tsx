@@ -1,11 +1,10 @@
-import { useEffect, useRef } from "react";
-import { useDraggable } from "@dnd-kit/react";
+import { DragOverlay, useDraggable } from "@dnd-kit/react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ObjectDefinition } from "../domain/types";
-import { renderObjectThumbnail } from "../rendering/compositor";
 import { useEditorStore } from "../state/editorStore";
+import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 export function ObjectLibrary(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
@@ -45,6 +44,26 @@ export function ObjectLibrary(): React.JSX.Element {
           ))
         )}
       </div>
+      <DragOverlay className="object-drag-overlay" dropAnimation={null}>
+        {(source) => {
+          const objectId = getDraggedObjectId(source.data);
+          const object = objects.find((candidate) => candidate.id === objectId);
+          if (!object) return null;
+
+          const thumbnailSize = getObjectThumbnailSize(object.width, object.height, 96, 72);
+          return (
+            <ObjectPreviewCanvas
+              className="object-thumb object-drag-preview"
+              object={object}
+              revision={revision}
+              style={{
+                height: `${thumbnailSize.height}px`,
+                width: `${thumbnailSize.width}px`,
+              }}
+            />
+          );
+        }}
+      </DragOverlay>
     </div>
   );
 }
@@ -62,7 +81,6 @@ function ObjectRow({
   onSelect: (objectId: string) => void;
   revision: number;
 }): React.JSX.Element {
-  const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
   const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
   const { isDragging, ref: draggableRef } = useDraggable({
     id: `object:${object.id}`,
@@ -73,12 +91,6 @@ function ObjectRow({
     },
   });
 
-  useEffect(() => {
-    if (thumbnailRef.current) {
-      renderObjectThumbnail(thumbnailRef.current, object);
-    }
-  }, [object, revision]);
-
   return (
     <div
       ref={draggableRef}
@@ -86,16 +98,14 @@ function ObjectRow({
       onClick={() => onSelect(object.id)}
     >
       <div className="object-thumb-frame">
-        <canvas
-          ref={thumbnailRef}
+        <ObjectPreviewCanvas
           className="object-thumb"
-          height={object.height}
+          object={object}
+          revision={revision}
           style={{
             height: `${thumbnailSize.height}px`,
             width: `${thumbnailSize.width}px`,
           }}
-          width={object.width}
-          aria-label={`${object.name} preview`}
         />
       </div>
       <input
@@ -109,13 +119,22 @@ function ObjectRow({
   );
 }
 
-function getObjectThumbnailSize(width: number, height: number): { width: number; height: number } {
-  const maxWidth = 56;
-  const maxHeight = 40;
+function getObjectThumbnailSize(
+  width: number,
+  height: number,
+  maxWidth = 56,
+  maxHeight = 40,
+): { width: number; height: number } {
   const scale = Math.min(maxWidth / width, maxHeight / height);
 
   return {
     height: Math.max(1, Math.round(height * scale)),
     width: Math.max(1, Math.round(width * scale)),
   };
+}
+
+function getDraggedObjectId(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const objectData = data as { kind?: unknown; objectId?: unknown };
+  return objectData.kind === "object" && typeof objectData.objectId === "string" ? objectData.objectId : null;
 }

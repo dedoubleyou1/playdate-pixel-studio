@@ -397,6 +397,14 @@ input[type="range"] {
   image-rendering: pixelated;
 }
 
+.object-drag-overlay {
+  pointer-events: none;
+}
+
+.object-drag-preview {
+  box-shadow: 0 10px 24px rgba(23, 23, 25, 0.2);
+}
+
 .object-name {
   overflow: hidden;
   min-width: 0;
@@ -481,6 +489,17 @@ input[type="range"] {
 .canvas-wrap.is-drop-target {
   outline: 2px solid var(--blue);
   outline-offset: 4px;
+}
+
+.canvas-object-drop-preview {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  border: 1px solid rgba(56, 91, 184, 0.72);
+  opacity: 0.68;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .stage-status {
