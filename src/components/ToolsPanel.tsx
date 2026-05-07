@@ -1,4 +1,4 @@
-import { Eraser, Grid2X2, PaintBucket, Pencil, Slash, Square } from "lucide-react";
+import { Ellipsis, Eraser, PaintBucket, Pen, Pencil, Slash, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -15,7 +15,7 @@ const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ clas
   { tool: "line", label: "Line", icon: Slash },
   { tool: "rect", label: "Rectangle", icon: Square },
   { tool: "fill", label: "Fill", icon: PaintBucket },
-  { tool: "dither", label: "Dither", icon: Grid2X2 },
+  { tool: "dither", label: "Dither", icon: DitherIcon },
 ];
 
 export function ToolsPanel(): React.JSX.Element {
@@ -97,5 +97,22 @@ function ControlSwitch({
       <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
       <Label>{label}</Label>
     </div>
+  );
+}
+
+function DitherIcon({ className }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <Pen />
+      <Ellipsis x={-2} y={9.5} />
+    </svg>
   );
 }
