@@ -364,11 +364,17 @@ input[type="range"] {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fffdf8;
+  cursor: grab;
 }
 
 .object-item.is-active {
   border-color: var(--ink);
   box-shadow: inset 4px 0 0 var(--yellow);
+}
+
+.object-item.is-dragging {
+  cursor: grabbing;
+  opacity: 0.56;
 }
 
 .object-thumb-frame {
@@ -470,6 +476,11 @@ input[type="range"] {
   border: 1px solid #171719;
   background: white;
   box-shadow: var(--shadow);
+}
+
+.canvas-wrap.is-drop-target {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
 }
 
 .stage-status {

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,7 @@ import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
+const CANVAS_DROP_ID = "canvas-stage";
 
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -29,6 +31,10 @@ export function CanvasStage(): React.JSX.Element {
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const { isDropTarget, ref: droppableRef } = useDroppable({
+    id: CANVAS_DROP_ID,
+    data: { kind: "canvas" },
+  });
 
   useEffect(() => {
     wrapRef.current?.style.setProperty("--zoom", String(zoom));
@@ -36,24 +42,35 @@ export function CanvasStage(): React.JSX.Element {
     wrapRef.current?.style.setProperty("--canvas-height", String(stack.height));
   }, [stack.height, stack.width, zoom]);
 
-  const handleObjectDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    const objectId = event.dataTransfer.getData("application/x-playdate-object");
-    if (!objectId) return;
-    event.preventDefault();
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(
-      0,
-      Math.min(stack.width - 1, Math.floor(((event.clientX - rect.left) / rect.width) * stack.width)),
-    );
-    const y = Math.max(
-      0,
-      Math.min(stack.height - 1, Math.floor(((event.clientY - rect.top) / rect.height) * stack.height)),
-    );
-    placeObjectOnRoot(objectId, {
-      x,
-      y,
-    });
-  };
+  const setCanvasWrapRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      wrapRef.current = element;
+      droppableRef(element);
+    },
+    [droppableRef],
+  );
+
+  useDragDropMonitor({
+    onDragEnd(event) {
+      if (event.canceled || event.operation.target?.id !== CANVAS_DROP_ID) return;
+
+      const objectId = getDraggedObjectId(event.operation.source?.data);
+      const coordinates = getClientCoordinates(event.nativeEvent);
+      if (!objectId || !coordinates || !canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.max(
+        0,
+        Math.min(stack.width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * stack.width)),
+      );
+      const y = Math.max(
+        0,
+        Math.min(stack.height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * stack.height)),
+      );
+
+      placeObjectOnRoot(objectId, { x, y });
+    },
+  });
 
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
@@ -63,12 +80,7 @@ export function CanvasStage(): React.JSX.Element {
         </div>
       ) : null}
       <div className="canvas-rail">
-        <div
-          ref={wrapRef}
-          className="canvas-wrap"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={handleObjectDrop}
-        >
+        <div ref={setCanvasWrapRef} className={`canvas-wrap${isDropTarget ? " is-drop-target" : ""}`}>
           <canvas
             id="artCanvas"
             ref={setCanvas}
@@ -137,4 +149,21 @@ export function CanvasStage(): React.JSX.Element {
       </div>
     </section>
   );
+}
+
+function getDraggedObjectId(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const objectData = data as { kind?: unknown; objectId?: unknown };
+  return objectData.kind === "object" && typeof objectData.objectId === "string" ? objectData.objectId : null;
+}
+
+function getClientCoordinates(event: Event | undefined): { clientX: number; clientY: number } | null {
+  if (event && "clientX" in event && "clientY" in event) {
+    return {
+      clientX: Number(event.clientX),
+      clientY: Number(event.clientY),
+    };
+  }
+
+  return null;
 }

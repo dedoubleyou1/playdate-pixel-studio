@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
+import { DragDropProvider } from "@dnd-kit/react";
 import { CanvasStage } from "./CanvasStage";
 import { CommandPalette } from "./CommandPalette";
 import { LayersPanel } from "./LayersPanel";
@@ -75,11 +76,13 @@ export function App(): React.JSX.Element {
     <>
       <div className="app-shell">
         <Topbar />
-        <main className="workspace">
-          <ToolsPanel />
-          <CanvasStage />
-          <LayersPanel />
-        </main>
+        <DragDropProvider>
+          <main className="workspace">
+            <ToolsPanel />
+            <CanvasStage />
+            <LayersPanel />
+          </main>
+        </DragDropProvider>
       </div>
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </>

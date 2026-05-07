@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useDraggable } from "@dnd-kit/react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -63,6 +64,14 @@ function ObjectRow({
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
   const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
+  const { isDragging, ref: draggableRef } = useDraggable({
+    id: `object:${object.id}`,
+    type: "object",
+    data: {
+      kind: "object",
+      objectId: object.id,
+    },
+  });
 
   useEffect(() => {
     if (thumbnailRef.current) {
@@ -72,13 +81,9 @@ function ObjectRow({
 
   return (
     <div
-      className={`object-item${active ? " is-active" : ""}`}
-      draggable
+      ref={draggableRef}
+      className={`object-item${active ? " is-active" : ""}${isDragging ? " is-dragging" : ""}`}
       onClick={() => onSelect(object.id)}
-      onDragStart={(event) => {
-        event.dataTransfer.setData("application/x-playdate-object", object.id);
-        event.dataTransfer.effectAllowed = "copy";
-      }}
     >
       <div className="object-thumb-frame">
         <canvas
