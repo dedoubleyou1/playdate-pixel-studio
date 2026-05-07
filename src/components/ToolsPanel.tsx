@@ -9,6 +9,7 @@ import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
+import { PixelSwatch } from "./PixelSwatch";
 import { useEditorStore } from "../state/editorStore";
 
 const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -77,12 +78,11 @@ export function ToolsPanel(): React.JSX.Element {
                 <Button
                   variant={activePaintValue === paint.value ? "secondary" : "outline"}
                   size="icon"
-                  className={`paint-swatch paint-swatch-${paint.value}`}
                   aria-label={paint.label}
                   disabled={!drawingEnabled}
                   onClick={() => setPaintValue(paint.value)}
                 >
-                  <span />
+                  <PixelSwatch value={paint.value} />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>{paint.label}</TooltipContent>

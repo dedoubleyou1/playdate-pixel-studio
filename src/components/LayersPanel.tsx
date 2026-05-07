@@ -19,6 +19,7 @@ import {
   EditorPaneHeader,
   EditorPaneTitle,
 } from "./layout/editor-layout";
+import { PixelSwatch } from "./PixelSwatch";
 import { useEditorStore } from "../state/editorStore";
 
 export function LayersPanel(): React.JSX.Element {
@@ -127,14 +128,14 @@ function BackgroundRow({
       <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
         <SelectTrigger aria-label="Background color">
           <span className="background-select-value">
-            <BackgroundColorSwatch value={selectedOption.value} />
+            <PixelSwatch value={selectedOption.value} />
             <span>{getBackgroundShortLabel(selectedOption.label)}</span>
           </span>
         </SelectTrigger>
         <SelectContent align="end">
           {BACKGROUND_VALUES.map((option) => (
             <SelectItem key={option.value} value={String(option.value)}>
-              <BackgroundColorSwatch value={option.value} />
+              <PixelSwatch value={option.value} />
               <span>{getBackgroundShortLabel(option.label)}</span>
             </SelectItem>
           ))}
@@ -146,10 +147,6 @@ function BackgroundRow({
 
 function getBackgroundShortLabel(label: string): string {
   return label.replace(" background", "");
-}
-
-function BackgroundColorSwatch({ value }: { value: PixelValue }): React.JSX.Element {
-  return <span className={`background-color-swatch background-color-swatch-${value}`} aria-hidden="true" />;
 }
 
 function LayerRow({
