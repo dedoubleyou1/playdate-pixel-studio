@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unlock } from "lucide-react";
+import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -120,6 +120,7 @@ function LayerRow({
   return (
     <div className={`layer-item${active ? " is-active" : ""}`} onClick={() => setActiveLayer(index)}>
       <canvas ref={thumbnailRef} className="layer-thumb" width={64} height={40} />
+      {layer.type === "object" ? <Box className="layer-object-icon" aria-label="Object layer" /> : null}
       <input
         className="layer-name"
         aria-label="Layer name"
@@ -127,7 +128,6 @@ function LayerRow({
         onChange={(event) => renameLayer(index, event.target.value.trim() || `Layer ${index + 1}`)}
         onClick={(event) => event.stopPropagation()}
       />
-      {layer.type === "object" ? <span className="layer-kind">Linked</span> : null}
       <IconAction
         className={`layer-toggle${layer.visible ? "" : " is-off"}`}
         label={layer.visible ? "Hide layer" : "Show layer"}
