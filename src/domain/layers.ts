@@ -19,6 +19,20 @@ export function createSurface(width: number, height: number, data?: Uint8Array):
   };
 }
 
+export function resizeSurface(surface: PixelSurface, width: number, height: number): PixelSurface {
+  const resized = createSurface(width, height);
+  const copyWidth = Math.min(surface.width, width);
+  const copyHeight = Math.min(surface.height, height);
+
+  for (let y = 0; y < copyHeight; y += 1) {
+    const sourceStart = y * surface.width;
+    const targetStart = y * width;
+    resized.data.set(surface.data.slice(sourceStart, sourceStart + copyWidth), targetStart);
+  }
+
+  return resized;
+}
+
 export function createLayer(id: number, name: string, width = PLAYDATE_WIDTH, height = PLAYDATE_HEIGHT): PixelLayer {
   return {
     type: "pixel",

@@ -49,6 +49,29 @@ export function renderLayerThumbnail(canvas: HTMLCanvasElement, layer: Layer, ob
   context.putImageData(image, 0, 0);
 }
 
+export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectDefinition): void {
+  const context = requireCanvasContext(canvas);
+  const width = canvas.width;
+  const height = canvas.height;
+  const image = context.createImageData(width, height);
+  const pixels = image.data;
+  const shades = composeShades(object.layers, object.width, object.height);
+
+  for (let y = 0; y < Math.min(height, object.height); y += 1) {
+    for (let x = 0; x < Math.min(width, object.width); x += 1) {
+      const shade = shades[y * object.width + x];
+      const pixelOffset = (y * width + x) * 4;
+      pixels[pixelOffset] = shade;
+      pixels[pixelOffset + 1] = shade;
+      pixels[pixelOffset + 2] = shade;
+      pixels[pixelOffset + 3] = shade === 255 ? 0 : 255;
+    }
+  }
+
+  context.clearRect(0, 0, width, height);
+  context.putImageData(image, 0, 0);
+}
+
 function drawPixelLayerThumbnail(layer: PixelLayer, pixels: Uint8ClampedArray, width: number, height: number): void {
   const sourceWidth = layer.surface.width;
   const sourceHeight = layer.surface.height;

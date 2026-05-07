@@ -41,9 +41,17 @@ export function CanvasStage(): React.JSX.Element {
     if (!objectId) return;
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(
+      0,
+      Math.min(stack.width - 1, Math.floor(((event.clientX - rect.left) / rect.width) * stack.width)),
+    );
+    const y = Math.max(
+      0,
+      Math.min(stack.height - 1, Math.floor(((event.clientY - rect.top) / rect.height) * stack.height)),
+    );
     placeObjectOnRoot(objectId, {
-      x: Math.floor(((event.clientX - rect.left) / rect.width) * stack.width),
-      y: Math.floor(((event.clientY - rect.top) / rect.height) * stack.height),
+      x,
+      y,
     });
   };
 

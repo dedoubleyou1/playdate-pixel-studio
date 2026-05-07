@@ -13,6 +13,7 @@ import {
   createObjectDefinition,
   createObjectInstanceLayer,
   createRootStack,
+  resizeSurface,
 } from "../domain/layers";
 import type {
   EditContext,
@@ -88,6 +89,7 @@ interface EditorStoreState extends EditorSnapshot {
   switchToObject: (objectId: string) => void;
   addObject: () => void;
   renameObject: (objectId: string, name: string) => void;
+  resizeObject: (objectId: string, width: number, height: number) => void;
   placeObjectOnRoot: (objectId: string, point?: { x: number; y: number }) => void;
   addLayer: () => void;
   duplicateLayer: () => void;
@@ -269,6 +271,33 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       hasUnsavedChanges: true,
     }));
     pushCurrentCommand(set, "Rename object", before);
+  },
+
+  resizeObject: (objectId, width, height) => {
+    const nextWidth = clampObjectDimension(width);
+    const nextHeight = clampObjectDimension(height);
+    const currentObject = get().objects.find((object) => object.id === objectId);
+    if (!currentObject || (currentObject.width === nextWidth && currentObject.height === nextHeight)) return;
+    const before = currentSnapshot();
+    set((state) => ({
+      objects: state.objects.map((object) =>
+        object.id === objectId
+          ? {
+              ...object,
+              width: nextWidth,
+              height: nextHeight,
+              layers: object.layers.map((layer) => ({
+                ...layer,
+                surface: resizeSurface(layer.surface, nextWidth, nextHeight),
+              })),
+            }
+          : object,
+      ),
+      status: "Object resized",
+      revision: state.revision + 1,
+      hasUnsavedChanges: true,
+    }));
+    pushCurrentCommand(set, "Resize object", before);
   },
 
   placeObjectOnRoot: (objectId, point) => {
@@ -781,6 +810,11 @@ function slugify(name: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "playdate-pixel-art"
   );
+}
+
+function clampObjectDimension(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(1, Math.min(400, Math.floor(value)));
 }
 
 export function contextLabel(context: EditContext, objects: ObjectDefinition[]): string {

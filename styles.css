@@ -357,9 +357,9 @@ input[type="range"] {
 
 .object-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -371,31 +371,22 @@ input[type="range"] {
   box-shadow: inset 4px 0 0 var(--yellow);
 }
 
-.object-main {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-}
-
-.object-main span {
-  display: grid;
-  min-width: 0;
-}
-
-.object-name,
-.object-main small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.object-thumb {
+  width: 54px;
+  height: 34px;
+  border: 1px solid #9f9688;
+  background:
+    linear-gradient(45deg, #eee8de 25%, transparent 25% 75%, #eee8de 75%),
+    linear-gradient(45deg, #eee8de 25%, transparent 25% 75%, #eee8de 75%), #fffdf8;
+  background-position:
+    0 0,
+    4px 4px;
+  background-size: 8px 8px;
+  image-rendering: pixelated;
 }
 
 .object-name {
+  overflow: hidden;
   min-width: 0;
   border: 0;
   background: transparent;
@@ -403,15 +394,12 @@ input[type="range"] {
   font-size: 13px;
   font-weight: 750;
   outline: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .object-name:focus {
   box-shadow: inset 0 -2px 0 var(--blue);
-}
-
-.object-main small {
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .canvas-stage {
@@ -496,7 +484,7 @@ input[type="range"] {
 .object-context-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -509,6 +497,25 @@ input[type="range"] {
 
 .object-context-title strong {
   color: var(--ink);
+}
+
+.object-dimensions {
+  display: grid;
+  grid-template-columns: auto 64px auto 64px;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.object-dimensions label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.object-dimensions input {
+  height: 30px;
+  padding: 0 8px;
 }
 
 #artCanvas,
