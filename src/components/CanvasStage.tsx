@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { CANVAS_DROP_ID } from "../dragDropIds";
-import { activeLayer, activeStack } from "../domain/layers";
+import { activeLayer, activeStack, isDrawableLayer } from "../domain/layers";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
@@ -31,6 +31,7 @@ export function CanvasStage(): React.JSX.Element {
   const setGridVisible = useEditorStore((state) => state.setGridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const setGridSize = useEditorStore((state) => state.setGridSize);
+  const activeTool = useEditorStore((state) => state.activeTool);
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const revision = useEditorStore((state) => state.revision);
@@ -38,6 +39,7 @@ export function CanvasStage(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
+  const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -119,6 +121,7 @@ export function CanvasStage(): React.JSX.Element {
           <canvas
             id="artCanvas"
             ref={setCanvas}
+            className={`canvas-cursor-${drawingEnabled ? activeTool : "disabled"}`}
             width={stack.width}
             height={stack.height}
             onPointerDown={handlers.onPointerDown}
