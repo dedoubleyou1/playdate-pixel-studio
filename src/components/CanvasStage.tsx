@@ -11,7 +11,7 @@ import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
 
-const GRID_SIZE_STEPS = [1, 2, 4, 8, 16] as const;
+const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
 
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -84,7 +84,7 @@ export function CanvasStage(): React.JSX.Element {
                   <div className="grid-size-readout">
                     <span>1px</span>
                     <strong>{gridSize}px</strong>
-                    <span>16px</span>
+                    <span>64px</span>
                   </div>
                 </div>
               </PopoverContent>
