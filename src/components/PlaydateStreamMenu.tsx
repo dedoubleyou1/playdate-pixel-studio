@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RadioTower, RefreshCw, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,8 +25,16 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const [connectedDevices, setConnectedDevices] = useState(0);
   const [devices, setDevices] = useState<BridgeDevice[]>([]);
   const [statusText, setStatusText] = useState("Start the bridge, connect the companion, then stream.");
+  const latestFrameRef = useRef({ layers, previewMode, revision });
+  const lastPostedRevisionRef = useRef<number | null>(null);
+  const sendInFlightRef = useRef(false);
+  const streamRunIdRef = useRef(0);
 
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
+
+  useEffect(() => {
+    latestFrameRef.current = { layers, previewMode, revision };
+  }, [layers, previewMode, revision]);
 
   const refreshSession = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -70,10 +78,22 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     if (!enabled) return;
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => {
-      void sendFrameToBridge(layers, previewMode, revision, controller.signal)
+    const runId = streamRunIdRef.current + 1;
+    streamRunIdRef.current = runId;
+    lastPostedRevisionRef.current = null;
+
+    const sendLatestFrame = () => {
+      if (controller.signal.aborted || streamRunIdRef.current !== runId || sendInFlightRef.current) return;
+
+      const frame = latestFrameRef.current;
+      if (frame.revision === lastPostedRevisionRef.current) return;
+
+      sendInFlightRef.current = true;
+      void sendFrameToBridge(frame.layers, frame.previewMode, frame.revision, controller.signal)
         .then((result) => {
+          if (controller.signal.aborted) return;
           setBridgeState("online");
+          lastPostedRevisionRef.current = result.revision;
           setLastSentRevision(result.revision);
           setRoundTripMs(result.roundTripMs);
           setStatusText(`Streaming revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`);
@@ -83,14 +103,24 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           if (controller.signal.aborted) return;
           setBridgeState("offline");
           setStatusText(error instanceof Error ? error.message : "Unable to stream to the bridge.");
+        })
+        .finally(() => {
+          if (streamRunIdRef.current === runId) {
+            sendInFlightRef.current = false;
+          }
         });
-    }, 100);
+    };
+
+    sendLatestFrame();
+    const interval = window.setInterval(sendLatestFrame, 100);
 
     return () => {
       controller.abort();
-      window.clearTimeout(timeout);
+      streamRunIdRef.current += 1;
+      window.clearInterval(interval);
+      sendInFlightRef.current = false;
     };
-  }, [enabled, layers, previewMode, refreshSession, revision]);
+  }, [enabled, refreshSession]);
 
   return (
     <Popover>

@@ -31,6 +31,9 @@ interface StreamClient {
   lastRevisionSent: number | null;
   packetsSent: number;
   bytesSent: number;
+  awaitingDrain: boolean;
+  pendingPacket: Uint8Array | null;
+  pendingRevision: number | null;
 }
 
 let latestFrame: LatestFrame | null = null;
@@ -116,6 +119,9 @@ const tcpServer = net.createServer((socket) => {
     lastRevisionSent: null,
     packetsSent: 0,
     bytesSent: 0,
+    awaitingDrain: false,
+    pendingPacket: null,
+    pendingRevision: null,
   };
   nextClientId += 1;
   streamClients.add(client);
@@ -138,6 +144,10 @@ const tcpServer = net.createServer((socket) => {
     socket.write(`OK ${SESSION_CODE}\n`);
     if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
     console.log(`Playdate TCP client ${client.id} authenticated from ${client.remoteAddress}`);
+  });
+
+  socket.on("drain", () => {
+    flushPendingFrame(client);
   });
 
   socket.on("close", () => {
@@ -168,6 +178,18 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
 
     if (!Number.isFinite(revision) || revision < 0) {
       writeJson(response, 400, { ok: false, error: "Frame revision is invalid." });
+      return;
+    }
+
+    if (latestFrame && revision < latestFrame.revision) {
+      writeJson(response, 202, {
+        ok: true,
+        ignored: true,
+        revision: latestFrame.revision,
+        latestRevision: latestFrame.revision,
+        connectedDevices: readyClientCount(),
+        devices: readyClientSnapshots(),
+      });
       return;
     }
 
@@ -208,11 +230,33 @@ function broadcast(packet: Uint8Array, revision: number): void {
 }
 
 function writeFrameToClient(client: StreamClient, packet: Uint8Array, revision: number): void {
-  client.socket.write(Buffer.from(packet));
+  if (client.awaitingDrain) {
+    client.pendingPacket = packet;
+    client.pendingRevision = revision;
+    return;
+  }
+
+  writeFrameNow(client, packet, revision);
+}
+
+function flushPendingFrame(client: StreamClient): void {
+  client.awaitingDrain = false;
+  if (!client.ready || client.socket.destroyed || !client.pendingPacket || client.pendingRevision === null) return;
+
+  const packet = client.pendingPacket;
+  const revision = client.pendingRevision;
+  client.pendingPacket = null;
+  client.pendingRevision = null;
+  writeFrameNow(client, packet, revision);
+}
+
+function writeFrameNow(client: StreamClient, packet: Uint8Array, revision: number): void {
+  const canAcceptMore = client.socket.write(Buffer.from(packet));
   client.lastSentAt = Date.now();
   client.lastRevisionSent = revision;
   client.packetsSent += 1;
   client.bytesSent += packet.byteLength;
+  client.awaitingDrain = !canAcceptMore;
 }
 
 function readRequestBody(request: http.IncomingMessage, expectedBytes: number): Promise<Uint8Array> {
