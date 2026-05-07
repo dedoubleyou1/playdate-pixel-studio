@@ -1,5 +1,4 @@
 import * as React from "react";
-import { Menubar } from "@/components/ui/menubar";
 import { cn } from "@/lib/utils";
 
 function EditorShell({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
@@ -25,8 +24,47 @@ function EditorWorkspace({ className, ...props }: React.ComponentProps<"main">):
   );
 }
 
-function EditorHeader({ className, ...props }: React.ComponentProps<typeof Menubar>): React.JSX.Element {
-  return <Menubar data-slot="editor-header" className={cn("topbar", className)} {...props} />;
+function EditorHeader({ className, ...props }: React.ComponentProps<"header">): React.JSX.Element {
+  return (
+    <header
+      data-slot="editor-header"
+      className={cn(
+        "grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(180px,320px)_minmax(0,1fr)] items-center gap-3 border-b border-border bg-card px-4 py-1 text-card-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function EditorHeaderLeft({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return (
+    <div
+      data-slot="editor-header-left"
+      className={cn("flex min-w-0 items-center justify-start gap-2", className)}
+      {...props}
+    />
+  );
+}
+
+function EditorHeaderCenter({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return (
+    <div
+      data-slot="editor-header-center"
+      className={cn("flex min-w-0 items-center justify-center", className)}
+      {...props}
+    />
+  );
+}
+
+function EditorHeaderRight({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return (
+    <div
+      data-slot="editor-header-right"
+      className={cn("flex min-w-0 items-center justify-end gap-2", className)}
+      {...props}
+    />
+  );
 }
 
 function EditorPanel({
@@ -73,4 +111,14 @@ function EditorPaneHeader({ className, ...props }: React.ComponentProps<"div">):
   );
 }
 
-export { EditorHeader, EditorPanel, EditorPane, EditorPaneHeader, EditorShell, EditorWorkspace };
+export {
+  EditorHeader,
+  EditorHeaderCenter,
+  EditorHeaderLeft,
+  EditorHeaderRight,
+  EditorPanel,
+  EditorPane,
+  EditorPaneHeader,
+  EditorShell,
+  EditorWorkspace,
+};

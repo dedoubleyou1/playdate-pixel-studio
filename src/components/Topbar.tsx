@@ -2,6 +2,7 @@ import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } fr
 import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
+  Menubar,
   MenubarContent,
   MenubarItem,
   MenubarMenu,
@@ -13,7 +14,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
-import { EditorHeader } from "./layout/editor-layout";
+import { EditorHeader, EditorHeaderCenter, EditorHeaderLeft, EditorHeaderRight } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 export function Topbar(): React.JSX.Element {
@@ -36,83 +37,89 @@ export function Topbar(): React.JSX.Element {
 
   return (
     <EditorHeader aria-label="Application menu">
-      <MenubarMenu>
-        <MenubarTrigger>File</MenubarTrigger>
-        <MenubarContent>
-          <MenubarItem onSelect={newProject}>
-            <FilePlus2 />
-            New Project
-            <MenubarShortcut>⇧⌘N</MenubarShortcut>
-          </MenubarItem>
-          <MenubarItem onSelect={() => void saveProject()}>
-            <Save />
-            {hasUnsavedChanges ? "Save Project*" : "Save Project"}
-            <MenubarShortcut>⌘S</MenubarShortcut>
-          </MenubarItem>
-          <MenubarSub>
-            <MenubarSubTrigger disabled={recentProjects.length === 0}>Open Recent</MenubarSubTrigger>
-            <MenubarSubContent>
-              {recentProjects.map((project) => (
-                <MenubarItem key={project.id} onSelect={() => void loadProject(project.id)}>
-                  {project.name}
-                </MenubarItem>
-              ))}
-            </MenubarSubContent>
-          </MenubarSub>
-          <MenubarItem onSelect={() => importInputRef.current?.click()}>
-            <Upload />
-            Import Project
-          </MenubarItem>
-          <MenubarSeparator />
-          <MenubarItem onSelect={exportPng}>
-            <Download />
-            Export PNG
-          </MenubarItem>
-          <MenubarItem onSelect={exportProjectFile}>
-            <FileDown />
-            Export Project JSON
-          </MenubarItem>
-          <MenubarItem onSelect={() => void exportBundle()}>
-            <Archive />
-            Export Project Bundle
-          </MenubarItem>
-        </MenubarContent>
-      </MenubarMenu>
-      <MenubarMenu>
-        <MenubarTrigger>Edit</MenubarTrigger>
-        <MenubarContent>
-          <MenubarItem disabled={!canUndo} onSelect={undo}>
-            <Undo2 />
-            Undo
-            <MenubarShortcut>⌘Z</MenubarShortcut>
-          </MenubarItem>
-          <MenubarItem disabled={!canRedo} onSelect={redo}>
-            <Redo2 />
-            Redo
-            <MenubarShortcut>⇧⌘Z</MenubarShortcut>
-          </MenubarItem>
-        </MenubarContent>
-      </MenubarMenu>
-      <div className="project-actions">
+      <EditorHeaderLeft>
+        <Menubar>
+          <MenubarMenu>
+            <MenubarTrigger>File</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onSelect={newProject}>
+                <FilePlus2 />
+                New Project
+                <MenubarShortcut>⇧⌘N</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem onSelect={() => void saveProject()}>
+                <Save />
+                {hasUnsavedChanges ? "Save Project*" : "Save Project"}
+                <MenubarShortcut>⌘S</MenubarShortcut>
+              </MenubarItem>
+              <MenubarSub>
+                <MenubarSubTrigger disabled={recentProjects.length === 0}>Open Recent</MenubarSubTrigger>
+                <MenubarSubContent>
+                  {recentProjects.map((project) => (
+                    <MenubarItem key={project.id} onSelect={() => void loadProject(project.id)}>
+                      {project.name}
+                    </MenubarItem>
+                  ))}
+                </MenubarSubContent>
+              </MenubarSub>
+              <MenubarItem onSelect={() => importInputRef.current?.click()}>
+                <Upload />
+                Import Project
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onSelect={exportPng}>
+                <Download />
+                Export PNG
+              </MenubarItem>
+              <MenubarItem onSelect={exportProjectFile}>
+                <FileDown />
+                Export Project JSON
+              </MenubarItem>
+              <MenubarItem onSelect={() => void exportBundle()}>
+                <Archive />
+                Export Project Bundle
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Edit</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem disabled={!canUndo} onSelect={undo}>
+                <Undo2 />
+                Undo
+                <MenubarShortcut>⌘Z</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem disabled={!canRedo} onSelect={redo}>
+                <Redo2 />
+                Redo
+                <MenubarShortcut>⇧⌘Z</MenubarShortcut>
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
+      </EditorHeaderLeft>
+      <EditorHeaderCenter>
         <Input
           className="project-name-input"
           aria-label="Project name"
           value={projectName}
           onChange={(event) => renameProject(event.target.value)}
         />
-        <input
-          ref={importInputRef}
-          hidden
-          type="file"
-          accept=".json,.playdate-pixel.json,application/json"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) void importProjectFile(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </div>
-      <PlaydateStreamMenu />
+      </EditorHeaderCenter>
+      <EditorHeaderRight>
+        <PlaydateStreamMenu />
+      </EditorHeaderRight>
+      <input
+        ref={importInputRef}
+        hidden
+        type="file"
+        accept=".json,.playdate-pixel.json,application/json"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void importProjectFile(file);
+          event.currentTarget.value = "";
+        }}
+      />
     </EditorHeader>
   );
 }

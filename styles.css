@@ -95,19 +95,6 @@ button {
   cursor: pointer;
 }
 
-.topbar {
-  display: flex;
-  position: relative;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  gap: 4px;
-}
-
-.playdate-stream-trigger {
-  margin-left: auto;
-}
-
 h1,
 h2,
 p {
@@ -119,7 +106,6 @@ h1 {
   line-height: 1.1;
 }
 
-.project-actions,
 .mini-actions,
 .layer-actions {
   display: flex;
@@ -129,15 +115,6 @@ h1 {
 
 .layer-actions + .layer-actions {
   margin-top: 8px;
-}
-
-.project-actions {
-  position: absolute;
-  left: 50%;
-  justify-content: center;
-  width: min(320px, calc(100% - 360px));
-  min-width: 180px;
-  transform: translateX(-50%);
 }
 
 .project-name-input {
@@ -907,21 +884,13 @@ input[type="range"] {
     text-align: left;
   }
 
-  .topbar {
-    align-items: flex-start;
-    flex-direction: column;
+  [data-slot="editor-header"] {
+    grid-template-columns: 1fr;
   }
 
-  .playdate-stream-trigger {
-    margin-left: 0;
-  }
-
-  .project-actions {
-    position: static;
-    flex-wrap: wrap;
-    width: 100%;
-    min-width: 0;
-    transform: none;
+  [data-slot="editor-header-center"],
+  [data-slot="editor-header-right"] {
+    justify-content: start;
   }
 }
 
