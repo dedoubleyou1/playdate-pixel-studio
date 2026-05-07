@@ -1,7 +1,8 @@
-import { DragOverlay, useDraggable } from "@dnd-kit/react";
+import { DragOverlay, useDraggable, useDragOperation } from "@dnd-kit/react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { CANVAS_DROP_ID } from "../dragDropIds";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
@@ -13,6 +14,8 @@ export function ObjectLibrary(): React.JSX.Element {
   const renameObject = useEditorStore((state) => state.renameObject);
   const switchToObject = useEditorStore((state) => state.switchToObject);
   const revision = useEditorStore((state) => state.revision);
+  const { target } = useDragOperation();
+  const hideDragOverlay = target?.id === CANVAS_DROP_ID;
 
   return (
     <div className="panel-section object-library">
@@ -44,7 +47,7 @@ export function ObjectLibrary(): React.JSX.Element {
           ))
         )}
       </div>
-      <DragOverlay className="object-drag-overlay" dropAnimation={null}>
+      <DragOverlay className="object-drag-overlay" disabled={hideDragOverlay} dropAnimation={null}>
         {(source) => {
           const objectId = getDraggedObjectId(source.data);
           const object = objects.find((candidate) => candidate.id === objectId);

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeLayer, activeStack } from "../domain/layers";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
@@ -14,7 +15,6 @@ import { useEditorStore } from "../state/editorStore";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
-const CANVAS_DROP_ID = "canvas-stage";
 
 interface ObjectDropPreview {
   objectId: string;
