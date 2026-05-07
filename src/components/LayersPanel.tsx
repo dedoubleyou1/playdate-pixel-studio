@@ -111,24 +111,18 @@ function BackgroundRow({
   return (
     <div className="layer-item background-item" aria-label="Background">
       <strong>Background</strong>
-      <div className="background-options" aria-label="Background color">
+      <select
+        className="background-select"
+        aria-label="Background color"
+        value={background}
+        onChange={(event) => onChange(Number(event.target.value) as PixelValue)}
+      >
         {BACKGROUND_VALUES.map((option) => (
-          <Tooltip key={option.value}>
-            <TooltipTrigger asChild>
-              <Button
-                variant={background === option.value ? "secondary" : "outline"}
-                size="icon"
-                className={`background-swatch background-swatch-${option.value}${background === option.value ? " is-active" : ""}`}
-                aria-label={option.label}
-                onClick={() => onChange(option.value)}
-              >
-                <span />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{option.label}</TooltipContent>
-          </Tooltip>
+          <option key={option.value} value={option.value}>
+            {option.label.replace(" background", "")}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }
