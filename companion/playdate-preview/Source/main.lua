@@ -21,6 +21,7 @@ local connected = false
 local connecting = false
 local handshake = false
 local reconnectRequested = true
+local openTcpRequested = false
 local status = "Press A to connect"
 local latestRevision = nil
 local framesReceived = 0
@@ -58,6 +59,7 @@ function requestReconnect(message)
     connecting = false
     handshake = false
     reconnectRequested = true
+    openTcpRequested = false
     status = message or "Reconnect requested"
 end
 
@@ -167,6 +169,8 @@ local function readTcp()
 end
 
 local function openTcp()
+    openTcpRequested = false
+    connecting = true
     status = "Opening TCP"
     tcp = net.tcp.new(config.host, tonumber(config.port) or 9138, false, "Playdate Pixel Studio")
     if not tcp then
@@ -200,6 +204,7 @@ end
 
 local function connect()
     reconnectRequested = false
+    openTcpRequested = false
     connecting = true
     status = "Enabling Wi-Fi"
     net.setEnabled(true, function(err)
@@ -208,7 +213,9 @@ local function connect()
             status = err
             return
         end
-        openTcp()
+        connecting = false
+        openTcpRequested = true
+        status = "Wi-Fi ready"
     end)
 end
 
@@ -246,6 +253,10 @@ function playdate.update()
 
     if reconnectRequested and not connecting and not keyboardOpen then
         connect()
+    end
+
+    if openTcpRequested and not connecting and not keyboardOpen then
+        openTcp()
     end
 
     readTcp()
