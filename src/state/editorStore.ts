@@ -16,12 +16,14 @@ import {
   isDrawableLayer,
   resizeSurface,
 } from "../domain/layers";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type {
   EditContext,
   EditorSnapshot,
   Layer,
   LayerStack,
   ObjectDefinition,
+  PixelValue,
   PixelLayer,
   ShapePreview,
   Tool,
@@ -48,6 +50,7 @@ interface PendingCommand {
 
 interface EditorStoreState extends EditorSnapshot {
   activeTool: Tool;
+  activePaintValue: PixelValue;
   brushSize: number;
   mirrorX: boolean;
   mirrorY: boolean;
@@ -71,6 +74,7 @@ interface EditorStoreState extends EditorSnapshot {
   canRedo: boolean;
   hasUnsavedChanges: boolean;
   setTool: (tool: Tool) => void;
+  setPaintValue: (value: PixelValue) => void;
   setBrushSize: (size: number) => void;
   setMirrorX: (enabled: boolean) => void;
   setMirrorY: (enabled: boolean) => void;
@@ -124,6 +128,7 @@ const initialSnapshot = createInitialSnapshot();
 export const useEditorStore = create<EditorStoreState>((set, get) => ({
   ...initialSnapshot,
   activeTool: "pencil",
+  activePaintValue: BLACK_PIXEL,
   brushSize: 1,
   mirrorX: false,
   mirrorY: false,
@@ -153,6 +158,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ? { activeTool: tool, status: `${TOOL_LABELS[tool]} ready` }
         : { status: "Active layer is not editable" },
     ),
+  setPaintValue: (activePaintValue) =>
+    set({ activePaintValue, status: `Paint ${PIXEL_VALUE_LABELS[activePaintValue]} selected` }),
   setBrushSize: (brushSize) => set({ brushSize }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),
@@ -542,7 +549,12 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       }
       const data = new Uint8Array(layer.surface.data.length);
       for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {
-        data[pixel] = layer.surface.data[pixel] === 1 ? 0 : 1;
+        data[pixel] =
+          layer.surface.data[pixel] === BLACK_PIXEL
+            ? WHITE_PIXEL
+            : layer.surface.data[pixel] === WHITE_PIXEL
+              ? BLACK_PIXEL
+              : TRANSPARENT_PIXEL;
       }
       return {
         ...replaceActiveStack(state, {
@@ -875,4 +887,10 @@ const TOOL_LABELS: Record<Tool, string> = {
   rect: "Rectangle",
   fill: "Fill",
   dither: "Dither",
+};
+
+const PIXEL_VALUE_LABELS: Record<PixelValue, string> = {
+  [TRANSPARENT_PIXEL]: "transparent",
+  [BLACK_PIXEL]: "black",
+  [WHITE_PIXEL]: "white",
 };

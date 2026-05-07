@@ -51,6 +51,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       size: state.brushSize,
       mirrorX: state.mirrorX,
       mirrorY: state.mirrorY,
+      paintValue: state.activePaintValue,
       tool,
     };
   }, []);
@@ -100,7 +101,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       if (state.activeTool === "fill") {
         state.beginCommand("Fill area");
-        actionChangedRef.current = floodFill(layer, point, 1);
+        actionChangedRef.current = floodFill(layer, point, state.activePaintValue);
         isDrawingRef.current = false;
         if (actionChangedRef.current) {
           state.markDocumentChanged();
@@ -159,10 +160,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       }
 
       if (state.activeTool === "line") {
-        actionChangedRef.current = drawLine(layer, dragStart, point, brushOptions("pencil"));
+        actionChangedRef.current = drawLine(layer, dragStart, point, brushOptions("line"));
       }
       if (state.activeTool === "rect") {
-        actionChangedRef.current = drawRect(layer, dragStart, point, brushOptions("pencil"));
+        actionChangedRef.current = drawRect(layer, dragStart, point, brushOptions("rect"));
       }
 
       isDrawingRef.current = false;

@@ -1,4 +1,15 @@
+import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types.ts";
 import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer } from "../domain/types.ts";
+
+export interface ComposedFrame {
+  coverage: Uint8ClampedArray;
+  shades: Uint8ClampedArray;
+}
+
+interface ComposeFrameOptions {
+  baseShade?: number;
+  objects?: ObjectDefinition[];
+}
 
 export function composeShades(
   layers: Layer[],
@@ -6,38 +17,52 @@ export function composeShades(
   height: number,
   objects: ObjectDefinition[] = [],
 ): Uint8ClampedArray {
+  return composeFrame(layers, width, height, { objects }).shades;
+}
+
+export function composeFrame(
+  layers: Layer[],
+  width: number,
+  height: number,
+  options: ComposeFrameOptions = {},
+): ComposedFrame {
   const shades = new Uint8ClampedArray(width * height);
-  shades.fill(255);
+  const coverage = new Uint8ClampedArray(width * height);
+  shades.fill(options.baseShade ?? 255);
 
   for (const layer of layers) {
     if (!layer.visible) continue;
     if (layer.type === "pixel") {
-      compositePixelLayer(shades, width, height, layer);
+      compositePixelLayer({ coverage, shades }, width, height, layer);
     } else {
-      compositeObjectLayer(shades, width, height, layer, objects);
+      compositeObjectLayer({ coverage, shades }, width, height, layer, options.objects ?? []);
     }
   }
 
-  return shades;
+  return { coverage, shades };
 }
 
-function compositePixelLayer(shades: Uint8ClampedArray, width: number, height: number, layer: PixelLayer): void {
+function compositePixelLayer(frame: ComposedFrame, width: number, height: number, layer: PixelLayer): void {
   const alpha = Math.max(0, Math.min(1, layer.opacity / 100));
+  if (alpha <= 0) return;
   const sourceWidth = layer.surface.width;
   const sourceHeight = layer.surface.height;
 
   for (let y = 0; y < Math.min(height, sourceHeight); y += 1) {
     for (let x = 0; x < Math.min(width, sourceWidth); x += 1) {
       const sourceIndex = y * sourceWidth + x;
-      if (layer.surface.data[sourceIndex] === 0) continue;
+      const pixel = layer.surface.data[sourceIndex];
+      const sourceShade = pixelToShade(pixel);
+      if (sourceShade === null) continue;
       const targetIndex = y * width + x;
-      shades[targetIndex] = Math.round(shades[targetIndex] * (1 - alpha));
+      frame.shades[targetIndex] = compositeShade(frame.shades[targetIndex], sourceShade, alpha);
+      frame.coverage[targetIndex] = 1;
     }
   }
 }
 
 function compositeObjectLayer(
-  shades: Uint8ClampedArray,
+  frame: ComposedFrame,
   width: number,
   height: number,
   layer: ObjectInstanceLayer,
@@ -46,8 +71,9 @@ function compositeObjectLayer(
   const object = objects.find((candidate) => candidate.id === layer.objectId);
   if (!object) return;
 
-  const objectShades = composeShades(object.layers, object.width, object.height, objects);
   const alpha = Math.max(0, Math.min(1, layer.opacity / 100));
+  if (alpha <= 0) return;
+  const objectFrame = composeFrame(object.layers, object.width, object.height, { objects });
 
   for (let y = 0; y < object.height; y += 1) {
     const targetY = layer.y + y;
@@ -56,11 +82,22 @@ function compositeObjectLayer(
       const targetX = layer.x + x;
       if (targetX < 0 || targetX >= width) continue;
 
-      const sourceShade = objectShades[y * object.width + x];
-      if (sourceShade === 255) continue;
+      const sourceIndex = y * object.width + x;
+      if (!objectFrame.coverage[sourceIndex]) continue;
 
       const targetIndex = targetY * width + targetX;
-      shades[targetIndex] = Math.round(shades[targetIndex] * (1 - alpha) + sourceShade * alpha);
+      frame.shades[targetIndex] = compositeShade(frame.shades[targetIndex], objectFrame.shades[sourceIndex], alpha);
+      frame.coverage[targetIndex] = 1;
     }
   }
+}
+
+function pixelToShade(pixel: number): number | null {
+  if (pixel === BLACK_PIXEL) return 0;
+  if (pixel === WHITE_PIXEL) return 255;
+  return null;
+}
+
+function compositeShade(targetShade: number, sourceShade: number, alpha: number): number {
+  return Math.round(targetShade * (1 - alpha) + sourceShade * alpha);
 }

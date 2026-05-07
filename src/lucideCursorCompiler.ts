@@ -33,7 +33,9 @@ function compileLayer(layer: LucideCursorLayer): string {
   const transform = compileTransform(layer);
   const attributes = compileLayerAttributes(layer);
 
-  return transform || attributes ? `<g${transform ? ` transform="${transform}"` : ""}${attributes}>${content}</g>` : content;
+  return transform || attributes
+    ? `<g${transform ? ` transform="${transform}"` : ""}${attributes}>${content}</g>`
+    : content;
 }
 
 function compileLayerAttributes({ preserveStrokeWidth, scale }: LucideCursorLayer): string {

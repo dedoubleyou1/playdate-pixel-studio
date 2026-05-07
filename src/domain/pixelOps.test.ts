@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "./constants";
 import { createLayer } from "./layers";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import {
   drawBrushAt,
   drawInterpolatedStroke,
@@ -32,16 +33,35 @@ describe("pixel operations", () => {
     expect(drawBrushAt(layer, { x: 10, y: 10 }, { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" })).toBe(
       true,
     );
-    expect(layer.surface.data[indexFor(10, 10)]).toBe(1);
+    expect(layer.surface.data[indexFor(10, 10)]).toBe(BLACK_PIXEL);
 
     expect(drawBrushAt(layer, { x: 10, y: 10 }, { size: 1, mirrorX: false, mirrorY: false, tool: "eraser" })).toBe(
       true,
     );
-    expect(layer.surface.data[indexFor(10, 10)]).toBe(0);
+    expect(layer.surface.data[indexFor(10, 10)]).toBe(TRANSPARENT_PIXEL);
 
     drawBrushAt(layer, { x: 12, y: 12 }, { size: 2, mirrorX: false, mirrorY: false, tool: "dither" });
-    expect(layer.surface.data[indexFor(11, 11)]).toBe(1);
-    expect(layer.surface.data[indexFor(12, 11)]).toBe(0);
+    expect(layer.surface.data[indexFor(11, 11)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(12, 11)]).toBe(TRANSPARENT_PIXEL);
+  });
+
+  it("draws explicit white paint", () => {
+    const layer = createLayer(1, "Layer 1");
+
+    expect(
+      drawBrushAt(
+        layer,
+        { x: 10, y: 10 },
+        {
+          size: 1,
+          mirrorX: false,
+          mirrorY: false,
+          paintValue: WHITE_PIXEL,
+          tool: "pencil",
+        },
+      ),
+    ).toBe(true);
+    expect(layer.surface.data[indexFor(10, 10)]).toBe(WHITE_PIXEL);
   });
 
   it("draws lines and rectangle outlines", () => {

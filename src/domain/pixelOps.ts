@@ -1,4 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, type PixelValue } from "./types";
 import type { PixelLayer, PixelSurface, Point, Tool } from "./types";
 
 export function indexFor(x: number, y: number, width = PLAYDATE_WIDTH): number {
@@ -31,11 +32,11 @@ export function mirroredPoints(
   });
 }
 
-export function setPixel(layer: PixelLayer, x: number, y: number, value: 0 | 1): boolean {
+export function setPixel(layer: PixelLayer, x: number, y: number, value: PixelValue): boolean {
   return setSurfacePixel(layer.surface, x, y, value);
 }
 
-export function setSurfacePixel(surface: PixelSurface, x: number, y: number, value: 0 | 1): boolean {
+export function setSurfacePixel(surface: PixelSurface, x: number, y: number, value: PixelValue): boolean {
   if (!inBounds(x, y, surface.width, surface.height)) return false;
   const index = indexFor(x, y, surface.width);
   if (surface.data[index] === value) return false;
@@ -44,6 +45,7 @@ export function setSurfacePixel(surface: PixelSurface, x: number, y: number, val
 }
 
 interface BrushOptions {
+  paintValue?: PixelValue;
   size: number;
   mirrorX: boolean;
   mirrorY: boolean;
@@ -66,9 +68,9 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
       for (let xx = 0; xx < options.size; xx += 1) {
         const x = mirroredPoint.x + xx - half;
         const y = mirroredPoint.y + yy - half;
-        let value: 0 | 1 = options.tool === "eraser" ? 0 : 1;
+        let value: PixelValue = options.tool === "eraser" ? TRANSPARENT_PIXEL : (options.paintValue ?? BLACK_PIXEL);
         if (options.tool === "dither") {
-          value = (x + y) % 2 === 0 ? 1 : 0;
+          value = (x + y) % 2 === 0 ? (options.paintValue ?? BLACK_PIXEL) : TRANSPARENT_PIXEL;
         }
         changed = setPixel(layer, x, y, value) || changed;
       }
@@ -134,7 +136,7 @@ export function drawRect(layer: PixelLayer, start: Point, end: Point, options: B
   return changed;
 }
 
-export function floodFill(layer: PixelLayer, point: Point, value: 0 | 1): boolean {
+export function floodFill(layer: PixelLayer, point: Point, value: PixelValue): boolean {
   if (!inBounds(point.x, point.y, layer.surface.width, layer.surface.height)) return false;
   const startIndex = indexFor(point.x, point.y, layer.surface.width);
   const target = layer.surface.data[startIndex];

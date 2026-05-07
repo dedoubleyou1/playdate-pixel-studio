@@ -1,6 +1,6 @@
 import { inBounds, mirroredPoints, walkLine } from "../domain/pixelOps";
 import type { Layer, ObjectDefinition, ShapePreview } from "../domain/types";
-import { composeImageData } from "./compositor";
+import { composeImageData, TRANSPARENT_PREVIEW_SHADE } from "./compositor";
 
 export class EditorCanvas {
   private readonly context: CanvasRenderingContext2D;
@@ -22,6 +22,7 @@ export class EditorCanvas {
       composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
         width: this.width,
         height: this.height,
+        baseShade: TRANSPARENT_PREVIEW_SHADE,
         objects,
       }),
       0,

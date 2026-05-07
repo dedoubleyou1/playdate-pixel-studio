@@ -1,8 +1,12 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer } from "../domain/types";
-import { composeShades } from "./frameComposer";
+import { composeFrame } from "./frameComposer";
+
+export const TRANSPARENT_PREVIEW_SHADE = 192;
 
 export interface ComposeOptions {
+  baseShade?: number;
   device?: boolean;
   width?: number;
   height?: number;
@@ -16,7 +20,10 @@ export function composeImageData(
 ): ImageData {
   const width = options.width ?? PLAYDATE_WIDTH;
   const height = options.height ?? PLAYDATE_HEIGHT;
-  const shades = composeShades(layers, width, height, options.objects ?? []);
+  const shades = composeFrame(layers, width, height, {
+    baseShade: options.baseShade,
+    objects: options.objects ?? [],
+  }).shades;
   const image = createImageData(width, height);
   const pixels = image.data;
 
@@ -55,16 +62,17 @@ export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectD
   const height = canvas.height;
   const image = context.createImageData(width, height);
   const pixels = image.data;
-  const shades = composeShades(object.layers, object.width, object.height);
+  const frame = composeFrame(object.layers, object.width, object.height);
 
   for (let y = 0; y < Math.min(height, object.height); y += 1) {
     for (let x = 0; x < Math.min(width, object.width); x += 1) {
-      const shade = shades[y * object.width + x];
+      const sourceIndex = y * object.width + x;
+      const shade = frame.shades[sourceIndex];
       const pixelOffset = (y * width + x) * 4;
       pixels[pixelOffset] = shade;
       pixels[pixelOffset + 1] = shade;
       pixels[pixelOffset + 2] = shade;
-      pixels[pixelOffset + 3] = shade === 255 ? 0 : 255;
+      pixels[pixelOffset + 3] = frame.coverage[sourceIndex] ? 255 : 0;
     }
   }
 
@@ -79,11 +87,12 @@ function drawPixelLayerThumbnail(layer: PixelLayer, pixels: Uint8ClampedArray, w
     for (let x = 0; x < Math.min(width, sourceWidth); x += 1) {
       const sourceIndex = y * sourceWidth + x;
       const pixelOffset = (y * width + x) * 4;
-      const value = layer.surface.data[sourceIndex] ? 0 : 255;
+      const pixel = layer.surface.data[sourceIndex];
+      const value = pixel === BLACK_PIXEL ? 0 : pixel === WHITE_PIXEL ? 255 : TRANSPARENT_PREVIEW_SHADE;
       pixels[pixelOffset] = value;
       pixels[pixelOffset + 1] = value;
       pixels[pixelOffset + 2] = value;
-      pixels[pixelOffset + 3] = layer.surface.data[sourceIndex] ? 255 : 0;
+      pixels[pixelOffset + 3] = pixel === BLACK_PIXEL || pixel === WHITE_PIXEL ? 255 : 0;
     }
   }
 }
@@ -98,15 +107,16 @@ function drawObjectLayerThumbnail(
   const object = objects.find((candidate) => candidate.id === layer.objectId);
   if (!object) return;
 
-  const shades = composeShades(object.layers, object.width, object.height, objects);
+  const frame = composeFrame(object.layers, object.width, object.height, { objects });
   for (let y = 0; y < Math.min(height, object.height); y += 1) {
     for (let x = 0; x < Math.min(width, object.width); x += 1) {
-      const shade = shades[y * object.width + x];
+      const sourceIndex = y * object.width + x;
+      const shade = frame.shades[sourceIndex];
       const pixelOffset = (y * width + x) * 4;
       pixels[pixelOffset] = shade;
       pixels[pixelOffset + 1] = shade;
       pixels[pixelOffset + 2] = shade;
-      pixels[pixelOffset + 3] = shade === 255 ? 0 : 255;
+      pixels[pixelOffset + 3] = frame.coverage[sourceIndex] ? 255 : 0;
     }
   }
 }

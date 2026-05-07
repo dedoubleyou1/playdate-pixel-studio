@@ -1,4 +1,8 @@
 export type Tool = "pencil" | "eraser" | "line" | "rect" | "fill" | "dither";
+export const TRANSPARENT_PIXEL = 0;
+export const BLACK_PIXEL = 1;
+export const WHITE_PIXEL = 2;
+export type PixelValue = typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL;
 
 export interface Point {
   x: number;

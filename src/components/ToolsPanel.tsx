@@ -5,7 +5,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isDrawableLayer } from "../domain/layers";
-import type { Tool } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
+import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { useEditorStore } from "../state/editorStore";
 
@@ -18,9 +19,17 @@ const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ clas
   { tool: "dither", label: "Dither", icon: DitherIcon },
 ];
 
+const PAINT_VALUES: Array<{ label: string; value: PixelValue }> = [
+  { label: "Black paint", value: BLACK_PIXEL },
+  { label: "White paint", value: WHITE_PIXEL },
+  { label: "Transparent paint", value: TRANSPARENT_PIXEL },
+];
+
 export function ToolsPanel(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const setTool = useEditorStore((state) => state.setTool);
+  const activePaintValue = useEditorStore((state) => state.activePaintValue);
+  const setPaintValue = useEditorStore((state) => state.setPaintValue);
   const brushSize = useEditorStore((state) => state.brushSize);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
   const mirrorX = useEditorStore((state) => state.mirrorX);
@@ -61,6 +70,25 @@ export function ToolsPanel(): React.JSX.Element {
 
       <div className={`panel-section${drawingEnabled ? "" : " is-disabled"}`}>
         <h2>Brush</h2>
+        <div className="paint-value-control" aria-label="Paint value">
+          {PAINT_VALUES.map((paint) => (
+            <Tooltip key={paint.value}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={activePaintValue === paint.value ? "secondary" : "outline"}
+                  size="icon"
+                  className={`paint-swatch paint-swatch-${paint.value}${activePaintValue === paint.value ? " is-active" : ""}`}
+                  aria-label={paint.label}
+                  disabled={!drawingEnabled}
+                  onClick={() => setPaintValue(paint.value)}
+                >
+                  <span />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{paint.label}</TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
         <div className="control-row">
           <Label>Size</Label>
           <Slider

@@ -11,7 +11,7 @@ import type {
   PixelSurface,
 } from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 2;
+export const PROJECT_SCHEMA_VERSION = 3;
 
 export interface SerializedSurface {
   width: number;
@@ -56,7 +56,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 2;
+  schemaVersion: 3;
   id: string;
   name: string;
   width: number;
@@ -96,6 +96,10 @@ interface LegacyProjectDocument {
   };
 }
 
+interface Version2ProjectDocument extends Omit<PlaydateProjectDocument, "schemaVersion"> {
+  schemaVersion: 2;
+}
+
 export function serializeProject(snapshot: EditorSnapshot, id: string, name: string): PlaydateProjectDocument {
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
@@ -112,7 +116,9 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
   };
 }
 
-export function deserializeProject(document: PlaydateProjectDocument | LegacyProjectDocument): EditorSnapshot {
+export function deserializeProject(
+  document: PlaydateProjectDocument | Version2ProjectDocument | LegacyProjectDocument,
+): EditorSnapshot {
   if (document.schemaVersion === 1) {
     return deserializeLegacyProject(document);
   }
@@ -132,12 +138,14 @@ export function exportProjectJson(document: PlaydateProjectDocument): string {
   return JSON.stringify(document, null, 2);
 }
 
-export function parseProjectJson(json: string): PlaydateProjectDocument | LegacyProjectDocument {
-  const parsed = JSON.parse(json) as PlaydateProjectDocument | LegacyProjectDocument;
+export function parseProjectJson(
+  json: string,
+): PlaydateProjectDocument | Version2ProjectDocument | LegacyProjectDocument {
+  const parsed = JSON.parse(json) as PlaydateProjectDocument | Version2ProjectDocument | LegacyProjectDocument;
   if (
     !parsed ||
     typeof parsed !== "object" ||
-    (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION && parsed.schemaVersion !== 1)
+    (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 1)
   ) {
     throw new Error("The selected file is not a Playdate Pixel Studio project.");
   }

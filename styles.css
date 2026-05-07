@@ -287,6 +287,39 @@ h2 {
   box-shadow: inset 0 -3px 0 var(--yellow-deep);
 }
 
+.paint-value-control {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.paint-swatch span {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+}
+
+.paint-swatch-0 span {
+  background: #b8b8b8;
+}
+
+.paint-swatch-1 span {
+  background: #171719;
+}
+
+.paint-swatch-2 span {
+  background: #ffffff;
+}
+
+.paint-swatch.is-active {
+  border-color: var(--ink);
+  background: var(--yellow);
+  box-shadow: inset 0 -3px 0 var(--yellow-deep);
+}
+
 .text-button,
 .primary-button {
   min-height: 36px;
@@ -695,7 +728,7 @@ input[type="range"] {
   width: 54px;
   height: 32px;
   border: 1px solid #9f9688;
-  background: white;
+  background: #b8b8b8;
   image-rendering: pixelated;
 }
 

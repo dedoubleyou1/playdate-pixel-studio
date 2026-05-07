@@ -1,4 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
+import { TRANSPARENT_PIXEL } from "./types";
 import type {
   EditContext,
   EditorSnapshot,
@@ -8,6 +9,7 @@ import type {
   ObjectInstanceLayer,
   PixelLayer,
   PixelSurface,
+  PixelValue,
 } from "./types";
 
 export function createSurface(width: number, height: number, data?: Uint8Array): PixelSurface {
@@ -156,8 +158,14 @@ export function clampLayerIndex(index: number, layerCount: number): number {
 }
 
 function normalizeSurfaceData(data: Uint8Array, expectedLength: number): Uint8Array {
-  if (data.length === expectedLength) return new Uint8Array(data);
   const normalized = new Uint8Array(expectedLength);
-  normalized.set(data.slice(0, expectedLength));
+  const length = Math.min(data.length, expectedLength);
+  for (let index = 0; index < length; index += 1) {
+    normalized[index] = normalizePixelValue(data[index]);
+  }
   return normalized;
+}
+
+function normalizePixelValue(value: number): PixelValue {
+  return value === 1 || value === 2 ? value : TRANSPARENT_PIXEL;
 }
