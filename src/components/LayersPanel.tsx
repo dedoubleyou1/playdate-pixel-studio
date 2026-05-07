@@ -117,15 +117,15 @@ function BackgroundRow({
     <div className="layer-item background-item" aria-label="Background">
       <strong>Background</strong>
       <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
-        <SelectTrigger className="background-select-trigger" aria-label="Background color">
+        <SelectTrigger aria-label="Background color">
           <span className="background-select-value">
             <BackgroundColorSwatch value={selectedOption.value} />
             <span>{getBackgroundShortLabel(selectedOption.label)}</span>
           </span>
         </SelectTrigger>
-        <SelectContent align="end" className="background-select-content">
+        <SelectContent align="end">
           {BACKGROUND_VALUES.map((option) => (
-            <SelectItem key={option.value} value={String(option.value)} className="background-select-item">
+            <SelectItem key={option.value} value={String(option.value)}>
               <BackgroundColorSwatch value={option.value} />
               <span>{getBackgroundShortLabel(option.label)}</span>
             </SelectItem>
@@ -181,7 +181,6 @@ function LayerRow({
         onClick={(event) => event.stopPropagation()}
       />
       <IconAction
-        className={`layer-toggle${layer.visible ? "" : " is-off"}`}
         label={layer.visible ? "Hide layer" : "Show layer"}
         onClick={(event) => {
           event.stopPropagation();
@@ -191,7 +190,6 @@ function LayerRow({
         {layer.visible ? <Eye /> : <EyeOff />}
       </IconAction>
       <IconAction
-        className={`layer-toggle${layer.locked ? " is-locked" : ""}`}
         label={layer.locked ? "Unlock layer" : "Lock layer"}
         onClick={(event) => {
           event.stopPropagation();

@@ -54,7 +54,6 @@ export function ToolsPanel(): React.JSX.Element {
                   <Button
                     variant={active ? "secondary" : "outline"}
                     size="icon"
-                    className={`tool-button${active ? " is-active" : ""}`}
                     aria-label={tool.label}
                     disabled={!drawingEnabled}
                     onClick={() => setTool(tool.tool)}
@@ -78,7 +77,7 @@ export function ToolsPanel(): React.JSX.Element {
                 <Button
                   variant={activePaintValue === paint.value ? "secondary" : "outline"}
                   size="icon"
-                  className={`paint-swatch paint-swatch-${paint.value}${activePaintValue === paint.value ? " is-active" : ""}`}
+                  className={`paint-swatch paint-swatch-${paint.value}`}
                   aria-label={paint.label}
                   disabled={!drawingEnabled}
                   onClick={() => setPaintValue(paint.value)}
