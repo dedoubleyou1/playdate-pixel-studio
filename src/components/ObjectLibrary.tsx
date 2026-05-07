@@ -62,6 +62,7 @@ function ObjectRow({
   revision: number;
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
+  const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
 
   useEffect(() => {
     if (thumbnailRef.current) {
@@ -79,13 +80,19 @@ function ObjectRow({
         event.dataTransfer.effectAllowed = "copy";
       }}
     >
-      <canvas
-        ref={thumbnailRef}
-        className="object-thumb"
-        height={40}
-        width={64}
-        aria-label={`${object.name} preview`}
-      />
+      <div className="object-thumb-frame">
+        <canvas
+          ref={thumbnailRef}
+          className="object-thumb"
+          height={object.height}
+          style={{
+            height: `${thumbnailSize.height}px`,
+            width: `${thumbnailSize.width}px`,
+          }}
+          width={object.width}
+          aria-label={`${object.name} preview`}
+        />
+      </div>
       <input
         className="object-name"
         aria-label="Object name"
@@ -95,4 +102,15 @@ function ObjectRow({
       />
     </div>
   );
+}
+
+function getObjectThumbnailSize(width: number, height: number): { width: number; height: number } {
+  const maxWidth = 56;
+  const maxHeight = 40;
+  const scale = Math.min(maxWidth / width, maxHeight / height);
+
+  return {
+    height: Math.max(1, Math.round(height * scale)),
+    width: Math.max(1, Math.round(width * scale)),
+  };
 }

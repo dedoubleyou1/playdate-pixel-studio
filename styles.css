@@ -371,9 +371,15 @@ input[type="range"] {
   box-shadow: inset 4px 0 0 var(--yellow);
 }
 
+.object-thumb-frame {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 42px;
+}
+
 .object-thumb {
-  width: 54px;
-  height: 34px;
+  display: block;
   border: 1px solid #9f9688;
   background:
     linear-gradient(45deg, #eee8de 25%, transparent 25% 75%, #eee8de 75%),
