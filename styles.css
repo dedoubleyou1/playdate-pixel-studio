@@ -725,6 +725,7 @@ input[type="range"] {
 }
 
 .background-item {
+  grid-template-columns: minmax(0, 1fr) auto;
   cursor: default;
 }
 
@@ -733,31 +734,20 @@ input[type="range"] {
   font-size: 13px;
 }
 
-.background-thumb {
-  width: 54px;
-  height: 32px;
-  border: 1px solid #9f9688;
-  background: #b8b8b8;
-}
-
-.background-thumb-1,
 .background-swatch-1 span {
   background: #171719;
 }
 
-.background-thumb-2,
 .background-swatch-2 span {
   background: #ffffff;
 }
 
-.background-thumb-0,
 .background-swatch-0 span {
   background: #b8b8b8;
 }
 
 .background-options {
   display: flex;
-  grid-column: 3 / -1;
   justify-content: flex-end;
   gap: 6px;
 }

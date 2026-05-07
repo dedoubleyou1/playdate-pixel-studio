@@ -110,7 +110,6 @@ function BackgroundRow({
 }): React.JSX.Element {
   return (
     <div className="layer-item background-item" aria-label="Background">
-      <div className={`background-thumb background-thumb-${background}`} aria-hidden="true" />
       <strong>Background</strong>
       <div className="background-options" aria-label="Background color">
         {BACKGROUND_VALUES.map((option) => (
