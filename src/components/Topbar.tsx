@@ -37,32 +37,6 @@ export function Topbar(): React.JSX.Element {
   return (
     <Menubar asChild className="topbar">
       <header aria-label="Application menu">
-        <div className="brand-block">
-          <span className="brand-mark" />
-          <div>
-            <h1>Playdate Pixel Studio</h1>
-            <p>400 x 240, 1-bit artboard</p>
-          </div>
-        </div>
-        <div className="project-actions">
-          <Input
-            className="project-name-input"
-            aria-label="Project name"
-            value={projectName}
-            onChange={(event) => renameProject(event.target.value)}
-          />
-          <input
-            ref={importInputRef}
-            hidden
-            type="file"
-            accept=".json,.playdate-pixel.json,application/json"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void importProjectFile(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </div>
         <MenubarMenu>
           <MenubarTrigger>File</MenubarTrigger>
           <MenubarContent>
@@ -120,6 +94,25 @@ export function Topbar(): React.JSX.Element {
             </MenubarItem>
           </MenubarContent>
         </MenubarMenu>
+        <div className="project-actions">
+          <Input
+            className="project-name-input"
+            aria-label="Project name"
+            value={projectName}
+            onChange={(event) => renameProject(event.target.value)}
+          />
+          <input
+            ref={importInputRef}
+            hidden
+            type="file"
+            accept=".json,.playdate-pixel.json,application/json"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importProjectFile(file);
+              event.currentTarget.value = "";
+            }}
+          />
+        </div>
         <PlaydateStreamMenu />
       </header>
     </Menubar>

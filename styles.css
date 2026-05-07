@@ -104,32 +104,19 @@ button {
 
 .topbar {
   display: flex;
+  position: relative;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  justify-content: flex-start;
+  gap: 4px;
+  height: auto;
   min-height: 76px;
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
-.brand-block {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 260px;
-}
-
-.brand-mark {
-  display: inline-block;
-  width: 38px;
-  height: 38px;
-  border: 3px solid var(--ink);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, transparent 48%, rgba(28, 28, 31, 0.16) 49% 51%, transparent 52%),
-    linear-gradient(transparent 48%, rgba(28, 28, 31, 0.16) 49% 51%, transparent 52%), var(--yellow);
-  box-shadow: inset -5px -5px 0 rgba(236, 185, 0, 0.45);
+.topbar > [data-slot="button"] {
+  margin-left: auto;
 }
 
 h1,
@@ -141,12 +128,6 @@ p {
 h1 {
   font-size: 18px;
   line-height: 1.1;
-}
-
-.brand-block p {
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
 }
 
 .project-actions,
@@ -162,13 +143,19 @@ h1 {
 }
 
 .project-actions {
-  flex: 1;
-  min-width: 340px;
+  position: absolute;
+  left: 50%;
+  justify-content: center;
+  width: min(320px, calc(100% - 360px));
+  min-width: 180px;
+  transform: translateX(-50%);
 }
 
 .project-name-input {
-  max-width: 240px;
+  width: 100%;
+  max-width: 280px;
   font-weight: 750;
+  text-align: center;
 }
 
 .workspace {
@@ -975,9 +962,16 @@ input[type="range"] {
     flex-direction: column;
   }
 
+  .topbar > [data-slot="button"] {
+    margin-left: 0;
+  }
+
   .project-actions {
+    position: static;
     flex-wrap: wrap;
+    width: 100%;
     min-width: 0;
+    transform: none;
   }
 }
 
