@@ -24,14 +24,33 @@ function EditorWorkspace({ className, ...props }: React.ComponentProps<"main">):
   );
 }
 
+const editorBarClassName =
+  "grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(180px,320px)_minmax(0,1fr)] items-center gap-3 border-b border-border bg-card px-4 py-1 text-card-foreground";
+const editorBarLeftClassName = "flex min-w-0 items-center justify-start gap-2";
+const editorBarCenterClassName = "flex min-w-0 items-center justify-center";
+const editorBarRightClassName = "flex min-w-0 items-center justify-end gap-2";
+
+function EditorBar({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div data-slot="editor-bar" className={cn(editorBarClassName, className)} {...props} />;
+}
+
+function EditorBarLeft({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div data-slot="editor-bar-left" className={cn(editorBarLeftClassName, className)} {...props} />;
+}
+
+function EditorBarCenter({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div data-slot="editor-bar-center" className={cn(editorBarCenterClassName, className)} {...props} />;
+}
+
+function EditorBarRight({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div data-slot="editor-bar-right" className={cn(editorBarRightClassName, className)} {...props} />;
+}
+
 function EditorHeader({ className, ...props }: React.ComponentProps<"header">): React.JSX.Element {
   return (
     <header
       data-slot="editor-header"
-      className={cn(
-        "grid min-h-12 grid-cols-[minmax(0,1fr)_minmax(180px,320px)_minmax(0,1fr)] items-center gap-3 border-b border-border bg-card px-4 py-1 text-card-foreground",
-        className,
-      )}
+      className={cn(editorBarClassName, className)}
       {...props}
     />
   );
@@ -41,7 +60,7 @@ function EditorHeaderLeft({ className, ...props }: React.ComponentProps<"div">):
   return (
     <div
       data-slot="editor-header-left"
-      className={cn("flex min-w-0 items-center justify-start gap-2", className)}
+      className={cn(editorBarLeftClassName, className)}
       {...props}
     />
   );
@@ -51,7 +70,7 @@ function EditorHeaderCenter({ className, ...props }: React.ComponentProps<"div">
   return (
     <div
       data-slot="editor-header-center"
-      className={cn("flex min-w-0 items-center justify-center", className)}
+      className={cn(editorBarCenterClassName, className)}
       {...props}
     />
   );
@@ -61,7 +80,7 @@ function EditorHeaderRight({ className, ...props }: React.ComponentProps<"div">)
   return (
     <div
       data-slot="editor-header-right"
-      className={cn("flex min-w-0 items-center justify-end gap-2", className)}
+      className={cn(editorBarRightClassName, className)}
       {...props}
     />
   );
@@ -151,6 +170,10 @@ function EditorControlRow({ className, ...props }: React.ComponentProps<"div">):
 }
 
 export {
+  EditorBar,
+  EditorBarCenter,
+  EditorBarLeft,
+  EditorBarRight,
   EditorControlRow,
   EditorHeader,
   EditorHeaderCenter,

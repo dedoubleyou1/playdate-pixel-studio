@@ -10,8 +10,9 @@ import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
-import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
+import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
+import { ObjectContextBar } from "./ObjectContextBar";
 import { useEditorStore } from "../state/editorStore";
 import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
@@ -175,11 +176,7 @@ export function CanvasStage(): React.JSX.Element {
 
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
-      {activeContext.type === "object" ? (
-        <div className="canvas-context-bar">
-          <ObjectContextBar />
-        </div>
-      ) : null}
+      {activeContext.type === "object" ? <ObjectContextBar /> : null}
       <div className="canvas-rail">
         <div
           ref={setCanvasWrapRef}
@@ -226,12 +223,12 @@ export function CanvasStage(): React.JSX.Element {
           ) : null}
         </div>
       </div>
-      <div className="stage-meta">
-        <div className="stage-status">
+      <EditorBar className="stage-meta">
+        <EditorBarLeft className="stage-status">
           <strong className="text-sm">{activeLayerName}</strong>
           <span className="text-xs text-muted-foreground">{status}</span>
-        </div>
-        <div className="stage-view-controls" aria-label="Canvas view controls">
+        </EditorBarLeft>
+        <EditorBarCenter className="stage-view-controls" aria-label="Canvas view controls">
           <Label>Zoom</Label>
           <Slider
             min={MIN_ZOOM}
@@ -275,11 +272,11 @@ export function CanvasStage(): React.JSX.Element {
               </PopoverContent>
             </Popover>
           </div>
-        </div>
-        <div className="pixel-readout">
+        </EditorBarCenter>
+        <EditorBarRight className="pixel-readout">
           <span className="text-xs text-muted-foreground">{cursorLabel}</span>
-        </div>
-      </div>
+        </EditorBarRight>
+      </EditorBar>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
+import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
 
 export function ObjectContextBar(): React.JSX.Element {
   const activeContext = useEditorStore((state) => state.activeContext);
@@ -15,23 +16,29 @@ export function ObjectContextBar(): React.JSX.Element {
     activeContext.type === "object" ? objects.find((candidate) => candidate.id === activeContext.objectId) : null;
 
   return (
-    <nav className="object-context-bar" aria-label="Object editing context">
-      <Button variant="outline" size="sm" onClick={switchToRoot}>
-        <ArrowLeft size={15} aria-hidden />
-        Back to canvas
-      </Button>
+    <EditorBar className="canvas-context-bar" role="navigation" aria-label="Object editing context">
+      <EditorBarLeft>
+        <Button variant="outline" size="sm" onClick={switchToRoot}>
+          <ArrowLeft size={15} aria-hidden />
+          Back to canvas
+        </Button>
+      </EditorBarLeft>
       {object ? (
-        <div className="object-context-title">
+        <EditorBarCenter className="object-context-title">
           <Box size={16} aria-hidden />
           <strong className="truncate text-xs text-foreground">{object.name}</strong>
+        </EditorBarCenter>
+      ) : null}
+      <EditorBarRight>
+        {object ? (
           <ObjectDimensions
             key={`${object.id}-${object.width}-${object.height}`}
             object={object}
             onResize={resizeObject}
           />
-        </div>
-      ) : null}
-    </nav>
+        ) : null}
+      </EditorBarRight>
+    </EditorBar>
   );
 }
 
