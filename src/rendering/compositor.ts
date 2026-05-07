@@ -1,6 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer, PixelValue } from "../domain/types";
+import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
 import { composeFrame } from "./frameComposer";
 
 export const TRANSPARENT_PREVIEW_SHADE = 192;
@@ -49,12 +49,11 @@ export function renderLayerThumbnail(canvas: HTMLCanvasElement, layer: Layer, ob
   const pixels = image.data;
 
   if (layer.type === "pixel") {
-    drawPixelLayerThumbnail(layer, pixels, width, height);
+    drawPixelSurfaceThumbnail(layer.surface, pixels, width, height);
   } else {
     drawObjectLayerThumbnail(layer, objects, pixels, width, height);
   }
 
-  context.clearRect(0, 0, width, height);
   context.putImageData(image, 0, 0);
 }
 
@@ -78,13 +77,17 @@ export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectD
     }
   }
 
-  context.clearRect(0, 0, width, height);
   context.putImageData(image, 0, 0);
 }
 
-function drawPixelLayerThumbnail(layer: PixelLayer, pixels: Uint8ClampedArray, width: number, height: number): void {
-  const sourceWidth = layer.surface.width;
-  const sourceHeight = layer.surface.height;
+export function drawPixelSurfaceThumbnail(
+  surface: PixelSurface,
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+): void {
+  const sourceWidth = surface.width;
+  const sourceHeight = surface.height;
   const scale = Math.min(width / sourceWidth, height / sourceHeight);
   const targetWidth = Math.max(1, Math.floor(sourceWidth * scale));
   const targetHeight = Math.max(1, Math.floor(sourceHeight * scale));
@@ -92,21 +95,59 @@ function drawPixelLayerThumbnail(layer: PixelLayer, pixels: Uint8ClampedArray, w
   const offsetY = Math.floor((height - targetHeight) / 2);
 
   for (let y = 0; y < targetHeight; y += 1) {
-    const sourceY = Math.min(sourceHeight - 1, Math.floor(y / scale));
+    const sourceTop = y / scale;
+    const sourceBottom = (y + 1) / scale;
     for (let x = 0; x < targetWidth; x += 1) {
-      const sourceX = Math.min(sourceWidth - 1, Math.floor(x / scale));
-      const sourceIndex = sourceY * sourceWidth + sourceX;
+      const sourceLeft = x / scale;
+      const sourceRight = (x + 1) / scale;
       const targetX = offsetX + x;
       const targetY = offsetY + y;
       const pixelOffset = (targetY * width + targetX) * 4;
-      const pixel = layer.surface.data[sourceIndex];
-      const value = pixel === BLACK_PIXEL ? 0 : pixel === WHITE_PIXEL ? 255 : TRANSPARENT_PREVIEW_SHADE;
+      const value = sampleSurfaceRegion(surface, sourceLeft, sourceTop, sourceRight, sourceBottom);
+
       pixels[pixelOffset] = value;
       pixels[pixelOffset + 1] = value;
       pixels[pixelOffset + 2] = value;
-      pixels[pixelOffset + 3] = pixel === BLACK_PIXEL || pixel === WHITE_PIXEL ? 255 : 0;
+      pixels[pixelOffset + 3] = 255;
     }
   }
+}
+
+function sampleSurfaceRegion(
+  surface: PixelSurface,
+  sourceLeft: number,
+  sourceTop: number,
+  sourceRight: number,
+  sourceBottom: number,
+): number {
+  const minX = Math.max(0, Math.floor(sourceLeft));
+  const minY = Math.max(0, Math.floor(sourceTop));
+  const maxX = Math.min(surface.width, Math.ceil(sourceRight));
+  const maxY = Math.min(surface.height, Math.ceil(sourceBottom));
+  let weightedShade = 0;
+  let totalArea = 0;
+
+  for (let sourceY = minY; sourceY < maxY; sourceY += 1) {
+    const overlapY = Math.min(sourceBottom, sourceY + 1) - Math.max(sourceTop, sourceY);
+    if (overlapY <= 0) continue;
+    for (let sourceX = minX; sourceX < maxX; sourceX += 1) {
+      const overlapX = Math.min(sourceRight, sourceX + 1) - Math.max(sourceLeft, sourceX);
+      if (overlapX <= 0) continue;
+
+      const area = overlapX * overlapY;
+      const pixel = surface.data[sourceY * surface.width + sourceX];
+      weightedShade += pixelToThumbnailShade(pixel) * area;
+      totalArea += area;
+    }
+  }
+
+  return totalArea > 0 ? Math.round(weightedShade / totalArea) : TRANSPARENT_PREVIEW_SHADE;
+}
+
+function pixelToThumbnailShade(pixel: number): number {
+  if (pixel === BLACK_PIXEL) return 0;
+  if (pixel === WHITE_PIXEL) return 255;
+  return TRANSPARENT_PREVIEW_SHADE;
 }
 
 function drawObjectLayerThumbnail(
