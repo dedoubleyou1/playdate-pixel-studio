@@ -46,7 +46,8 @@ export function packPlaydateFrame(
     }
 
     const black = shade < 224;
-    if (black !== inverted) {
+    const renderedBlack = black !== inverted;
+    if (!renderedBlack) {
       payload[pixel >> 3] |= 0x80 >> (pixel & 7);
     }
   }

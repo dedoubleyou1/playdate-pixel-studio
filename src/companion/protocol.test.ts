@@ -11,16 +11,16 @@ import {
 } from "./protocol";
 
 describe("Playdate companion protocol", () => {
-  it("packs a white frame into 12,000 empty bytes", () => {
+  it("packs a white frame into 12,000 filled bytes", () => {
     const layer = createLayer(1, "Empty");
     const frame = packPlaydateFrame([layer], "normal", 7);
 
     expect(frame.revision).toBe(7);
     expect(frame.payload.byteLength).toBe(PLAYDATE_FRAME_BYTES);
-    expect(frame.payload.every((byte) => byte === 0)).toBe(true);
+    expect(frame.payload.every((byte) => byte === 0xff)).toBe(true);
   });
 
-  it("packs black pixels MSB-first in row-major order", () => {
+  it("clears black pixels MSB-first in row-major order", () => {
     const layer = createLayer(1, "Pixels");
     layer.data[indexFor(0, 0)] = 1;
     layer.data[indexFor(7, 0)] = 1;
@@ -28,8 +28,8 @@ describe("Playdate companion protocol", () => {
 
     const frame = packPlaydateFrame([layer], "normal");
 
-    expect(frame.payload[0]).toBe(0b10000001);
-    expect(frame.payload[1]).toBe(0b10000000);
+    expect(frame.payload[0]).toBe(0b01111110);
+    expect(frame.payload[1]).toBe(0b01111111);
   });
 
   it("can invert a physical preview frame", () => {
@@ -39,7 +39,7 @@ describe("Playdate companion protocol", () => {
     const frame = packPlaydateFrame([layer], "inverted");
 
     expect(frame.flags).toBe(1);
-    expect(frame.payload[0]).toBe(0b01111111);
+    expect(frame.payload[0]).toBe(0b10000000);
   });
 
   it("round-trips encoded packets and rejects corrupted payloads", () => {
