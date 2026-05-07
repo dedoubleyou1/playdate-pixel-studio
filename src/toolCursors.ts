@@ -10,7 +10,7 @@ import { compileLucideCursor } from "./lucideCursorCompiler";
 
 const TOOL_CURSORS: Record<Tool, string> = {
   pencil: `url("${pencilCursor}") 4 20, crosshair`,
-  eraser: `url("${eraserCursor}") 8 17, crosshair`,
+  eraser: `url("${eraserCursor}") 4 20, crosshair`,
   fill: `url("${paintBucketCursor}") 19 20, crosshair`,
   line: `url("${penToolCursor}") 5 20, crosshair`,
   rect: `url("${squareCursor}") 5 6, crosshair`,
