@@ -21,7 +21,9 @@ local connected = false
 local connecting = false
 local handshake = false
 local reconnectRequested = true
+local reconnectAfterMs = 0
 local openTcpRequested = false
+local closingTcp = false
 local status = "Press A to connect"
 local latestRevision = nil
 local framesReceived = 0
@@ -49,18 +51,36 @@ menu:addMenuItem("Reset Settings", function()
     requestReconnect("Settings reset")
 end)
 
-function requestReconnect(message)
+local function closeTcpQuietly()
     if tcp then
+        closingTcp = true
         tcp:close()
         tcp = nil
     end
+end
+
+function requestReconnect(message, delayMs)
+    closeTcpQuietly()
     rx = ""
     connected = false
     connecting = false
     handshake = false
     reconnectRequested = true
+    reconnectAfterMs = playdate.getCurrentTimeMilliseconds() + (delayMs or 0)
     openTcpRequested = false
     status = message or "Reconnect requested"
+end
+
+local function stopConnection(message)
+    closeTcpQuietly()
+    rx = ""
+    connected = false
+    connecting = false
+    handshake = false
+    reconnectRequested = false
+    reconnectAfterMs = 0
+    openTcpRequested = false
+    status = message or "Connection stopped"
 end
 
 local function saveConfig()
@@ -158,7 +178,7 @@ local function readTcp()
                 handshake = true
                 status = "Waiting for frames"
             else
-                requestReconnect("Bridge rejected session")
+                stopConnection("Session rejected; edit session")
             end
         end
     end
@@ -174,8 +194,7 @@ local function openTcp()
     status = "Opening TCP"
     tcp = net.tcp.new(config.host, tonumber(config.port) or 9138, false, "Playdate Pixel Studio")
     if not tcp then
-        connecting = false
-        status = "Network access denied"
+        stopConnection("Network access denied")
         return
     end
 
@@ -183,13 +202,17 @@ local function openTcp()
     tcp:setReadTimeout(0)
     tcp:setReadBufferSize(65536)
     tcp:setConnectionClosedCallback(function()
-        requestReconnect("Bridge closed connection")
+        if closingTcp then
+            closingTcp = false
+            return
+        end
+        requestReconnect("Bridge closed connection", 1500)
     end)
 
     tcp:open(function(success, err)
         connecting = false
         if not success then
-            status = err or "TCP connection failed"
+            stopConnection(err or "TCP connection failed")
             return
         end
 
@@ -197,7 +220,7 @@ local function openTcp()
         status = "Authenticating"
         local wrote, writeErr = tcp:write("HELLO " .. string.upper(config.session or "") .. "\n")
         if not wrote then
-            requestReconnect(writeErr or "Unable to write HELLO")
+            stopConnection(writeErr or "Unable to write HELLO")
         end
     end)
 end
@@ -251,7 +274,11 @@ function playdate.update()
         beginKeyboard(pendingKeyboardField)
     end
 
-    if reconnectRequested and not connecting and not keyboardOpen then
+    if reconnectRequested
+        and not connecting
+        and not keyboardOpen
+        and playdate.getCurrentTimeMilliseconds() >= reconnectAfterMs
+    then
         connect()
     end
 
