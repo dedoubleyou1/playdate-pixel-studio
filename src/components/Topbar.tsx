@@ -35,86 +35,84 @@ export function Topbar(): React.JSX.Element {
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
-    <Menubar asChild className="topbar">
-      <header aria-label="Application menu">
-        <MenubarMenu>
-          <MenubarTrigger>File</MenubarTrigger>
-          <MenubarContent>
-            <MenubarItem onSelect={newProject}>
-              <FilePlus2 />
-              New Project
-              <MenubarShortcut>⇧⌘N</MenubarShortcut>
-            </MenubarItem>
-            <MenubarItem onSelect={() => void saveProject()}>
-              <Save />
-              {hasUnsavedChanges ? "Save Project*" : "Save Project"}
-              <MenubarShortcut>⌘S</MenubarShortcut>
-            </MenubarItem>
-            <MenubarSub>
-              <MenubarSubTrigger disabled={recentProjects.length === 0}>Open Recent</MenubarSubTrigger>
-              <MenubarSubContent>
-                {recentProjects.map((project) => (
-                  <MenubarItem key={project.id} onSelect={() => void loadProject(project.id)}>
-                    {project.name}
-                  </MenubarItem>
-                ))}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarItem onSelect={() => importInputRef.current?.click()}>
-              <Upload />
-              Import Project
-            </MenubarItem>
-            <MenubarSeparator />
-            <MenubarItem onSelect={exportPng}>
-              <Download />
-              Export PNG
-            </MenubarItem>
-            <MenubarItem onSelect={exportProjectFile}>
-              <FileDown />
-              Export Project JSON
-            </MenubarItem>
-            <MenubarItem onSelect={() => void exportBundle()}>
-              <Archive />
-              Export Project Bundle
-            </MenubarItem>
-          </MenubarContent>
-        </MenubarMenu>
-        <MenubarMenu>
-          <MenubarTrigger>Edit</MenubarTrigger>
-          <MenubarContent>
-            <MenubarItem disabled={!canUndo} onSelect={undo}>
-              <Undo2 />
-              Undo
-              <MenubarShortcut>⌘Z</MenubarShortcut>
-            </MenubarItem>
-            <MenubarItem disabled={!canRedo} onSelect={redo}>
-              <Redo2 />
-              Redo
-              <MenubarShortcut>⇧⌘Z</MenubarShortcut>
-            </MenubarItem>
-          </MenubarContent>
-        </MenubarMenu>
-        <div className="project-actions">
-          <Input
-            className="project-name-input"
-            aria-label="Project name"
-            value={projectName}
-            onChange={(event) => renameProject(event.target.value)}
-          />
-          <input
-            ref={importInputRef}
-            hidden
-            type="file"
-            accept=".json,.playdate-pixel.json,application/json"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void importProjectFile(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </div>
-        <PlaydateStreamMenu />
-      </header>
+    <Menubar className="topbar" aria-label="Application menu">
+      <MenubarMenu>
+        <MenubarTrigger>File</MenubarTrigger>
+        <MenubarContent>
+          <MenubarItem onSelect={newProject}>
+            <FilePlus2 />
+            New Project
+            <MenubarShortcut>⇧⌘N</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem onSelect={() => void saveProject()}>
+            <Save />
+            {hasUnsavedChanges ? "Save Project*" : "Save Project"}
+            <MenubarShortcut>⌘S</MenubarShortcut>
+          </MenubarItem>
+          <MenubarSub>
+            <MenubarSubTrigger disabled={recentProjects.length === 0}>Open Recent</MenubarSubTrigger>
+            <MenubarSubContent>
+              {recentProjects.map((project) => (
+                <MenubarItem key={project.id} onSelect={() => void loadProject(project.id)}>
+                  {project.name}
+                </MenubarItem>
+              ))}
+            </MenubarSubContent>
+          </MenubarSub>
+          <MenubarItem onSelect={() => importInputRef.current?.click()}>
+            <Upload />
+            Import Project
+          </MenubarItem>
+          <MenubarSeparator />
+          <MenubarItem onSelect={exportPng}>
+            <Download />
+            Export PNG
+          </MenubarItem>
+          <MenubarItem onSelect={exportProjectFile}>
+            <FileDown />
+            Export Project JSON
+          </MenubarItem>
+          <MenubarItem onSelect={() => void exportBundle()}>
+            <Archive />
+            Export Project Bundle
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+      <MenubarMenu>
+        <MenubarTrigger>Edit</MenubarTrigger>
+        <MenubarContent>
+          <MenubarItem disabled={!canUndo} onSelect={undo}>
+            <Undo2 />
+            Undo
+            <MenubarShortcut>⌘Z</MenubarShortcut>
+          </MenubarItem>
+          <MenubarItem disabled={!canRedo} onSelect={redo}>
+            <Redo2 />
+            Redo
+            <MenubarShortcut>⇧⌘Z</MenubarShortcut>
+          </MenubarItem>
+        </MenubarContent>
+      </MenubarMenu>
+      <div className="project-actions">
+        <Input
+          className="project-name-input"
+          aria-label="Project name"
+          value={projectName}
+          onChange={(event) => renameProject(event.target.value)}
+        />
+        <input
+          ref={importInputRef}
+          hidden
+          type="file"
+          accept=".json,.playdate-pixel.json,application/json"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void importProjectFile(file);
+            event.currentTarget.value = "";
+          }}
+        />
+      </div>
+      <PlaydateStreamMenu />
     </Menubar>
   );
 }
