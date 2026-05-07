@@ -24,6 +24,7 @@ export function CanvasStage(): React.JSX.Element {
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
+  const activeContext = useEditorStore((state) => state.activeContext);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
@@ -48,9 +49,11 @@ export function CanvasStage(): React.JSX.Element {
 
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
-      <div className="canvas-context-bar">
-        <EditBreadcrumbs />
-      </div>
+      {activeContext.type === "object" ? (
+        <div className="canvas-context-bar">
+          <EditBreadcrumbs />
+        </div>
+      ) : null}
       <div className="canvas-rail">
         <div
           ref={wrapRef}
