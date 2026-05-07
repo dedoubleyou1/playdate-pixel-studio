@@ -1,5 +1,6 @@
 import { inBounds, mirroredPoints, walkLine } from "../domain/pixelOps";
 import type { Layer, ObjectDefinition, ShapePreview } from "../domain/types";
+import type { PixelValue } from "../domain/types";
 import { composeImageData, TRANSPARENT_PREVIEW_SHADE } from "./compositor";
 
 export class EditorCanvas {
@@ -17,12 +18,13 @@ export class EditorCanvas {
     this.context = context;
   }
 
-  render(layers: Layer[], preview: ShapePreview | null, objects: ObjectDefinition[]): void {
+  render(layers: Layer[], preview: ShapePreview | null, objects: ObjectDefinition[], background: PixelValue): void {
     this.context.putImageData(
       composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
         width: this.width,
         height: this.height,
         baseShade: TRANSPARENT_PREVIEW_SHADE,
+        background,
         objects,
       }),
       0,

@@ -5,7 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack } from "../domain/layers";
-import type { Layer, ObjectDefinition } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
 import { useEditorStore } from "../state/editorStore";
 
@@ -24,6 +25,7 @@ export function LayersPanel(): React.JSX.Element {
   const commitLayerOpacity = useEditorStore((state) => state.commitLayerOpacity);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
+  const setStackBackground = useEditorStore((state) => state.setStackBackground);
 
   return (
     <aside className="layers-panel" aria-label="Layers">
@@ -55,6 +57,7 @@ export function LayersPanel(): React.JSX.Element {
               revision={revision}
             />
           ))}
+        <BackgroundRow background={stack.background} onChange={setStackBackground} />
       </div>
       <div className="panel-section">
         <div className="control-row">
@@ -89,6 +92,45 @@ export function LayersPanel(): React.JSX.Element {
         </div>
       </div>
     </aside>
+  );
+}
+
+const BACKGROUND_VALUES: Array<{ label: string; value: PixelValue }> = [
+  { label: "Transparent background", value: TRANSPARENT_PIXEL },
+  { label: "White background", value: WHITE_PIXEL },
+  { label: "Black background", value: BLACK_PIXEL },
+];
+
+function BackgroundRow({
+  background,
+  onChange,
+}: {
+  background: PixelValue;
+  onChange: (background: PixelValue) => void;
+}): React.JSX.Element {
+  return (
+    <div className="layer-item background-item" aria-label="Background">
+      <div className={`background-thumb background-thumb-${background}`} aria-hidden="true" />
+      <strong>Background</strong>
+      <div className="background-options" aria-label="Background color">
+        {BACKGROUND_VALUES.map((option) => (
+          <Tooltip key={option.value}>
+            <TooltipTrigger asChild>
+              <Button
+                variant={background === option.value ? "secondary" : "outline"}
+                size="icon"
+                className={`background-swatch background-swatch-${option.value}${background === option.value ? " is-active" : ""}`}
+                aria-label={option.label}
+                onClick={() => onChange(option.value)}
+              >
+                <span />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{option.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </div>
   );
 }
 

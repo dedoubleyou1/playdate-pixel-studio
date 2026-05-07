@@ -1,5 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import type { Layer, ObjectDefinition } from "../domain/types";
+import { WHITE_PIXEL } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { applyPreviewMode, type PreviewMode } from "../export/playdateExport";
 import { composeImageData } from "./compositor";
 
@@ -14,18 +15,28 @@ export class PreviewCanvas {
     this.context = context;
   }
 
-  render(layers: Layer[], mode: PreviewMode = "normal", objects: ObjectDefinition[] = []): void {
+  render(
+    layers: Layer[],
+    mode: PreviewMode = "normal",
+    objects: ObjectDefinition[] = [],
+    background: PixelValue = WHITE_PIXEL,
+  ): void {
     const image = composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
       device: true,
       width: PLAYDATE_WIDTH,
       height: PLAYDATE_HEIGHT,
+      background,
       objects,
     });
     applyPreviewMode(image, mode);
     this.context.putImageData(image, 0, 0);
   }
 
-  createExportCanvas(layers: Layer[], objects: ObjectDefinition[] = []): HTMLCanvasElement {
+  createExportCanvas(
+    layers: Layer[],
+    objects: ObjectDefinition[] = [],
+    background: PixelValue = WHITE_PIXEL,
+  ): HTMLCanvasElement {
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = PLAYDATE_WIDTH;
     exportCanvas.height = PLAYDATE_HEIGHT;
@@ -38,6 +49,7 @@ export class PreviewCanvas {
         device: true,
         width: PLAYDATE_WIDTH,
         height: PLAYDATE_HEIGHT,
+        background,
         objects,
       }),
       0,

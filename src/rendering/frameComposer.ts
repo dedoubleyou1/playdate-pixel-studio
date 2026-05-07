@@ -1,5 +1,5 @@
-import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types.ts";
-import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer } from "../domain/types.ts";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types.ts";
+import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer, PixelValue } from "../domain/types.ts";
 
 export interface ComposedFrame {
   coverage: Uint8ClampedArray;
@@ -8,6 +8,7 @@ export interface ComposedFrame {
 
 interface ComposeFrameOptions {
   baseShade?: number;
+  background?: PixelValue;
   objects?: ObjectDefinition[];
 }
 
@@ -16,8 +17,9 @@ export function composeShades(
   width: number,
   height: number,
   objects: ObjectDefinition[] = [],
+  background: PixelValue = TRANSPARENT_PIXEL,
 ): Uint8ClampedArray {
-  return composeFrame(layers, width, height, { objects }).shades;
+  return composeFrame(layers, width, height, { background, objects }).shades;
 }
 
 export function composeFrame(
@@ -28,7 +30,7 @@ export function composeFrame(
 ): ComposedFrame {
   const shades = new Uint8ClampedArray(width * height);
   const coverage = new Uint8ClampedArray(width * height);
-  shades.fill(options.baseShade ?? 255);
+  initializeBackground({ coverage, shades }, options.background ?? TRANSPARENT_PIXEL, options.baseShade ?? 255);
 
   for (const layer of layers) {
     if (!layer.visible) continue;
@@ -73,7 +75,10 @@ function compositeObjectLayer(
 
   const alpha = Math.max(0, Math.min(1, layer.opacity / 100));
   if (alpha <= 0) return;
-  const objectFrame = composeFrame(object.layers, object.width, object.height, { objects });
+  const objectFrame = composeFrame(object.layers, object.width, object.height, {
+    background: object.background,
+    objects,
+  });
 
   for (let y = 0; y < object.height; y += 1) {
     const targetY = layer.y + y;
@@ -100,4 +105,12 @@ function pixelToShade(pixel: number): number | null {
 
 function compositeShade(targetShade: number, sourceShade: number, alpha: number): number {
   return Math.round(targetShade * (1 - alpha) + sourceShade * alpha);
+}
+
+function initializeBackground(frame: ComposedFrame, background: PixelValue, transparentShade: number): void {
+  const backgroundShade = pixelToShade(background);
+  frame.shades.fill(backgroundShade ?? transparentShade);
+  if (backgroundShade !== null) {
+    frame.coverage.fill(1);
+  }
 }

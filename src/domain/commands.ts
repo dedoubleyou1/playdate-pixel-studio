@@ -39,6 +39,7 @@ function layerStacksEqual(left: LayerStack, right: LayerStack): boolean {
   if (
     left.width !== right.width ||
     left.height !== right.height ||
+    left.background !== right.background ||
     left.nextLayerId !== right.nextLayerId ||
     left.activeLayerIndex !== right.activeLayerIndex ||
     left.layers.length !== right.layers.length

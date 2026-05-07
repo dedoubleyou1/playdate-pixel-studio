@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "../domain/constants";
 import { createLayer } from "../domain/layers";
 import { indexFor } from "../domain/pixelOps";
-import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { composeImageData } from "./compositor";
 
 describe("composeImageData", () => {
@@ -44,6 +44,21 @@ describe("composeImageData", () => {
     const image = composeImageData([layer], createImageData, { baseShade: 192 });
 
     expect(redAt(image, 1, 1)).toBe(192);
+  });
+
+  it("uses stack background as the base composition color", () => {
+    const layer = createLayer(1, "Layer");
+
+    const black = composeImageData([layer], createImageData, { background: BLACK_PIXEL });
+    const white = composeImageData([layer], createImageData, { background: WHITE_PIXEL });
+    const transparent = composeImageData([layer], createImageData, {
+      background: TRANSPARENT_PIXEL,
+      baseShade: 192,
+    });
+
+    expect(redAt(black, 1, 1)).toBe(0);
+    expect(redAt(white, 1, 1)).toBe(255);
+    expect(redAt(transparent, 1, 1)).toBe(192);
   });
 });
 

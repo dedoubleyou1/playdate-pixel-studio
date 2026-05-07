@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { createRootStack } from "../domain/layers";
+import { createObjectDefinition, createRootStack } from "../domain/layers";
 import { indexFor } from "../domain/pixelOps";
-import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { EditorSnapshot } from "../domain/types";
 import { deserializeProject, parseProjectJson, PROJECT_SCHEMA_VERSION, serializeProject } from "./projectSchema";
 
@@ -10,9 +10,11 @@ describe("project schema", () => {
   it("round-trips a Playdate project document", () => {
     const snapshot: EditorSnapshot = {
       root: createRootStack(),
-      objects: [],
+      objects: [createObjectDefinition("object-1", "Object 1", 16, 16)],
       activeContext: { type: "root" },
     };
+    snapshot.root.background = BLACK_PIXEL;
+    snapshot.objects[0].background = TRANSPARENT_PIXEL;
     const layer = snapshot.root.layers[0];
     if (layer.type !== "pixel") throw new Error("Expected a pixel layer");
     layer.surface.data[indexFor(20, 30)] = BLACK_PIXEL;
@@ -25,6 +27,8 @@ describe("project schema", () => {
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(document.width).toBe(PLAYDATE_WIDTH);
     expect(document.height).toBe(PLAYDATE_HEIGHT);
+    expect(restored.root.background).toBe(BLACK_PIXEL);
+    expect(restored.objects[0]?.background).toBe(TRANSPARENT_PIXEL);
     expect(restoredLayer.type).toBe("pixel");
     if (restoredLayer.type === "pixel") {
       expect(restoredLayer.surface.data[indexFor(20, 30)]).toBe(BLACK_PIXEL);

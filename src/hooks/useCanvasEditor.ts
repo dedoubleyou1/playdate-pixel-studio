@@ -33,7 +33,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       window.cancelAnimationFrame(renderFrameRef.current);
     }
     renderFrameRef.current = window.requestAnimationFrame(() => {
-      editorCanvasRef.current?.render(stack.layers, shapePreview, objects);
+      editorCanvasRef.current?.render(stack.layers, shapePreview, objects, stack.background);
       renderFrameRef.current = null;
     });
 
@@ -43,7 +43,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         renderFrameRef.current = null;
       }
     };
-  }, [objects, shapePreview, revision, stack.layers]);
+  }, [objects, shapePreview, revision, stack.background, stack.layers]);
 
   const brushOptions = useCallback((tool: Tool) => {
     const state = useEditorStore.getState();

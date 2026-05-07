@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "../domain/layers";
 import { indexFor } from "../domain/pixelOps";
+import { BLACK_PIXEL } from "../domain/types";
 import {
   crc32,
   decodeFramePacket,
@@ -30,6 +31,13 @@ describe("Playdate companion protocol", () => {
 
     expect(frame.payload[0]).toBe(0b01111110);
     expect(frame.payload[1]).toBe(0b01111111);
+  });
+
+  it("packs a black background into cleared frame bytes", () => {
+    const layer = createLayer(1, "Empty");
+    const frame = packPlaydateFrame([layer], "normal", 1, [], BLACK_PIXEL);
+
+    expect(frame.payload.every((byte) => byte === 0x00)).toBe(true);
   });
 
   it("can invert a physical preview frame", () => {

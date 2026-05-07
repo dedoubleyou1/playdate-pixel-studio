@@ -1,4 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { cloneSnapshot, createLayer, createRootStack, createSurface } from "../domain/layers";
 import type {
   EditContext,
@@ -9,6 +10,7 @@ import type {
   ObjectInstanceLayer,
   PixelLayer,
   PixelSurface,
+  PixelValue,
 } from "../domain/types";
 
 export const PROJECT_SCHEMA_VERSION = 3;
@@ -44,6 +46,7 @@ export type SerializedLayer = SerializedPixelLayer | SerializedObjectInstanceLay
 export interface SerializedLayerStack {
   width: number;
   height: number;
+  background?: PixelValue;
   nextLayerId: number;
   activeLayerIndex: number;
   layers: SerializedLayer[];
@@ -167,6 +170,7 @@ function deserializeObjectDefinition(object: SerializedObjectDefinition): Object
     name: object.name,
     width: object.width,
     height: object.height,
+    background: object.background ?? TRANSPARENT_PIXEL,
     nextLayerId: object.nextLayerId,
     activeLayerIndex: object.activeLayerIndex,
     layers: object.layers.map(deserializePixelLayer),
@@ -177,6 +181,7 @@ function serializeLayerStack(stack: LayerStack): SerializedLayerStack {
   return {
     width: stack.width,
     height: stack.height,
+    background: stack.background,
     nextLayerId: stack.nextLayerId,
     activeLayerIndex: stack.activeLayerIndex,
     layers: stack.layers.map(serializeLayer),
@@ -187,6 +192,7 @@ function deserializeLayerStack(stack: SerializedLayerStack): LayerStack {
   return {
     width: stack.width,
     height: stack.height,
+    background: stack.background ?? WHITE_PIXEL,
     nextLayerId: stack.nextLayerId,
     activeLayerIndex: stack.activeLayerIndex,
     layers: stack.layers.map(deserializeLayer),

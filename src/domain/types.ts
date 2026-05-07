@@ -40,6 +40,7 @@ export type Layer = PixelLayer | ObjectInstanceLayer;
 export interface LayerStack {
   width: number;
   height: number;
+  background: PixelValue;
   nextLayerId: number;
   activeLayerIndex: number;
   layers: Layer[];

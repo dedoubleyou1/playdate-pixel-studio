@@ -1,5 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
-import { TRANSPARENT_PIXEL } from "./types";
+import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type {
   EditContext,
   EditorSnapshot,
@@ -65,6 +65,7 @@ export function createRootStack(): LayerStack {
   return {
     width: PLAYDATE_WIDTH,
     height: PLAYDATE_HEIGHT,
+    background: WHITE_PIXEL,
     nextLayerId: 2,
     activeLayerIndex: 0,
     layers: [createLayer(1, "Layer 1", PLAYDATE_WIDTH, PLAYDATE_HEIGHT)],
@@ -77,6 +78,7 @@ export function createObjectDefinition(id: string, name: string, width: number, 
     name,
     width,
     height,
+    background: TRANSPARENT_PIXEL,
     nextLayerId: 2,
     activeLayerIndex: 0,
     layers: [createLayer(1, "Layer 1", width, height)],
@@ -113,6 +115,7 @@ export function cloneLayerStack(stack: LayerStack): LayerStack {
   return {
     width: stack.width,
     height: stack.height,
+    background: stack.background,
     nextLayerId: stack.nextLayerId,
     activeLayerIndex: stack.activeLayerIndex,
     layers: stack.layers.map(cloneLayer),

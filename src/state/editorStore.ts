@@ -105,6 +105,7 @@ interface EditorStoreState extends EditorSnapshot {
   setLayerVisible: (index: number, visible: boolean) => void;
   setLayerLocked: (index: number, locked: boolean) => void;
   setLayerOpacity: (opacity: number) => void;
+  setStackBackground: (background: PixelValue) => void;
   commitLayerOpacity: () => void;
   clearActiveLayer: () => void;
   invertActiveLayer: () => void;
@@ -511,6 +512,21 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   commitLayerOpacity: () => get().commitCommand("Set layer opacity"),
 
+  setStackBackground: (background) => {
+    const before = currentSnapshot();
+    set((state) => {
+      const stack = activeStack(state);
+      if (stack.background === background) return {};
+      return {
+        ...replaceActiveStack(state, { ...stack, background }),
+        status: `Background ${PIXEL_VALUE_LABELS[background]}`,
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, "Set background", before);
+  },
+
   clearActiveLayer: () => {
     const before = currentSnapshot();
     set((state) => {
@@ -743,7 +759,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   exportPng: () => {
     const state = get();
-    const canvas = createPlaydatePngCanvas(state.root.layers, state.previewMode, state.objects);
+    const canvas = createPlaydatePngCanvas(state.root.layers, state.previewMode, state.objects, state.root.background);
     canvas.toBlob((blob) => {
       if (!blob) return;
       downloadBlob(blob, `${slugify(state.projectName)}.png`);
@@ -756,7 +772,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       const state = get();
       const id = state.currentProjectId ?? crypto.randomUUID();
       const document = serializeProject(currentSnapshot(), id, state.projectName);
-      const bundle = await createProjectBundle(document, state.root.layers, state.objects);
+      const bundle = await createProjectBundle(document, state.root.layers, state.objects, state.root.background);
       downloadBlob(bundle, `${slugify(document.name)}.playdate-pixel.zip`);
       set({ status: "Project bundle exported" });
     } catch {

@@ -1,12 +1,13 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer } from "../domain/types";
+import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer, PixelValue } from "../domain/types";
 import { composeFrame } from "./frameComposer";
 
 export const TRANSPARENT_PREVIEW_SHADE = 192;
 
 export interface ComposeOptions {
   baseShade?: number;
+  background?: PixelValue;
   device?: boolean;
   width?: number;
   height?: number;
@@ -22,6 +23,7 @@ export function composeImageData(
   const height = options.height ?? PLAYDATE_HEIGHT;
   const shades = composeFrame(layers, width, height, {
     baseShade: options.baseShade,
+    background: options.background,
     objects: options.objects ?? [],
   }).shades;
   const image = createImageData(width, height);
@@ -62,7 +64,7 @@ export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectD
   const height = canvas.height;
   const image = context.createImageData(width, height);
   const pixels = image.data;
-  const frame = composeFrame(object.layers, object.width, object.height);
+  const frame = composeFrame(object.layers, object.width, object.height, { background: object.background });
 
   for (let y = 0; y < Math.min(height, object.height); y += 1) {
     for (let x = 0; x < Math.min(width, object.width); x += 1) {
