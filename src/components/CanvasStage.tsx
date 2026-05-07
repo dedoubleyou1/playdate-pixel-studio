@@ -48,6 +48,9 @@ export function CanvasStage(): React.JSX.Element {
 
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
+      <div className="canvas-context-bar">
+        <EditBreadcrumbs />
+      </div>
       <div className="canvas-rail">
         <div
           ref={wrapRef}
@@ -77,7 +80,6 @@ export function CanvasStage(): React.JSX.Element {
       </div>
       <div className="stage-meta">
         <div className="stage-status">
-          <EditBreadcrumbs />
           <strong>{activeLayerName}</strong>
           <span>{status}</span>
         </div>
