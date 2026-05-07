@@ -3,7 +3,7 @@ import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unl
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack } from "../domain/layers";
@@ -127,10 +127,7 @@ function BackgroundRow({
       <strong className="min-w-0 text-sm">Background</strong>
       <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
         <SelectTrigger className="min-w-[132px]" aria-label="Background color">
-          <span className="flex items-center gap-2">
-            <PixelSwatch value={selectedOption.value} />
-            <span>{getBackgroundShortLabel(selectedOption.label)}</span>
-          </span>
+          <SelectValue placeholder={getBackgroundShortLabel(selectedOption.label)} />
         </SelectTrigger>
         <SelectContent align="end">
           {BACKGROUND_VALUES.map((option) => (
