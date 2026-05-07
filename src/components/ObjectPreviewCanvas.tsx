@@ -4,11 +4,15 @@ import type { ObjectDefinition } from "../domain/types";
 import { renderObjectThumbnail } from "../rendering/compositor";
 
 export function ObjectPreviewCanvas({
+  canvasHeight,
+  canvasWidth,
   className,
   object,
   revision,
   style,
 }: {
+  canvasHeight?: number;
+  canvasWidth?: number;
   className?: string;
   object: ObjectDefinition;
   revision?: number;
@@ -26,9 +30,9 @@ export function ObjectPreviewCanvas({
     <canvas
       ref={previewRef}
       className={className}
-      height={object.height}
+      height={canvasHeight ?? object.height}
       style={style}
-      width={object.width}
+      width={canvasWidth ?? object.width}
       aria-label={`${object.name} preview`}
     />
   );

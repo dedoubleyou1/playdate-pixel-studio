@@ -59,6 +59,8 @@ export function ObjectLibrary(): React.JSX.Element {
           const thumbnailSize = getObjectThumbnailSize(object.width, object.height, 96, 72);
           return (
             <ObjectPreviewCanvas
+              canvasHeight={thumbnailSize.height}
+              canvasWidth={thumbnailSize.width}
               className="object-thumb object-drag-preview"
               object={object}
               revision={revision}
@@ -109,6 +111,8 @@ function ObjectRow({
     >
       <div className="object-thumb-frame">
         <ObjectPreviewCanvas
+          canvasHeight={thumbnailSize.height}
+          canvasWidth={thumbnailSize.width}
           className="object-thumb"
           object={object}
           revision={revision}

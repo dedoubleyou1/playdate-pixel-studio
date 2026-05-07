@@ -177,7 +177,7 @@ function LayerRow({
       className="grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
       onClick={() => setActiveLayer(index)}
     >
-      <canvas ref={thumbnailRef} className="layer-thumb" width={64} height={40} />
+      <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />
       {layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       <Input
         className="min-w-0"
