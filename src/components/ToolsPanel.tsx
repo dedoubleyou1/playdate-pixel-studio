@@ -1,4 +1,4 @@
-import { Ellipsis, Eraser, PaintBucket, Pen, Pencil, Slash, Square } from "lucide-react";
+import { Ellipsis, Eraser, PaintBucket, Pen, Pencil, PenTool, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -12,7 +12,7 @@ import { useEditorStore } from "../state/editorStore";
 const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { tool: "pencil", label: "Pencil", icon: Pencil },
   { tool: "eraser", label: "Eraser", icon: Eraser },
-  { tool: "line", label: "Line", icon: Slash },
+  { tool: "line", label: "Line", icon: PenTool },
   { tool: "rect", label: "Rectangle", icon: Square },
   { tool: "fill", label: "Fill", icon: PaintBucket },
   { tool: "dither", label: "Dither", icon: DitherIcon },
