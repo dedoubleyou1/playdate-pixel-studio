@@ -8,11 +8,14 @@ local keyboard <const> = playdate.keyboard
 local HEADER_BYTES <const> = 24
 local FRAME_BYTES <const> = 12000
 local SETTINGS_FILE <const> = "settings"
+local DEFAULT_HOST <const> = "127.0.0.1"
+local DEFAULT_PORT <const> = "9138"
+local DEFAULT_SESSION <const> = "ABC123"
 
 local config = playdate.datastore.read(SETTINGS_FILE) or {
-    host = "127.0.0.1",
-    port = "9138",
-    session = "ABC123",
+    host = DEFAULT_HOST,
+    port = DEFAULT_PORT,
+    session = DEFAULT_SESSION,
 }
 
 local tcp = nil
@@ -46,7 +49,7 @@ menu:addMenuItem("Edit Session", function()
     pendingKeyboardField = "session"
 end)
 menu:addMenuItem("Reset Settings", function()
-    config = { host = "127.0.0.1", port = "9138", session = "ABC123" }
+    config = { host = DEFAULT_HOST, port = DEFAULT_PORT, session = DEFAULT_SESSION }
     playdate.datastore.write(config, SETTINGS_FILE, true)
     requestReconnect("Settings reset")
 end)

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -8,7 +7,8 @@ import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../../src/domain/constants.ts";
 
 const CONTROL_PORT = Number.parseInt(process.env.PDPS_CONTROL_PORT ?? "9137", 10);
 const STREAM_PORT = Number.parseInt(process.env.PDPS_STREAM_PORT ?? "9138", 10);
-const SESSION_CODE = (process.env.PDPS_SESSION ?? crypto.randomBytes(3).toString("hex")).toUpperCase();
+const DEFAULT_SESSION_CODE = "ABC123";
+const SESSION_CODE = (process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
 const ALLOWED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
 
 interface LatestFrame {
