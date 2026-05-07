@@ -31,8 +31,8 @@
 :root {
   color-scheme: light;
   --radius: 0.5rem;
-  --background: #f6f3eb;
-  --foreground: #1c1c1f;
+  --background: #ffffff;
+  --foreground: #000000;
   --card: #fffaf0;
   --card-foreground: #1c1c1f;
   --popover: #fffaf0;
