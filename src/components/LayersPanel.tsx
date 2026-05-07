@@ -1,7 +1,6 @@
 import { memo, useEffect, useRef } from "react";
 import { Box, Copy, Eye, EyeOff, Minus, Plus, RotateCcwSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -20,6 +19,7 @@ import {
   EditorPaneHeader,
   EditorPaneTitle,
 } from "./layout/editor-layout";
+import { EditorAssetItem } from "./EditorAssetItem";
 import { PixelSwatch } from "./PixelSwatch";
 import { useEditorStore } from "../state/editorStore";
 
@@ -163,34 +163,27 @@ function LayerRow({
   const thumbnailKey = layerThumbnailKey(layer, objects);
 
   return (
-    <EditorListItem
+    <EditorAssetItem
       active={active}
-      className={
-        layer.type === "object"
-          ? "grid-cols-[auto_auto_minmax(0,1fr)_auto]"
-          : "grid-cols-[auto_minmax(0,1fr)_auto]"
-      }
+      fallbackName={`Layer ${index + 1}`}
+      leadingIcon={layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
+      name={layer.name}
+      nameLabel="Layer name"
+      thumbnail={<LayerThumbnail layer={layer} objects={objects} thumbnailKey={thumbnailKey} />}
       onClick={() => setActiveLayer(index)}
-    >
-      <LayerThumbnail layer={layer} objects={objects} thumbnailKey={thumbnailKey} />
-      {layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
-      <Input
-        className="min-w-0"
-        aria-label="Layer name"
-        value={layer.name}
-        onChange={(event) => renameLayer(index, event.target.value.trim() || `Layer ${index + 1}`)}
-        onClick={(event) => event.stopPropagation()}
-      />
-      <IconAction
-        label={layer.visible ? "Hide layer" : "Show layer"}
-        onClick={(event) => {
-          event.stopPropagation();
-          setLayerVisible(index, !layer.visible);
-        }}
-      >
-        {layer.visible ? <Eye /> : <EyeOff />}
-      </IconAction>
-    </EditorListItem>
+      onRename={(name) => renameLayer(index, name)}
+      actions={
+        <IconAction
+          label={layer.visible ? "Hide layer" : "Show layer"}
+          onClick={(event) => {
+            event.stopPropagation();
+            setLayerVisible(index, !layer.visible);
+          }}
+        >
+          {layer.visible ? <Eye /> : <EyeOff />}
+        </IconAction>
+      }
+    />
   );
 }
 

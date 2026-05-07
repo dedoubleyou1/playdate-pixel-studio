@@ -1,13 +1,13 @@
 import { DragOverlay, useDraggable, useDragOperation } from "@dnd-kit/react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
-import { EditorList, EditorListItem, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
+import { EditorAssetItem } from "./EditorAssetItem";
+import { EditorList, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 export function ObjectLibrary(): React.JSX.Element {
@@ -102,13 +102,16 @@ function ObjectRow({
   });
 
   return (
-    <EditorListItem
+    <EditorAssetItem
       active={active}
       ref={draggableRef}
-      className={`grid-cols-[auto_minmax(0,1fr)] ${draggable ? "cursor-grab" : "cursor-default"} ${isDragging ? "cursor-grabbing opacity-60" : ""}`}
+      className={`${draggable ? "cursor-grab" : "cursor-default"} ${isDragging ? "cursor-grabbing opacity-60" : ""}`}
+      fallbackName={object.name}
+      name={object.name}
+      nameLabel="Object name"
       onClick={() => onSelect(object.id)}
-    >
-      <div className="object-thumb-frame">
+      onRename={(name) => onRename(object.id, name)}
+      thumbnail={
         <ObjectPreviewCanvas
           canvasHeight={thumbnailSize.height}
           canvasWidth={thumbnailSize.width}
@@ -120,15 +123,8 @@ function ObjectRow({
             width: `${thumbnailSize.width}px`,
           }}
         />
-      </div>
-      <Input
-        className="min-w-0"
-        aria-label="Object name"
-        value={object.name}
-        onChange={(event) => onRename(object.id, event.target.value.trim() || object.name)}
-        onClick={(event) => event.stopPropagation()}
-      />
-    </EditorListItem>
+      }
+    />
   );
 }
 

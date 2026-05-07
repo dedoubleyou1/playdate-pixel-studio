@@ -91,7 +91,7 @@ body {
   height: 100vh;
 }
 
-.object-thumb-frame {
+.asset-thumb-frame {
   display: grid;
   place-items: center;
   width: 58px;
