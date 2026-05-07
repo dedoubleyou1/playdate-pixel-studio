@@ -3,7 +3,7 @@ import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unl
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack } from "../domain/layers";
@@ -126,15 +126,13 @@ function BackgroundRow({
     <EditorListItem className="grid-cols-[minmax(0,1fr)_auto] cursor-default" aria-label="Background">
       <strong className="min-w-0 text-sm">Background</strong>
       <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
-        <SelectTrigger aria-label="Background color">
-          <span className="background-select-value">
-            <PixelSwatch value={selectedOption.value} />
-            <span>{getBackgroundShortLabel(selectedOption.label)}</span>
-          </span>
+        <SelectTrigger className="min-w-[132px]" aria-label="Background color">
+          <PixelSwatch value={selectedOption.value} />
+          <SelectValue placeholder={getBackgroundShortLabel(selectedOption.label)} />
         </SelectTrigger>
         <SelectContent align="end">
           {BACKGROUND_VALUES.map((option) => (
-            <SelectItem key={option.value} value={String(option.value)}>
+            <SelectItem key={option.value} value={String(option.value)} textValue={option.label}>
               <PixelSwatch value={option.value} />
               <span>{getBackgroundShortLabel(option.label)}</span>
             </SelectItem>

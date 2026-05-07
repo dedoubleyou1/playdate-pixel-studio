@@ -283,13 +283,6 @@ body {
   justify-content: space-between;
 }
 
-.background-select-value {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 8px;
-}
-
 .layer-thumb {
   width: 54px;
   height: 32px;
