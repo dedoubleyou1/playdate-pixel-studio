@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { activeLayer } from "../domain/layers";
+import { activeStack } from "../domain/layers";
 import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "../domain/pixelOps";
-import type { Point, ShapePreview, Tool } from "../domain/types";
+import type { EditorSnapshot, Point, ShapePreview, Tool } from "../domain/types";
 import { EditorCanvas } from "../rendering/editorCanvas";
-import { useEditorStore } from "../state/editorStore";
+import { currentActivePixelLayer, useEditorStore } from "../state/editorStore";
 
 export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -19,20 +19,21 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const lastStrokePointRef = useRef<Point | null>(null);
   const actionChangedRef = useRef(false);
 
-  const layers = useEditorStore((state) => state.layers);
+  const stack = useEditorStore((state) => activeLayerStackSelector(state));
+  const objects = useEditorStore((state) => state.objects);
   const shapePreview = useEditorStore((state) => state.shapePreview);
   const revision = useEditorStore((state) => state.revision);
 
   useEffect(() => {
-    editorCanvasRef.current = canvas ? new EditorCanvas(canvas) : null;
-  }, [canvas]);
+    editorCanvasRef.current = canvas ? new EditorCanvas(canvas, stack.width, stack.height) : null;
+  }, [canvas, stack.height, stack.width]);
 
   useEffect(() => {
     if (renderFrameRef.current !== null) {
       window.cancelAnimationFrame(renderFrameRef.current);
     }
     renderFrameRef.current = window.requestAnimationFrame(() => {
-      editorCanvasRef.current?.render(layers, shapePreview);
+      editorCanvasRef.current?.render(stack.layers, shapePreview, objects);
       renderFrameRef.current = null;
     });
 
@@ -42,7 +43,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         renderFrameRef.current = null;
       }
     };
-  }, [layers, shapePreview, revision]);
+  }, [objects, shapePreview, revision, stack.layers]);
 
   const brushOptions = useCallback((tool: Tool) => {
     const state = useEditorStore.getState();
@@ -72,7 +73,11 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (!editorCanvas) return;
 
       const state = useEditorStore.getState();
-      const layer = activeLayer(state);
+      const layer = currentActivePixelLayer();
+      if (!layer) {
+        state.setStatus("Object instances are linked; edit the source object.");
+        return;
+      }
       if (layer.locked) {
         state.setStatus("Active layer is locked");
         return;
@@ -120,13 +125,13 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       state.setCursorLabel(`x: ${point.x} y: ${point.y}`);
       if (!isDrawingRef.current) return;
 
-      const layer = activeLayer(state);
+      const layer = currentActivePixelLayer();
+      if (!layer) return;
       if (state.activeTool === "pencil" || state.activeTool === "eraser" || state.activeTool === "dither") {
         const lastPoint = lastStrokePointRef.current ?? point;
         const strokeChanged = drawInterpolatedStroke(layer, lastPoint, point, brushOptions(state.activeTool));
         lastStrokePointRef.current = point;
-        actionChangedRef.current =
-          strokeChanged || actionChangedRef.current;
+        actionChangedRef.current = strokeChanged || actionChangedRef.current;
         if (strokeChanged) {
           state.markDocumentChanged();
         }
@@ -147,7 +152,11 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       const state = useEditorStore.getState();
-      const layer = activeLayer(state);
+      const layer = currentActivePixelLayer();
+      if (!layer) {
+        state.setShapePreview(null);
+        return;
+      }
 
       if (state.activeTool === "line") {
         actionChangedRef.current = drawLine(layer, dragStart, point, brushOptions("pencil"));
@@ -185,4 +194,8 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     }),
     [beginStroke, continueStroke, finishStroke],
   );
+}
+
+function activeLayerStackSelector(state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">) {
+  return activeStack(state);
 }

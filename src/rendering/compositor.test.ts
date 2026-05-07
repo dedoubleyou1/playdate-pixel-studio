@@ -9,8 +9,8 @@ describe("composeImageData", () => {
     const bottom = createLayer(1, "Bottom");
     const top = createLayer(2, "Top");
     top.opacity = 50;
-    bottom.data[indexFor(1, 1)] = 1;
-    top.data[indexFor(2, 2)] = 1;
+    bottom.surface.data[indexFor(1, 1)] = 1;
+    top.surface.data[indexFor(2, 2)] = 1;
 
     const image = composeImageData([bottom, top], createImageData);
     expect(redAt(image, 1, 1)).toBe(0);
@@ -21,7 +21,7 @@ describe("composeImageData", () => {
   it("thresholds output for device previews", () => {
     const layer = createLayer(1, "Layer");
     layer.opacity = 50;
-    layer.data[indexFor(5, 5)] = 1;
+    layer.surface.data[indexFor(5, 5)] = 1;
 
     const image = composeImageData([layer], createImageData, { device: true });
     expect(redAt(image, 5, 5)).toBe(0);

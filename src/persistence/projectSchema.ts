@@ -1,20 +1,82 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { cloneSnapshot } from "../domain/layers";
-import type { EditorSnapshot, PixelLayer } from "../domain/types";
+import { cloneSnapshot, createLayer, createRootStack, createSurface } from "../domain/layers";
+import type {
+  EditContext,
+  EditorSnapshot,
+  Layer,
+  LayerStack,
+  ObjectDefinition,
+  ObjectInstanceLayer,
+  PixelLayer,
+  PixelSurface,
+} from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 1;
+export const PROJECT_SCHEMA_VERSION = 2;
 
-export interface SerializedLayer {
+export interface SerializedSurface {
+  width: number;
+  height: number;
+  data: string;
+}
+
+export interface SerializedBaseLayer {
   id: number;
   name: string;
   visible: boolean;
   locked: boolean;
   opacity: number;
-  data: string;
+}
+
+export interface SerializedPixelLayer extends SerializedBaseLayer {
+  type: "pixel";
+  surface: SerializedSurface;
+}
+
+export interface SerializedObjectInstanceLayer extends SerializedBaseLayer {
+  type: "object";
+  objectId: string;
+  x: number;
+  y: number;
+}
+
+export type SerializedLayer = SerializedPixelLayer | SerializedObjectInstanceLayer;
+
+export interface SerializedLayerStack {
+  width: number;
+  height: number;
+  nextLayerId: number;
+  activeLayerIndex: number;
+  layers: SerializedLayer[];
+}
+
+export interface SerializedObjectDefinition extends SerializedLayerStack {
+  id: string;
+  name: string;
+  layers: SerializedPixelLayer[];
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: number;
+  schemaVersion: 2;
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  updatedAt: number;
+  snapshot: {
+    root: SerializedLayerStack;
+    objects: SerializedObjectDefinition[];
+    activeContext: EditContext;
+  };
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  updatedAt: number;
+}
+
+interface LegacyProjectDocument {
+  schemaVersion: 1;
   id: string;
   name: string;
   width: number;
@@ -23,14 +85,15 @@ export interface PlaydateProjectDocument {
   snapshot: {
     nextLayerId: number;
     activeLayerIndex: number;
-    layers: SerializedLayer[];
+    layers: Array<{
+      id: number;
+      name: string;
+      visible: boolean;
+      locked: boolean;
+      opacity: number;
+      data: string;
+    }>;
   };
-}
-
-export interface ProjectSummary {
-  id: string;
-  name: string;
-  updatedAt: number;
 }
 
 export function serializeProject(snapshot: EditorSnapshot, id: string, name: string): PlaydateProjectDocument {
@@ -42,25 +105,26 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
     height: PLAYDATE_HEIGHT,
     updatedAt: Date.now(),
     snapshot: {
-      nextLayerId: snapshot.nextLayerId,
-      activeLayerIndex: snapshot.activeLayerIndex,
-      layers: snapshot.layers.map(serializeLayer),
+      root: serializeLayerStack(snapshot.root),
+      objects: snapshot.objects.map(serializeObjectDefinition),
+      activeContext: cloneEditContext(snapshot.activeContext),
     },
   };
 }
 
-export function deserializeProject(document: PlaydateProjectDocument): EditorSnapshot {
-  if (document.schemaVersion !== PROJECT_SCHEMA_VERSION) {
-    throw new Error(`Unsupported project schema version ${document.schemaVersion}.`);
+export function deserializeProject(document: PlaydateProjectDocument | LegacyProjectDocument): EditorSnapshot {
+  if (document.schemaVersion === 1) {
+    return deserializeLegacyProject(document);
   }
+
   if (document.width !== PLAYDATE_WIDTH || document.height !== PLAYDATE_HEIGHT) {
     throw new Error(`Unsupported project size ${document.width}x${document.height}.`);
   }
 
   return cloneSnapshot({
-    nextLayerId: document.snapshot.nextLayerId,
-    activeLayerIndex: document.snapshot.activeLayerIndex,
-    layers: document.snapshot.layers.map(deserializeLayer),
+    root: deserializeLayerStack(document.snapshot.root),
+    objects: document.snapshot.objects.map(deserializeObjectDefinition),
+    activeContext: cloneEditContext(document.snapshot.activeContext),
   });
 }
 
@@ -68,34 +132,145 @@ export function exportProjectJson(document: PlaydateProjectDocument): string {
   return JSON.stringify(document, null, 2);
 }
 
-export function parseProjectJson(json: string): PlaydateProjectDocument {
-  const parsed = JSON.parse(json) as PlaydateProjectDocument;
-  if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+export function parseProjectJson(json: string): PlaydateProjectDocument | LegacyProjectDocument {
+  const parsed = JSON.parse(json) as PlaydateProjectDocument | LegacyProjectDocument;
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION && parsed.schemaVersion !== 1)
+  ) {
     throw new Error("The selected file is not a Playdate Pixel Studio project.");
   }
   return parsed;
 }
 
-function serializeLayer(layer: PixelLayer): SerializedLayer {
+function serializeObjectDefinition(object: ObjectDefinition): SerializedObjectDefinition {
   return {
-    id: layer.id,
-    name: layer.name,
-    visible: layer.visible,
-    locked: layer.locked,
-    opacity: layer.opacity,
-    data: uint8ToBase64(layer.data),
+    id: object.id,
+    name: object.name,
+    ...serializeLayerStack(object),
+    layers: object.layers.map(serializePixelLayer),
   };
 }
 
-function deserializeLayer(layer: SerializedLayer): PixelLayer {
+function deserializeObjectDefinition(object: SerializedObjectDefinition): ObjectDefinition {
   return {
+    id: object.id,
+    name: object.name,
+    width: object.width,
+    height: object.height,
+    nextLayerId: object.nextLayerId,
+    activeLayerIndex: object.activeLayerIndex,
+    layers: object.layers.map(deserializePixelLayer),
+  };
+}
+
+function serializeLayerStack(stack: LayerStack): SerializedLayerStack {
+  return {
+    width: stack.width,
+    height: stack.height,
+    nextLayerId: stack.nextLayerId,
+    activeLayerIndex: stack.activeLayerIndex,
+    layers: stack.layers.map(serializeLayer),
+  };
+}
+
+function deserializeLayerStack(stack: SerializedLayerStack): LayerStack {
+  return {
+    width: stack.width,
+    height: stack.height,
+    nextLayerId: stack.nextLayerId,
+    activeLayerIndex: stack.activeLayerIndex,
+    layers: stack.layers.map(deserializeLayer),
+  };
+}
+
+function serializeLayer(layer: Layer): SerializedLayer {
+  if (layer.type === "object") return serializeObjectInstanceLayer(layer);
+  return serializePixelLayer(layer);
+}
+
+function deserializeLayer(layer: SerializedLayer): Layer {
+  if (layer.type === "object") return deserializeObjectInstanceLayer(layer);
+  return deserializePixelLayer(layer);
+}
+
+function serializePixelLayer(layer: PixelLayer): SerializedPixelLayer {
+  return {
+    type: "pixel",
     id: layer.id,
     name: layer.name,
     visible: layer.visible,
     locked: layer.locked,
     opacity: layer.opacity,
-    data: base64ToUint8(layer.data),
+    surface: serializeSurface(layer.surface),
   };
+}
+
+function deserializePixelLayer(layer: SerializedPixelLayer): PixelLayer {
+  return {
+    type: "pixel",
+    id: layer.id,
+    name: layer.name,
+    visible: layer.visible,
+    locked: layer.locked,
+    opacity: layer.opacity,
+    surface: deserializeSurface(layer.surface),
+  };
+}
+
+function serializeObjectInstanceLayer(layer: ObjectInstanceLayer): SerializedObjectInstanceLayer {
+  return {
+    type: "object",
+    id: layer.id,
+    name: layer.name,
+    visible: layer.visible,
+    locked: layer.locked,
+    opacity: layer.opacity,
+    objectId: layer.objectId,
+    x: layer.x,
+    y: layer.y,
+  };
+}
+
+function deserializeObjectInstanceLayer(layer: SerializedObjectInstanceLayer): ObjectInstanceLayer {
+  return { ...layer };
+}
+
+function serializeSurface(surface: PixelSurface): SerializedSurface {
+  return {
+    width: surface.width,
+    height: surface.height,
+    data: uint8ToBase64(surface.data),
+  };
+}
+
+function deserializeSurface(surface: SerializedSurface): PixelSurface {
+  return createSurface(surface.width, surface.height, base64ToUint8(surface.data));
+}
+
+function deserializeLegacyProject(document: LegacyProjectDocument): EditorSnapshot {
+  if (document.width !== PLAYDATE_WIDTH || document.height !== PLAYDATE_HEIGHT) {
+    throw new Error(`Unsupported project size ${document.width}x${document.height}.`);
+  }
+
+  const root = createRootStack();
+  root.nextLayerId = document.snapshot.nextLayerId;
+  root.activeLayerIndex = document.snapshot.activeLayerIndex;
+  root.layers = document.snapshot.layers.map((layer) => {
+    const nextLayer = createLayer(layer.id, layer.name, PLAYDATE_WIDTH, PLAYDATE_HEIGHT);
+    nextLayer.visible = layer.visible;
+    nextLayer.locked = layer.locked;
+    nextLayer.opacity = layer.opacity;
+    nextLayer.surface = createSurface(PLAYDATE_WIDTH, PLAYDATE_HEIGHT, base64ToUint8(layer.data));
+    return nextLayer;
+  });
+
+  return { root, objects: [], activeContext: { type: "root" } };
+}
+
+function cloneEditContext(context: EditContext): EditContext {
+  return context.type === "root" ? { type: "root" } : { type: "object", objectId: context.objectId };
 }
 
 function uint8ToBase64(data: Uint8Array): string {

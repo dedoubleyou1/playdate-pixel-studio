@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { createLayer } from "../domain/layers";
+import { createRootStack } from "../domain/layers";
 import { indexFor } from "../domain/pixelOps";
 import type { EditorSnapshot } from "../domain/types";
 import { deserializeProject, parseProjectJson, serializeProject } from "./projectSchema";
@@ -8,18 +8,24 @@ import { deserializeProject, parseProjectJson, serializeProject } from "./projec
 describe("project schema", () => {
   it("round-trips a Playdate project document", () => {
     const snapshot: EditorSnapshot = {
-      nextLayerId: 2,
-      activeLayerIndex: 0,
-      layers: [createLayer(1, "Layer 1")],
+      root: createRootStack(),
+      objects: [],
+      activeContext: { type: "root" },
     };
-    snapshot.layers[0].data[indexFor(20, 30)] = 1;
+    const layer = snapshot.root.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected a pixel layer");
+    layer.surface.data[indexFor(20, 30)] = 1;
 
     const document = serializeProject(snapshot, "project-1", "Test Project");
     const restored = deserializeProject(document);
+    const restoredLayer = restored.root.layers[0];
 
     expect(document.width).toBe(PLAYDATE_WIDTH);
     expect(document.height).toBe(PLAYDATE_HEIGHT);
-    expect(restored.layers[0].data[indexFor(20, 30)]).toBe(1);
+    expect(restoredLayer.type).toBe("pixel");
+    if (restoredLayer.type === "pixel") {
+      expect(restoredLayer.surface.data[indexFor(20, 30)]).toBe(1);
+    }
   });
 
   it("rejects unsupported imported files", () => {

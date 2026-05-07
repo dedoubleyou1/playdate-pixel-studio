@@ -22,9 +22,9 @@ describe("Playdate companion protocol", () => {
 
   it("clears black pixels MSB-first in row-major order", () => {
     const layer = createLayer(1, "Pixels");
-    layer.data[indexFor(0, 0)] = 1;
-    layer.data[indexFor(7, 0)] = 1;
-    layer.data[indexFor(8, 0)] = 1;
+    layer.surface.data[indexFor(0, 0)] = 1;
+    layer.surface.data[indexFor(7, 0)] = 1;
+    layer.surface.data[indexFor(8, 0)] = 1;
 
     const frame = packPlaydateFrame([layer], "normal");
 
@@ -34,7 +34,7 @@ describe("Playdate companion protocol", () => {
 
   it("can invert a physical preview frame", () => {
     const layer = createLayer(1, "Pixels");
-    layer.data[indexFor(0, 0)] = 1;
+    layer.surface.data[indexFor(0, 0)] = 1;
 
     const frame = packPlaydateFrame([layer], "inverted");
 
@@ -44,7 +44,7 @@ describe("Playdate companion protocol", () => {
 
   it("round-trips encoded packets and rejects corrupted payloads", () => {
     const layer = createLayer(1, "Pixels");
-    layer.data[indexFor(4, 0)] = 1;
+    layer.surface.data[indexFor(4, 0)] = 1;
     const frame = packPlaydateFrame([layer], "normal", 42);
 
     const packet = encodeFramePacket(frame);

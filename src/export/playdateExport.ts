@@ -1,5 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import type { PixelLayer } from "../domain/types";
+import type { Layer, ObjectDefinition } from "../domain/types";
 import { composeImageData } from "../rendering/compositor";
 import type { PlaydateProjectDocument } from "../persistence/projectSchema";
 
@@ -15,12 +15,21 @@ export interface SpriteSheetMetadata {
   target: "playdate";
 }
 
-export function createPlaydatePngCanvas(layers: PixelLayer[], mode: PreviewMode = "normal"): HTMLCanvasElement {
+export function createPlaydatePngCanvas(
+  layers: Layer[],
+  mode: PreviewMode = "normal",
+  objects: ObjectDefinition[] = [],
+): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = PLAYDATE_WIDTH;
   canvas.height = PLAYDATE_HEIGHT;
   const context = requireContext(canvas);
-  const image = composeImageData(layers, (width, height) => context.createImageData(width, height), { device: true });
+  const image = composeImageData(layers, (width, height) => context.createImageData(width, height), {
+    device: true,
+    width: PLAYDATE_WIDTH,
+    height: PLAYDATE_HEIGHT,
+    objects,
+  });
   applyPreviewMode(image, mode);
   context.putImageData(image, 0, 0);
   return canvas;
@@ -38,10 +47,14 @@ export function createSpriteSheetMetadata(): SpriteSheetMetadata {
   };
 }
 
-export async function createProjectBundle(document: PlaydateProjectDocument, layers: PixelLayer[]): Promise<Blob> {
+export async function createProjectBundle(
+  document: PlaydateProjectDocument,
+  layers: Layer[],
+  objects: ObjectDefinition[] = [],
+): Promise<Blob> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
-  const pngCanvas = createPlaydatePngCanvas(layers);
+  const pngCanvas = createPlaydatePngCanvas(layers, "normal", objects);
   const pngBlob = await canvasToBlob(pngCanvas);
   zip.file("project.playdate-pixel.json", JSON.stringify(document, null, 2));
   zip.file("exports/screen.png", pngBlob);

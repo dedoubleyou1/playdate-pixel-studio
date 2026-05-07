@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Tool } from "../domain/types";
+import { ObjectLibrary } from "./ObjectLibrary";
 import { useEditorStore } from "../state/editorStore";
 
 const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -64,6 +65,7 @@ export function ToolsPanel(): React.JSX.Element {
         <ControlSwitch label="Mirror X" checked={mirrorX} onCheckedChange={setMirrorX} />
         <ControlSwitch label="Mirror Y" checked={mirrorY} onCheckedChange={setMirrorY} />
       </div>
+      <ObjectLibrary />
     </aside>
   );
 }

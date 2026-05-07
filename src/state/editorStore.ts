@@ -1,7 +1,29 @@
 import { create } from "zustand";
 import { createDocumentCommand, snapshotsEqual, type DocumentCommand } from "../domain/commands";
-import { activeLayer, clampLayerIndex, cloneSnapshot, createLayer } from "../domain/layers";
-import type { EditorSnapshot, PixelLayer, ShapePreview, Tool } from "../domain/types";
+import {
+  activeLayer,
+  activePixelLayer,
+  activeStack,
+  clampLayerIndex,
+  cloneLayer,
+  cloneLayerStack,
+  cloneObjectDefinition,
+  cloneSnapshot,
+  createLayer,
+  createObjectDefinition,
+  createObjectInstanceLayer,
+  createRootStack,
+} from "../domain/layers";
+import type {
+  EditContext,
+  EditorSnapshot,
+  Layer,
+  LayerStack,
+  ObjectDefinition,
+  PixelLayer,
+  ShapePreview,
+  Tool,
+} from "../domain/types";
 import { createProjectBundle, createPlaydatePngCanvas, downloadBlob, type PreviewMode } from "../export/playdateExport";
 import {
   deleteProjectDocument,
@@ -22,10 +44,7 @@ interface PendingCommand {
   before: EditorSnapshot;
 }
 
-interface EditorStoreState {
-  nextLayerId: number;
-  activeLayerIndex: number;
-  layers: PixelLayer[];
+interface EditorStoreState extends EditorSnapshot {
   activeTool: Tool;
   brushSize: number;
   mirrorX: boolean;
@@ -65,6 +84,11 @@ interface EditorStoreState {
   commitCommand: (label?: string) => void;
   undo: () => void;
   redo: () => void;
+  switchToRoot: () => void;
+  switchToObject: (objectId: string) => void;
+  addObject: () => void;
+  renameObject: (objectId: string, name: string) => void;
+  placeObjectOnRoot: (objectId: string, point?: { x: number; y: number }) => void;
   addLayer: () => void;
   duplicateLayer: () => void;
   deleteLayer: () => void;
@@ -133,7 +157,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   markDocumentChanged: (status) =>
     set((state) => ({
-      layers: [...state.layers],
+      ...touchActiveStack(state),
       status: status ?? state.status,
       revision: state.revision + 1,
       hasUnsavedChanges: true,
@@ -196,16 +220,100 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       };
     }),
 
+  switchToRoot: () =>
+    set((state) => ({
+      activeContext: { type: "root" },
+      shapePreview: null,
+      cursorLabel: "x: -- y: --",
+      status: state.activeContext.type === "root" ? state.status : "Editing root canvas",
+    })),
+
+  switchToObject: (objectId) =>
+    set((state) => {
+      const object = state.objects.find((candidate) => candidate.id === objectId);
+      if (!object) return { status: "Object was not found" };
+      return {
+        activeContext: { type: "object", objectId },
+        shapePreview: null,
+        cursorLabel: "x: -- y: --",
+        status: `Editing ${object.name}`,
+      };
+    }),
+
+  addObject: () => {
+    const before = currentSnapshot();
+    const object = createObjectDefinition(crypto.randomUUID(), `Object ${get().objects.length + 1}`, 32, 32);
+    set((state) => ({
+      objects: [...state.objects, object],
+      activeContext: { type: "object", objectId: object.id },
+      shapePreview: null,
+      status: `Created ${object.name}`,
+      revision: state.revision + 1,
+      hasUnsavedChanges: true,
+    }));
+    pushCurrentCommand(set, `Create ${object.name}`, before);
+  },
+
+  renameObject: (objectId, name) => {
+    const before = currentSnapshot();
+    set((state) => ({
+      objects: state.objects.map((object) => (object.id === objectId ? { ...object, name } : object)),
+      root: {
+        ...state.root,
+        layers: state.root.layers.map((layer) =>
+          layer.type === "object" && layer.objectId === objectId ? { ...layer, name } : layer,
+        ),
+      },
+      status: "Object renamed",
+      revision: state.revision + 1,
+      hasUnsavedChanges: true,
+    }));
+    pushCurrentCommand(set, "Rename object", before);
+  },
+
+  placeObjectOnRoot: (objectId, point) => {
+    const object = get().objects.find((candidate) => candidate.id === objectId);
+    if (!object) {
+      set({ status: "Object was not found" });
+      return;
+    }
+    const before = currentSnapshot();
+    set((state) => {
+      const layer = createObjectInstanceLayer(state.root.nextLayerId, object.name, objectId);
+      layer.x = point?.x ?? Math.floor((state.root.width - object.width) / 2);
+      layer.y = point?.y ?? Math.floor((state.root.height - object.height) / 2);
+      const layers = [...state.root.layers];
+      layers.splice(state.root.activeLayerIndex + 1, 0, layer);
+      return {
+        root: {
+          ...state.root,
+          nextLayerId: state.root.nextLayerId + 1,
+          layers,
+          activeLayerIndex: state.root.activeLayerIndex + 1,
+        },
+        activeContext: { type: "root" },
+        status: `${object.name} instance added`,
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, `Place ${object.name}`, before);
+  },
+
   addLayer: () => {
     const before = currentSnapshot();
     set((state) => {
-      const layer = createLayer(state.nextLayerId, `Layer ${state.layers.length + 1}`);
-      const layers = [...state.layers];
-      layers.splice(state.activeLayerIndex + 1, 0, layer);
+      const stack = activeStack(state);
+      const layer = createLayer(stack.nextLayerId, `Layer ${stack.layers.length + 1}`, stack.width, stack.height);
+      const layers = [...stack.layers];
+      layers.splice(stack.activeLayerIndex + 1, 0, layer);
       return {
-        nextLayerId: state.nextLayerId + 1,
-        layers,
-        activeLayerIndex: state.activeLayerIndex + 1,
+        ...replaceActiveStack(state, {
+          ...stack,
+          nextLayerId: stack.nextLayerId + 1,
+          layers,
+          activeLayerIndex: stack.activeLayerIndex + 1,
+        }),
         status: "Layer added",
         revision: state.revision + 1,
         hasUnsavedChanges: true,
@@ -217,16 +325,20 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   duplicateLayer: () => {
     const before = currentSnapshot();
     set((state) => {
+      const stack = activeStack(state);
       const source = activeLayer(state);
-      const layer = createLayer(state.nextLayerId, `${source.name} copy`);
-      layer.data = new Uint8Array(source.data);
-      layer.opacity = source.opacity;
-      const layers = [...state.layers];
-      layers.splice(state.activeLayerIndex + 1, 0, layer);
+      const layer = cloneLayer(source);
+      layer.id = stack.nextLayerId;
+      layer.name = `${source.name} copy`;
+      const layers = [...stack.layers];
+      layers.splice(stack.activeLayerIndex + 1, 0, layer);
       return {
-        nextLayerId: state.nextLayerId + 1,
-        layers,
-        activeLayerIndex: state.activeLayerIndex + 1,
+        ...replaceActiveStack(state, {
+          ...stack,
+          nextLayerId: stack.nextLayerId + 1,
+          layers,
+          activeLayerIndex: stack.activeLayerIndex + 1,
+        }),
         status: "Layer duplicated",
         revision: state.revision + 1,
         hasUnsavedChanges: true,
@@ -238,11 +350,15 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   deleteLayer: () => {
     const before = currentSnapshot();
     set((state) => {
-      if (state.layers.length <= 1) return {};
-      const layers = state.layers.filter((_, index) => index !== state.activeLayerIndex);
+      const stack = activeStack(state);
+      if (stack.layers.length <= 1) return {};
+      const layers = stack.layers.filter((_, index) => index !== stack.activeLayerIndex);
       return {
-        layers,
-        activeLayerIndex: clampLayerIndex(state.activeLayerIndex, layers.length),
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers,
+          activeLayerIndex: clampLayerIndex(stack.activeLayerIndex, layers.length),
+        }),
         status: "Layer deleted",
         revision: state.revision + 1,
         hasUnsavedChanges: true,
@@ -254,14 +370,18 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   moveLayer: (direction) => {
     const before = currentSnapshot();
     set((state) => {
-      const target = state.activeLayerIndex + direction;
-      if (target < 0 || target >= state.layers.length) return {};
-      const layers = [...state.layers];
-      const [layer] = layers.splice(state.activeLayerIndex, 1);
+      const stack = activeStack(state);
+      const target = stack.activeLayerIndex + direction;
+      if (target < 0 || target >= stack.layers.length) return {};
+      const layers = [...stack.layers];
+      const [layer] = layers.splice(stack.activeLayerIndex, 1);
       layers.splice(target, 0, layer);
       return {
-        layers,
-        activeLayerIndex: target,
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers,
+          activeLayerIndex: target,
+        }),
         status: direction > 0 ? "Layer moved up" : "Layer moved down",
         revision: state.revision + 1,
         hasUnsavedChanges: true,
@@ -270,80 +390,136 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     pushCurrentCommand(set, direction > 0 ? "Move layer up" : "Move layer down", before);
   },
 
-  setActiveLayer: (activeLayerIndex) => set({ activeLayerIndex }),
+  setActiveLayer: (activeLayerIndex) =>
+    set((state) => {
+      const stack = activeStack(state);
+      const layer = stack.layers[activeLayerIndex];
+      return {
+        ...replaceActiveStack(state, { ...stack, activeLayerIndex }),
+        status: layer?.type === "object" ? "Object instances are linked; edit the source object." : state.status,
+      };
+    }),
 
   renameLayer: (index, name) => {
     const before = currentSnapshot();
-    set((state) => ({
-      layers: state.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, name } : layer)),
-      revision: state.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((state) => {
+      const stack = activeStack(state);
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, name } : layer)),
+        }),
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
     pushCurrentCommand(set, "Rename layer", before);
   },
 
   setLayerVisible: (index, visible) => {
     const before = currentSnapshot();
-    set((state) => ({
-      layers: state.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, visible } : layer)),
-      revision: state.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((state) => {
+      const stack = activeStack(state);
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, visible } : layer)),
+        }),
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
     pushCurrentCommand(set, visible ? "Show layer" : "Hide layer", before);
   },
 
   setLayerLocked: (index, locked) => {
     const before = currentSnapshot();
-    set((state) => ({
-      layers: state.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, locked } : layer)),
-      revision: state.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((state) => {
+      const stack = activeStack(state);
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, locked } : layer)),
+        }),
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
     pushCurrentCommand(set, locked ? "Lock layer" : "Unlock layer", before);
   },
 
   setLayerOpacity: (opacity) => {
     const state = get();
     if (!state.pendingCommand) get().beginCommand("Set layer opacity");
-    set((current) => ({
-      layers: current.layers.map((layer, index) =>
-        index === current.activeLayerIndex ? { ...layer, opacity } : layer,
-      ),
-      revision: current.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((current) => {
+      const stack = activeStack(current);
+      return {
+        ...replaceActiveStack(current, {
+          ...stack,
+          layers: stack.layers.map((layer, index) =>
+            index === stack.activeLayerIndex ? { ...layer, opacity } : layer,
+          ),
+        }),
+        revision: current.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
   },
 
   commitLayerOpacity: () => get().commitCommand("Set layer opacity"),
 
   clearActiveLayer: () => {
     const before = currentSnapshot();
-    set((state) => ({
-      layers: state.layers.map((layer, index) =>
-        index === state.activeLayerIndex ? { ...layer, data: new Uint8Array(layer.data.length) } : layer,
-      ),
-      status: "Layer cleared",
-      revision: state.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((state) => {
+      const stack = activeStack(state);
+      const layer = stack.layers[stack.activeLayerIndex];
+      if (layer?.type !== "pixel") {
+        return { status: "Object instances are linked; edit the source object." };
+      }
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((candidate, index) =>
+            index === stack.activeLayerIndex
+              ? {
+                  ...layer,
+                  surface: { ...layer.surface, data: new Uint8Array(layer.surface.data.length) },
+                }
+              : candidate,
+          ),
+        }),
+        status: "Layer cleared",
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
     pushCurrentCommand(set, "Clear layer", before);
   },
 
   invertActiveLayer: () => {
     const before = currentSnapshot();
-    set((state) => ({
-      layers: state.layers.map((layer, index) => {
-        if (index !== state.activeLayerIndex) return layer;
-        const data = new Uint8Array(layer.data.length);
-        for (let pixel = 0; pixel < layer.data.length; pixel += 1) {
-          data[pixel] = layer.data[pixel] === 1 ? 0 : 1;
-        }
-        return { ...layer, data };
-      }),
-      status: "Layer inverted",
-      revision: state.revision + 1,
-      hasUnsavedChanges: true,
-    }));
+    set((state) => {
+      const stack = activeStack(state);
+      const layer = stack.layers[stack.activeLayerIndex];
+      if (layer?.type !== "pixel") {
+        return { status: "Object instances are linked; edit the source object." };
+      }
+      const data = new Uint8Array(layer.surface.data.length);
+      for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {
+        data[pixel] = layer.surface.data[pixel] === 1 ? 0 : 1;
+      }
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((candidate, index) =>
+            index === stack.activeLayerIndex ? { ...layer, surface: { ...layer.surface, data } } : candidate,
+          ),
+        }),
+        status: "Layer inverted",
+        revision: state.revision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
     pushCurrentCommand(set, "Invert layer", before);
   },
 
@@ -455,7 +631,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       const text = await file.text();
       const document = parseProjectJson(text);
       const snapshot = deserializeProject(document);
-      const saved = await saveProjectDocument(document);
+      const normalizedDocument = serializeProject(snapshot, document.id, document.name);
+      const saved = await saveProjectDocument(normalizedDocument);
       set((state) => ({
         ...snapshotState(snapshot),
         projectName: document.name,
@@ -479,7 +656,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   exportPng: () => {
     const state = get();
-    const canvas = createPlaydatePngCanvas(state.layers, state.previewMode);
+    const canvas = createPlaydatePngCanvas(state.root.layers, state.previewMode, state.objects);
     canvas.toBlob((blob) => {
       if (!blob) return;
       downloadBlob(blob, `${slugify(state.projectName)}.png`);
@@ -492,7 +669,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       const state = get();
       const id = state.currentProjectId ?? crypto.randomUUID();
       const document = serializeProject(currentSnapshot(), id, state.projectName);
-      const bundle = await createProjectBundle(document, state.layers);
+      const bundle = await createProjectBundle(document, state.root.layers, state.objects);
       downloadBlob(bundle, `${slugify(document.name)}.playdate-pixel.zip`);
       set({ status: "Project bundle exported" });
     } catch {
@@ -505,11 +682,23 @@ export function currentSnapshot(): EditorSnapshot {
   return snapshotFrom(useEditorStore.getState());
 }
 
+export function currentActiveStack(): LayerStack {
+  return activeStack(useEditorStore.getState());
+}
+
+export function currentActiveLayer(): Layer {
+  return activeLayer(useEditorStore.getState());
+}
+
+export function currentActivePixelLayer(): PixelLayer | null {
+  return activePixelLayer(useEditorStore.getState());
+}
+
 function createInitialSnapshot(): EditorSnapshot {
   return {
-    nextLayerId: 2,
-    activeLayerIndex: 0,
-    layers: [createLayer(1, "Layer 1")],
+    root: createRootStack(),
+    objects: [],
+    activeContext: { type: "root" },
   };
 }
 
@@ -534,23 +723,48 @@ function pushCommand(set: typeof useEditorStore.setState, command: DocumentComma
   });
 }
 
-function snapshotFrom(snapshot: Pick<EditorSnapshot, "nextLayerId" | "activeLayerIndex" | "layers">): EditorSnapshot {
+function snapshotFrom(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): EditorSnapshot {
   return cloneSnapshot({
-    nextLayerId: snapshot.nextLayerId,
-    activeLayerIndex: snapshot.activeLayerIndex,
-    layers: snapshot.layers,
+    root: snapshot.root,
+    objects: snapshot.objects,
+    activeContext: snapshot.activeContext,
   });
 }
 
-function snapshotState(
-  snapshot: EditorSnapshot,
-): Pick<EditorStoreState, "nextLayerId" | "activeLayerIndex" | "layers"> {
+function snapshotState(snapshot: EditorSnapshot): Pick<EditorStoreState, "root" | "objects" | "activeContext"> {
   const cloned = cloneSnapshot(snapshot);
   return {
-    nextLayerId: cloned.nextLayerId,
-    activeLayerIndex: cloned.activeLayerIndex,
-    layers: cloned.layers,
+    root: cloned.root,
+    objects: cloned.objects,
+    activeContext: cloned.activeContext,
   };
+}
+
+function replaceActiveStack(
+  state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">,
+  stack: LayerStack,
+): Pick<EditorSnapshot, "root" | "objects"> {
+  if (state.activeContext.type === "root") {
+    return { root: cloneLayerStack(stack), objects: state.objects };
+  }
+  const context = state.activeContext;
+
+  return {
+    root: state.root,
+    objects: state.objects.map((object) =>
+      object.id === context.objectId
+        ? { ...cloneObjectDefinition(object), ...stack, layers: stack.layers.filter(isPixelLayer) }
+        : object,
+    ),
+  };
+}
+
+function touchActiveStack(state: EditorStoreState): Pick<EditorSnapshot, "root" | "objects"> {
+  return replaceActiveStack(state, activeStack(state));
+}
+
+function isPixelLayer(layer: Layer): layer is PixelLayer {
+  return layer.type === "pixel";
 }
 
 function mergeSummary(summaries: ProjectSummary[], summary: ProjectSummary): ProjectSummary[] {
@@ -567,6 +781,11 @@ function slugify(name: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "playdate-pixel-art"
   );
+}
+
+export function contextLabel(context: EditContext, objects: ObjectDefinition[]): string {
+  if (context.type === "root") return "Root Canvas";
+  return objects.find((object) => object.id === context.objectId)?.name ?? "Missing Object";
 }
 
 const TOOL_LABELS: Record<Tool, string> = {

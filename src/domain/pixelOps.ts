@@ -1,19 +1,26 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
-import type { PixelLayer, Point, Tool } from "./types";
+import type { PixelLayer, PixelSurface, Point, Tool } from "./types";
 
-export function indexFor(x: number, y: number): number {
-  return y * PLAYDATE_WIDTH + x;
+export function indexFor(x: number, y: number, width = PLAYDATE_WIDTH): number {
+  return y * width + x;
 }
 
-export function inBounds(x: number, y: number): boolean {
-  return x >= 0 && x < PLAYDATE_WIDTH && y >= 0 && y < PLAYDATE_HEIGHT;
+export function inBounds(x: number, y: number, width = PLAYDATE_WIDTH, height = PLAYDATE_HEIGHT): boolean {
+  return x >= 0 && x < width && y >= 0 && y < height;
 }
 
-export function mirroredPoints(x: number, y: number, mirrorX: boolean, mirrorY: boolean): Point[] {
+export function mirroredPoints(
+  x: number,
+  y: number,
+  mirrorX: boolean,
+  mirrorY: boolean,
+  width = PLAYDATE_WIDTH,
+  height = PLAYDATE_HEIGHT,
+): Point[] {
   const points: Point[] = [{ x, y }];
-  if (mirrorX) points.push({ x: PLAYDATE_WIDTH - 1 - x, y });
-  if (mirrorY) points.push({ x, y: PLAYDATE_HEIGHT - 1 - y });
-  if (mirrorX && mirrorY) points.push({ x: PLAYDATE_WIDTH - 1 - x, y: PLAYDATE_HEIGHT - 1 - y });
+  if (mirrorX) points.push({ x: width - 1 - x, y });
+  if (mirrorY) points.push({ x, y: height - 1 - y });
+  if (mirrorX && mirrorY) points.push({ x: width - 1 - x, y: height - 1 - y });
 
   const seen = new Set<string>();
   return points.filter((point) => {
@@ -25,10 +32,14 @@ export function mirroredPoints(x: number, y: number, mirrorX: boolean, mirrorY: 
 }
 
 export function setPixel(layer: PixelLayer, x: number, y: number, value: 0 | 1): boolean {
-  if (!inBounds(x, y)) return false;
-  const index = indexFor(x, y);
-  if (layer.data[index] === value) return false;
-  layer.data[index] = value;
+  return setSurfacePixel(layer.surface, x, y, value);
+}
+
+export function setSurfacePixel(surface: PixelSurface, x: number, y: number, value: 0 | 1): boolean {
+  if (!inBounds(x, y, surface.width, surface.height)) return false;
+  const index = indexFor(x, y, surface.width);
+  if (surface.data[index] === value) return false;
+  surface.data[index] = value;
   return true;
 }
 
@@ -43,7 +54,14 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
   const half = Math.floor(options.size / 2);
   let changed = false;
 
-  for (const mirroredPoint of mirroredPoints(point.x, point.y, options.mirrorX, options.mirrorY)) {
+  for (const mirroredPoint of mirroredPoints(
+    point.x,
+    point.y,
+    options.mirrorX,
+    options.mirrorY,
+    layer.surface.width,
+    layer.surface.height,
+  )) {
     for (let yy = 0; yy < options.size; yy += 1) {
       for (let xx = 0; xx < options.size; xx += 1) {
         const x = mirroredPoint.x + xx - half;
@@ -117,9 +135,9 @@ export function drawRect(layer: PixelLayer, start: Point, end: Point, options: B
 }
 
 export function floodFill(layer: PixelLayer, point: Point, value: 0 | 1): boolean {
-  if (!inBounds(point.x, point.y)) return false;
-  const startIndex = indexFor(point.x, point.y);
-  const target = layer.data[startIndex];
+  if (!inBounds(point.x, point.y, layer.surface.width, layer.surface.height)) return false;
+  const startIndex = indexFor(point.x, point.y, layer.surface.width);
+  const target = layer.surface.data[startIndex];
   if (target === value) return false;
 
   const stack: Point[] = [point];
@@ -127,11 +145,11 @@ export function floodFill(layer: PixelLayer, point: Point, value: 0 | 1): boolea
 
   while (stack.length > 0) {
     const current = stack.pop();
-    if (!current || !inBounds(current.x, current.y)) continue;
-    const index = indexFor(current.x, current.y);
-    if (layer.data[index] !== target) continue;
+    if (!current || !inBounds(current.x, current.y, layer.surface.width, layer.surface.height)) continue;
+    const index = indexFor(current.x, current.y, layer.surface.width);
+    if (layer.surface.data[index] !== target) continue;
 
-    layer.data[index] = value;
+    layer.surface.data[index] = value;
     changed = true;
     stack.push(
       { x: current.x + 1, y: current.y },

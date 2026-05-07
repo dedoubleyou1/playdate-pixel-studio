@@ -1,36 +1,145 @@
-import { PLAYDATE_PIXELS } from "./constants";
-import type { EditorSnapshot, PixelLayer } from "./types";
+import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
+import type {
+  EditContext,
+  EditorSnapshot,
+  Layer,
+  LayerStack,
+  ObjectDefinition,
+  ObjectInstanceLayer,
+  PixelLayer,
+  PixelSurface,
+} from "./types";
 
-export function createLayer(id: number, name: string): PixelLayer {
+export function createSurface(width: number, height: number, data?: Uint8Array): PixelSurface {
+  const expectedLength = width * height;
   return {
+    width,
+    height,
+    data: data ? normalizeSurfaceData(data, expectedLength) : new Uint8Array(expectedLength),
+  };
+}
+
+export function createLayer(id: number, name: string, width = PLAYDATE_WIDTH, height = PLAYDATE_HEIGHT): PixelLayer {
+  return {
+    type: "pixel",
     id,
     name,
     visible: true,
     locked: false,
     opacity: 100,
-    data: new Uint8Array(PLAYDATE_PIXELS),
+    surface: createSurface(width, height),
   };
 }
 
-export function cloneLayer(layer: PixelLayer): PixelLayer {
+export function createObjectInstanceLayer(id: number, name: string, objectId: string): ObjectInstanceLayer {
+  return {
+    type: "object",
+    id,
+    name,
+    visible: true,
+    locked: false,
+    opacity: 100,
+    objectId,
+    x: 0,
+    y: 0,
+  };
+}
+
+export function createRootStack(): LayerStack {
+  return {
+    width: PLAYDATE_WIDTH,
+    height: PLAYDATE_HEIGHT,
+    nextLayerId: 2,
+    activeLayerIndex: 0,
+    layers: [createLayer(1, "Layer 1", PLAYDATE_WIDTH, PLAYDATE_HEIGHT)],
+  };
+}
+
+export function createObjectDefinition(id: string, name: string, width: number, height: number): ObjectDefinition {
+  return {
+    id,
+    name,
+    width,
+    height,
+    nextLayerId: 2,
+    activeLayerIndex: 0,
+    layers: [createLayer(1, "Layer 1", width, height)],
+  };
+}
+
+export function cloneSurface(surface: PixelSurface): PixelSurface {
+  return {
+    width: surface.width,
+    height: surface.height,
+    data: new Uint8Array(surface.data),
+  };
+}
+
+export function cloneLayer(layer: Layer): Layer {
+  if (layer.type === "object") {
+    return { ...layer };
+  }
+
   return {
     ...layer,
-    data: new Uint8Array(layer.data),
+    surface: cloneSurface(layer.surface),
+  };
+}
+
+export function cloneObjectDefinition(object: ObjectDefinition): ObjectDefinition {
+  return {
+    ...object,
+    layers: object.layers.map((layer) => cloneLayer(layer) as PixelLayer),
+  };
+}
+
+export function cloneLayerStack(stack: LayerStack): LayerStack {
+  return {
+    width: stack.width,
+    height: stack.height,
+    nextLayerId: stack.nextLayerId,
+    activeLayerIndex: stack.activeLayerIndex,
+    layers: stack.layers.map(cloneLayer),
   };
 }
 
 export function cloneSnapshot(snapshot: EditorSnapshot): EditorSnapshot {
   return {
-    nextLayerId: snapshot.nextLayerId,
-    activeLayerIndex: snapshot.activeLayerIndex,
-    layers: snapshot.layers.map(cloneLayer),
+    root: cloneLayerStack(snapshot.root),
+    objects: snapshot.objects.map(cloneObjectDefinition),
+    activeContext: cloneEditContext(snapshot.activeContext),
   };
 }
 
-export function activeLayer(snapshot: EditorSnapshot): PixelLayer {
-  return snapshot.layers[snapshot.activeLayerIndex];
+export function activeStack(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): LayerStack {
+  if (snapshot.activeContext.type === "root") return snapshot.root;
+  const context = snapshot.activeContext;
+  return snapshot.objects.find((object) => object.id === context.objectId) ?? snapshot.root;
+}
+
+export function activeLayer(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): Layer {
+  const stack = activeStack(snapshot);
+  return stack.layers[stack.activeLayerIndex];
+}
+
+export function activePixelLayer(
+  snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">,
+): PixelLayer | null {
+  const layer = activeLayer(snapshot);
+  return layer?.type === "pixel" ? layer : null;
+}
+
+export function cloneEditContext(context: EditContext): EditContext {
+  return context.type === "root" ? { type: "root" } : { type: "object", objectId: context.objectId };
 }
 
 export function clampLayerIndex(index: number, layerCount: number): number {
   return Math.max(0, Math.min(index, layerCount - 1));
+}
+
+function normalizeSurfaceData(data: Uint8Array, expectedLength: number): Uint8Array {
+  if (data.length === expectedLength) return new Uint8Array(data);
+  const normalized = new Uint8Array(expectedLength);
+  normalized.set(data.slice(0, expectedLength));
+  return normalized;
 }

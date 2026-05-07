@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import type { PixelLayer } from "../domain/types";
+import { activeStack } from "../domain/layers";
+import type { Layer, ObjectDefinition } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
 import { useEditorStore } from "../state/editorStore";
 
 export function LayersPanel(): React.JSX.Element {
-  const layers = useEditorStore((state) => state.layers);
-  const activeLayerIndex = useEditorStore((state) => state.activeLayerIndex);
+  const stack = useEditorStore((state) => activeStack(state));
+  const layers = stack.layers;
+  const activeLayerIndex = stack.activeLayerIndex;
   const activeLayer = layers[activeLayerIndex];
+  const objects = useEditorStore((state) => state.objects);
   const revision = useEditorStore((state) => state.revision);
   const addLayer = useEditorStore((state) => state.addLayer);
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer);
@@ -49,6 +51,7 @@ export function LayersPanel(): React.JSX.Element {
               layer={layer}
               index={index}
               active={index === activeLayerIndex}
+              objects={objects}
               revision={revision}
             />
           ))}
@@ -60,11 +63,11 @@ export function LayersPanel(): React.JSX.Element {
             min={15}
             max={100}
             step={1}
-            value={[activeLayer.opacity]}
-            onValueChange={([value]) => setLayerOpacity(value ?? activeLayer.opacity)}
+            value={[activeLayer?.opacity ?? 100]}
+            onValueChange={([value]) => setLayerOpacity(value ?? activeLayer?.opacity ?? 100)}
             onValueCommit={commitLayerOpacity}
           />
-          <strong>{activeLayer.opacity}%</strong>
+          <strong>{activeLayer?.opacity ?? 100}%</strong>
         </div>
         <div className="layer-actions">
           <Button variant="outline" disabled={activeLayerIndex >= layers.length - 1} onClick={() => moveLayer(1)}>
@@ -75,11 +78,11 @@ export function LayersPanel(): React.JSX.Element {
           </Button>
         </div>
         <div className="layer-actions">
-          <Button variant="outline" onClick={clearActiveLayer}>
+          <Button variant="outline" disabled={activeLayer?.type === "object"} onClick={clearActiveLayer}>
             <Trash2 />
             Clear
           </Button>
-          <Button variant="outline" onClick={invertActiveLayer}>
+          <Button variant="outline" disabled={activeLayer?.type === "object"} onClick={invertActiveLayer}>
             <RotateCcwSquare />
             Invert
           </Button>
@@ -93,11 +96,13 @@ function LayerRow({
   layer,
   index,
   active,
+  objects,
   revision,
 }: {
-  layer: PixelLayer;
+  layer: Layer;
   index: number;
   active: boolean;
+  objects: ObjectDefinition[];
   revision: number;
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
@@ -108,13 +113,13 @@ function LayerRow({
 
   useEffect(() => {
     if (thumbnailRef.current) {
-      renderLayerThumbnail(thumbnailRef.current, layer);
+      renderLayerThumbnail(thumbnailRef.current, layer, objects);
     }
-  }, [layer, revision]);
+  }, [layer, objects, revision]);
 
   return (
     <div className={`layer-item${active ? " is-active" : ""}`} onClick={() => setActiveLayer(index)}>
-      <canvas ref={thumbnailRef} className="layer-thumb" width={PLAYDATE_WIDTH} height={PLAYDATE_HEIGHT} />
+      <canvas ref={thumbnailRef} className="layer-thumb" width={64} height={40} />
       <input
         className="layer-name"
         aria-label="Layer name"
@@ -122,6 +127,7 @@ function LayerRow({
         onChange={(event) => renameLayer(index, event.target.value.trim() || `Layer ${index + 1}`)}
         onClick={(event) => event.stopPropagation()}
       />
+      {layer.type === "object" ? <span className="layer-kind">Linked</span> : null}
       <IconAction
         className={`layer-toggle${layer.visible ? "" : " is-off"}`}
         label={layer.visible ? "Hide layer" : "Show layer"}

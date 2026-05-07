@@ -1,5 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import type { PixelLayer } from "../domain/types";
+import type { Layer, ObjectDefinition } from "../domain/types";
 import { applyPreviewMode, type PreviewMode } from "../export/playdateExport";
 import { composeImageData } from "./compositor";
 
@@ -14,15 +14,18 @@ export class PreviewCanvas {
     this.context = context;
   }
 
-  render(layers: PixelLayer[], mode: PreviewMode = "normal"): void {
+  render(layers: Layer[], mode: PreviewMode = "normal", objects: ObjectDefinition[] = []): void {
     const image = composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
       device: true,
+      width: PLAYDATE_WIDTH,
+      height: PLAYDATE_HEIGHT,
+      objects,
     });
     applyPreviewMode(image, mode);
     this.context.putImageData(image, 0, 0);
   }
 
-  createExportCanvas(layers: PixelLayer[]): HTMLCanvasElement {
+  createExportCanvas(layers: Layer[], objects: ObjectDefinition[] = []): HTMLCanvasElement {
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = PLAYDATE_WIDTH;
     exportCanvas.height = PLAYDATE_HEIGHT;
@@ -31,7 +34,12 @@ export class PreviewCanvas {
       throw new Error("Export canvas 2D context is unavailable.");
     }
     exportContext.putImageData(
-      composeImageData(layers, (width, height) => exportContext.createImageData(width, height), { device: true }),
+      composeImageData(layers, (width, height) => exportContext.createImageData(width, height), {
+        device: true,
+        width: PLAYDATE_WIDTH,
+        height: PLAYDATE_HEIGHT,
+        objects,
+      }),
       0,
       0,
     );

@@ -5,9 +5,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { activeLayer } from "../domain/layers";
+import { activeLayer, activeStack } from "../domain/layers";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { EditBreadcrumbs } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
 
@@ -23,34 +23,61 @@ export function CanvasStage(): React.JSX.Element {
   const setGridSize = useEditorStore((state) => state.setGridSize);
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
+  const stack = useEditorStore((state) => activeStack(state));
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
+  const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     wrapRef.current?.style.setProperty("--zoom", String(zoom));
-  }, [zoom]);
+    wrapRef.current?.style.setProperty("--canvas-width", String(stack.width));
+    wrapRef.current?.style.setProperty("--canvas-height", String(stack.height));
+  }, [stack.height, stack.width, zoom]);
+
+  const handleObjectDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    const objectId = event.dataTransfer.getData("application/x-playdate-object");
+    if (!objectId) return;
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    placeObjectOnRoot(objectId, {
+      x: Math.floor(((event.clientX - rect.left) / rect.width) * stack.width),
+      y: Math.floor(((event.clientY - rect.top) / rect.height) * stack.height),
+    });
+  };
 
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
       <div className="canvas-rail">
-        <div ref={wrapRef} className="canvas-wrap">
+        <div
+          ref={wrapRef}
+          className="canvas-wrap"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={handleObjectDrop}
+        >
           <canvas
             id="artCanvas"
             ref={setCanvas}
-            width={PLAYDATE_WIDTH}
-            height={PLAYDATE_HEIGHT}
+            width={stack.width}
+            height={stack.height}
             onPointerDown={handlers.onPointerDown}
             onPointerMove={handlers.onPointerMove}
             onPointerUp={handlers.onPointerUp}
             onPointerCancel={handlers.onPointerCancel}
             onPointerLeave={handlers.onPointerLeave}
           />
-          <GridOverlay visible={gridVisible} zoom={zoom} gridSize={gridSize} />
+          <GridOverlay
+            visible={gridVisible}
+            zoom={zoom}
+            gridSize={gridSize}
+            width={stack.width}
+            height={stack.height}
+          />
         </div>
       </div>
       <div className="stage-meta">
         <div className="stage-status">
+          <EditBreadcrumbs />
           <strong>{activeLayerName}</strong>
           <span>{status}</span>
         </div>

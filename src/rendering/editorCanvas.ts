@@ -1,12 +1,15 @@
-import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { inBounds, mirroredPoints, walkLine } from "../domain/pixelOps";
-import type { PixelLayer, ShapePreview } from "../domain/types";
+import type { Layer, ObjectDefinition, ShapePreview } from "../domain/types";
 import { composeImageData } from "./compositor";
 
 export class EditorCanvas {
   private readonly context: CanvasRenderingContext2D;
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private readonly width: number,
+    private readonly height: number,
+  ) {
     const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) {
       throw new Error("Editor canvas 2D context is unavailable.");
@@ -14,9 +17,13 @@ export class EditorCanvas {
     this.context = context;
   }
 
-  render(layers: PixelLayer[], preview: ShapePreview | null): void {
+  render(layers: Layer[], preview: ShapePreview | null, objects: ObjectDefinition[]): void {
     this.context.putImageData(
-      composeImageData(layers, (width, height) => this.context.createImageData(width, height)),
+      composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
+        width: this.width,
+        height: this.height,
+        objects,
+      }),
       0,
       0,
     );
@@ -29,14 +36,8 @@ export class EditorCanvas {
   pointerToPixel(event: PointerEvent): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
     return {
-      x: Math.max(
-        0,
-        Math.min(PLAYDATE_WIDTH - 1, Math.floor(((event.clientX - rect.left) / rect.width) * PLAYDATE_WIDTH)),
-      ),
-      y: Math.max(
-        0,
-        Math.min(PLAYDATE_HEIGHT - 1, Math.floor(((event.clientY - rect.top) / rect.height) * PLAYDATE_HEIGHT)),
-      ),
+      x: Math.max(0, Math.min(this.width - 1, Math.floor(((event.clientX - rect.left) / rect.width) * this.width))),
+      y: Math.max(0, Math.min(this.height - 1, Math.floor(((event.clientY - rect.top) / rect.height) * this.height))),
     };
   }
 
@@ -76,12 +77,12 @@ export class EditorCanvas {
 
   private plotBrushPreview(x: number, y: number, preview: ShapePreview): void {
     const half = Math.floor(preview.brushSize / 2);
-    for (const point of mirroredPoints(x, y, preview.mirrorX, preview.mirrorY)) {
+    for (const point of mirroredPoints(x, y, preview.mirrorX, preview.mirrorY, this.width, this.height)) {
       for (let yy = 0; yy < preview.brushSize; yy += 1) {
         for (let xx = 0; xx < preview.brushSize; xx += 1) {
           const px = point.x + xx - half;
           const py = point.y + yy - half;
-          if (inBounds(px, py)) {
+          if (inBounds(px, py, this.width, this.height)) {
             this.context.fillRect(px, py, 1, 1);
           }
         }

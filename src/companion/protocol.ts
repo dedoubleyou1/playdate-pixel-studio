@@ -1,5 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants.ts";
-import type { PixelLayer } from "../domain/types.ts";
+import type { Layer, ObjectDefinition } from "../domain/types.ts";
+import { composeShades } from "../rendering/frameComposer.ts";
 
 export const PLAYDATE_FRAME_BYTES = (PLAYDATE_WIDTH * PLAYDATE_HEIGHT) / 8;
 export const PLAYDATE_PACKET_MAGIC = "PDPS";
@@ -30,21 +31,17 @@ export interface DecodedPlaydateFramePacket extends PlaydateFramePacket {
 }
 
 export function packPlaydateFrame(
-  layers: PixelLayer[],
+  layers: Layer[],
   mode: PlaydateFrameMode = "normal",
   revision = 0,
+  objects: ObjectDefinition[] = [],
 ): PackedPlaydateFrame {
   const payload = new Uint8Array(PLAYDATE_FRAME_BYTES);
   const inverted = mode === "inverted";
+  const shades = composeShades(layers, PLAYDATE_WIDTH, PLAYDATE_HEIGHT, objects);
 
   for (let pixel = 0; pixel < PLAYDATE_WIDTH * PLAYDATE_HEIGHT; pixel += 1) {
-    let shade = 255;
-    for (const layer of layers) {
-      if (!layer.visible || layer.data[pixel] === 0) continue;
-      const alpha = Math.max(0, Math.min(1, layer.opacity / 100));
-      shade = Math.round(shade * (1 - alpha));
-    }
-
+    const shade = shades[pixel] < 224 ? 0 : 255;
     const black = shade < 224;
     const renderedBlack = black !== inverted;
     if (!renderedBlack) {
