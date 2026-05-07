@@ -8,7 +8,7 @@ import { activeLayer, isDrawableLayer } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
-import { EditorPanel, EditorPane } from "./layout/editor-layout";
+import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
@@ -42,8 +42,8 @@ export function ToolsPanel(): React.JSX.Element {
   return (
     <EditorPanel side="left" aria-label="Drawing tools">
       <EditorPane disabled={!drawingEnabled}>
-        <h2>Tools</h2>
-        <div className="tool-grid">
+        <EditorPaneTitle className="mb-3">Tools</EditorPaneTitle>
+        <div className="grid grid-cols-3 gap-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
             const active = drawingEnabled && activeTool === tool.tool;
@@ -69,8 +69,8 @@ export function ToolsPanel(): React.JSX.Element {
       </EditorPane>
 
       <EditorPane disabled={!drawingEnabled}>
-        <h2>Brush</h2>
-        <div className="paint-value-control" aria-label="Paint value">
+        <EditorPaneTitle className="mb-3">Brush</EditorPaneTitle>
+        <div className="mb-3.5 grid grid-cols-3 gap-2" aria-label="Paint value">
           {PAINT_VALUES.map((paint) => (
             <Tooltip key={paint.value}>
               <TooltipTrigger asChild>
@@ -89,7 +89,7 @@ export function ToolsPanel(): React.JSX.Element {
             </Tooltip>
           ))}
         </div>
-        <div className="control-row">
+        <EditorControlRow>
           <Label>Size</Label>
           <Slider
             disabled={!drawingEnabled}
@@ -99,8 +99,8 @@ export function ToolsPanel(): React.JSX.Element {
             value={[brushSize]}
             onValueChange={([value]) => setBrushSize(value ?? 1)}
           />
-          <strong>{brushSize}</strong>
-        </div>
+          <strong className="text-right text-foreground">{brushSize}</strong>
+        </EditorControlRow>
         <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!drawingEnabled} onCheckedChange={setMirrorX} />
         <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!drawingEnabled} onCheckedChange={setMirrorY} />
       </EditorPane>
@@ -121,7 +121,7 @@ function ControlSwitch({
   onCheckedChange: (checked: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="toggle-row">
+    <div className="mt-3 flex items-center gap-2 text-sm">
       <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
       <Label>{label}</Label>
     </div>

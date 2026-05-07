@@ -111,14 +111,57 @@ function EditorPaneHeader({ className, ...props }: React.ComponentProps<"div">):
   );
 }
 
+function EditorPaneTitle({ className, ...props }: React.ComponentProps<"h2">): React.JSX.Element {
+  return <h2 data-slot="editor-pane-title" className={cn("text-sm font-medium", className)} {...props} />;
+}
+
+function EditorList({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return <div data-slot="editor-list" className={cn("grid gap-2", className)} {...props} />;
+}
+
+function EditorListItem({
+  active = false,
+  className,
+  ...props
+}: React.ComponentProps<"div"> & { active?: boolean }): React.JSX.Element {
+  return (
+    <div
+      data-active={active}
+      data-slot="editor-list-item"
+      className={cn(
+        "grid min-h-14 items-center gap-2 rounded-md border border-border bg-background p-2 text-foreground data-[active=true]:border-primary data-[active=true]:ring-1 data-[active=true]:ring-primary",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+function EditorControlRow({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
+  return (
+    <div
+      data-slot="editor-control-row"
+      className={cn(
+        "grid grid-cols-[58px_minmax(0,1fr)_44px] items-center gap-2.5 text-sm text-muted-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export {
+  EditorControlRow,
   EditorHeader,
   EditorHeaderCenter,
   EditorHeaderLeft,
   EditorHeaderRight,
+  EditorList,
+  EditorListItem,
   EditorPanel,
   EditorPane,
   EditorPaneHeader,
+  EditorPaneTitle,
   EditorShell,
   EditorWorkspace,
 };

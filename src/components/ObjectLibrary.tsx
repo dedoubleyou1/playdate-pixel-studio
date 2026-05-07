@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import type { ObjectDefinition } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
-import { EditorPane } from "./layout/editor-layout";
+import { EditorList, EditorListItem, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 export function ObjectLibrary(): React.JSX.Element {
@@ -20,9 +20,9 @@ export function ObjectLibrary(): React.JSX.Element {
   const hideDragOverlay = target?.id === CANVAS_DROP_ID;
 
   return (
-    <EditorPane className="object-library">
-      <div className="object-library-header">
-        <h2>Objects</h2>
+    <EditorPane className="grid gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <EditorPaneTitle>Objects</EditorPaneTitle>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Create object" onClick={addObject}>
@@ -33,9 +33,9 @@ export function ObjectLibrary(): React.JSX.Element {
         </Tooltip>
       </div>
 
-      <div className="object-list">
+      <EditorList>
         {objects.length === 0 ? (
-          <p>No reusable objects yet.</p>
+          <p className="text-sm text-muted-foreground">No reusable objects yet.</p>
         ) : (
           objects.map((object) => (
             <ObjectRow
@@ -49,7 +49,7 @@ export function ObjectLibrary(): React.JSX.Element {
             />
           ))
         )}
-      </div>
+      </EditorList>
       <DragOverlay className="object-drag-overlay" disabled={hideDragOverlay} dropAnimation={null}>
         {(source) => {
           const objectId = getDraggedObjectId(source.data);
@@ -101,11 +101,10 @@ function ObjectRow({
   });
 
   return (
-    <div
+    <EditorListItem
+      active={active}
       ref={draggableRef}
-      className={`object-item${active ? " is-active" : ""}${isDragging ? " is-dragging" : ""}${
-        draggable ? "" : " is-drag-disabled"
-      }`}
+      className={`grid-cols-[auto_minmax(0,1fr)] ${draggable ? "cursor-grab" : "cursor-default"} ${isDragging ? "cursor-grabbing opacity-60" : ""}`}
       onClick={() => onSelect(object.id)}
     >
       <div className="object-thumb-frame">
@@ -126,7 +125,7 @@ function ObjectRow({
         onChange={(event) => onRename(object.id, event.target.value.trim() || object.name)}
         onClick={(event) => event.stopPropagation()}
       />
-    </div>
+    </EditorListItem>
   );
 }
 

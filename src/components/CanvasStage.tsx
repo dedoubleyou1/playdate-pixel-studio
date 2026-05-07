@@ -228,8 +228,8 @@ export function CanvasStage(): React.JSX.Element {
       </div>
       <div className="stage-meta">
         <div className="stage-status">
-          <strong>{activeLayerName}</strong>
-          <span>{status}</span>
+          <strong className="text-sm">{activeLayerName}</strong>
+          <span className="text-xs text-muted-foreground">{status}</span>
         </div>
         <div className="stage-view-controls" aria-label="Canvas view controls">
           <Label>Zoom</Label>
@@ -240,21 +240,23 @@ export function CanvasStage(): React.JSX.Element {
             value={[zoom]}
             onValueChange={([value]) => setZoom(clampZoom(value ?? MIN_ZOOM))}
           />
-          <strong>{zoom}x</strong>
+          <strong className="text-right text-xs">{zoom}x</strong>
           <div className="stage-grid-control">
             <Switch checked={gridVisible} onCheckedChange={setGridVisible} />
             <Label>Grid</Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="grid-settings-button" aria-label="Grid settings">
+                <Button variant="outline" size="sm" className="min-w-[66px]" aria-label="Grid settings">
                   <Settings2 />
                   {gridSize}px
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="grid-settings-popover">
                 <div className="grid-settings-header">
-                  <strong>Grid Size</strong>
-                  <span>{zoom <= 1 ? "Hidden at 1x zoom" : "Visible above 1x zoom"}</span>
+                  <strong className="text-sm">Grid Size</strong>
+                  <span className="text-xs text-muted-foreground">
+                    {zoom <= 1 ? "Hidden at 1x zoom" : "Visible above 1x zoom"}
+                  </span>
                 </div>
                 <div className="grid-size-slider">
                   <Slider
@@ -264,9 +266,9 @@ export function CanvasStage(): React.JSX.Element {
                     value={[GRID_SIZE_STEPS.indexOf(gridSize as (typeof GRID_SIZE_STEPS)[number])]}
                     onValueChange={([value]) => setGridSize(GRID_SIZE_STEPS[value ?? 0])}
                   />
-                  <div className="grid-size-readout">
+                  <div className="grid-size-readout text-xs text-muted-foreground">
                     <span>1px</span>
-                    <strong>{gridSize}px</strong>
+                    <strong className="text-sm text-foreground">{gridSize}px</strong>
                     <span>64px</span>
                   </div>
                 </div>
@@ -275,7 +277,7 @@ export function CanvasStage(): React.JSX.Element {
           </div>
         </div>
         <div className="pixel-readout">
-          <span>{cursorLabel}</span>
+          <span className="text-xs text-muted-foreground">{cursorLabel}</span>
         </div>
       </div>
     </section>

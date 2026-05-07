@@ -23,7 +23,7 @@ export function ObjectContextBar(): React.JSX.Element {
       {object ? (
         <div className="object-context-title">
           <Box size={16} aria-hidden />
-          <strong>{object.name}</strong>
+          <strong className="truncate text-xs text-foreground">{object.name}</strong>
           <ObjectDimensions
             key={`${object.id}-${object.width}-${object.height}`}
             object={object}
@@ -54,7 +54,9 @@ function ObjectDimensions({
 
   return (
     <div className="object-dimensions" aria-label="Object dimensions">
-      <Label htmlFor="object-width">W</Label>
+      <Label className="text-xs text-muted-foreground" htmlFor="object-width">
+        W
+      </Label>
       <Input
         id="object-width"
         inputMode="numeric"
@@ -68,7 +70,9 @@ function ObjectDimensions({
           if (event.key === "Enter") event.currentTarget.blur();
         }}
       />
-      <Label htmlFor="object-height">H</Label>
+      <Label className="text-xs text-muted-foreground" htmlFor="object-height">
+        H
+      </Label>
       <Input
         id="object-height"
         inputMode="numeric"

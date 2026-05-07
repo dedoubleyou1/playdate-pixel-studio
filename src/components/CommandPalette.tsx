@@ -86,7 +86,7 @@ function CommandButton({
   onClick: () => void;
 }): React.JSX.Element {
   return (
-    <Button variant="outline" className="command-button" disabled={disabled} onClick={onClick}>
+    <Button variant="outline" className="w-full justify-start" disabled={disabled} onClick={onClick}>
       <Icon />
       {label}
     </Button>

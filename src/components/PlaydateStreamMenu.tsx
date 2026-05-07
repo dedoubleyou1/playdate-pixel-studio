@@ -142,8 +142,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       <PopoverContent className="playdate-stream-menu" align="end">
         <div className="stream-menu-header">
           <div>
-            <h2>Playdate Stream</h2>
-            <p>{statusText}</p>
+            <h2 className="text-sm font-medium">Playdate Stream</h2>
+            <p className="mt-1 text-xs text-muted-foreground">{statusText}</p>
           </div>
           <div className={`bridge-status is-${bridgeState}`}>
             <Wifi size={15} aria-hidden />
@@ -161,16 +161,16 @@ export function PlaydateStreamMenu(): React.JSX.Element {
 
         <div className="stream-device-list" aria-label="Connected Playdate devices">
           {devices.length === 0 ? (
-            <p>No authenticated devices yet.</p>
+            <p className="text-sm text-muted-foreground">No authenticated devices yet.</p>
           ) : (
             devices.map((device) => (
-              <div className="stream-device-row" key={device.id}>
+              <div className="stream-device-row text-xs" key={device.id}>
                 <div>
-                  <strong>{device.id}</strong>
-                  <span>{device.address}</span>
+                  <strong className="truncate">{device.id}</strong>
+                  <span className="truncate text-muted-foreground">{device.address}</span>
                 </div>
-                <span>rev {device.lastRevisionSent ?? "--"}</span>
-                <span>{device.packetsSent} packets</span>
+                <span className="truncate text-muted-foreground">rev {device.lastRevisionSent ?? "--"}</span>
+                <span className="truncate text-muted-foreground">{device.packetsSent} packets</span>
               </div>
             ))
           )}
@@ -187,7 +187,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           </Button>
         </div>
 
-        <div className="stream-menu-footnote">Closing this menu does not stop an active stream.</div>
+        <div className="text-xs text-muted-foreground">Closing this menu does not stop an active stream.</div>
       </PopoverContent>
     </Popover>
   );
@@ -196,8 +196,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
 function Readout({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <div className="stream-readout">
-      <span>{label}</span>
-      <strong>{value}</strong>
+      <span className="text-xs font-medium uppercase text-muted-foreground">{label}</span>
+      <strong className="truncate text-sm text-foreground">{value}</strong>
     </div>
   );
 }

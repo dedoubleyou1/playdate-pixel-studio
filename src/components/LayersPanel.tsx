@@ -10,7 +10,15 @@ import { activeStack } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
-import { EditorPanel, EditorPane, EditorPaneHeader } from "./layout/editor-layout";
+import {
+  EditorControlRow,
+  EditorList,
+  EditorListItem,
+  EditorPanel,
+  EditorPane,
+  EditorPaneHeader,
+  EditorPaneTitle,
+} from "./layout/editor-layout";
 import { useEditorStore } from "../state/editorStore";
 
 export function LayersPanel(): React.JSX.Element {
@@ -33,8 +41,8 @@ export function LayersPanel(): React.JSX.Element {
   return (
     <EditorPanel side="right" aria-label="Layers">
       <EditorPaneHeader>
-        <h2>Layers</h2>
-        <div className="mini-actions">
+        <EditorPaneTitle>Layers</EditorPaneTitle>
+        <div className="flex items-center gap-2">
           <IconAction label="Add layer" onClick={addLayer}>
             <Plus />
           </IconAction>
@@ -46,7 +54,7 @@ export function LayersPanel(): React.JSX.Element {
           </IconAction>
         </div>
       </EditorPaneHeader>
-      <div className="layer-list">
+      <EditorList className="border-b border-border p-4">
         {layers
           .map((layer, index) => ({ layer, index }))
           .reverse()
@@ -61,9 +69,9 @@ export function LayersPanel(): React.JSX.Element {
             />
           ))}
         <BackgroundRow background={stack.background} onChange={setStackBackground} />
-      </div>
+      </EditorList>
       <EditorPane>
-        <div className="control-row">
+        <EditorControlRow>
           <Label>Opacity</Label>
           <Slider
             min={15}
@@ -73,9 +81,9 @@ export function LayersPanel(): React.JSX.Element {
             onValueChange={([value]) => setLayerOpacity(value ?? activeLayer?.opacity ?? 100)}
             onValueCommit={commitLayerOpacity}
           />
-          <strong>{activeLayer?.opacity ?? 100}%</strong>
-        </div>
-        <div className="layer-actions">
+          <strong className="text-right text-foreground">{activeLayer?.opacity ?? 100}%</strong>
+        </EditorControlRow>
+        <div className="mt-3 flex items-center gap-2">
           <Button variant="outline" disabled={activeLayerIndex >= layers.length - 1} onClick={() => moveLayer(1)}>
             Move Up
           </Button>
@@ -83,7 +91,7 @@ export function LayersPanel(): React.JSX.Element {
             Move Down
           </Button>
         </div>
-        <div className="layer-actions">
+        <div className="mt-2 flex items-center gap-2">
           <Button variant="outline" disabled={activeLayer?.type === "object"} onClick={clearActiveLayer}>
             <Trash2 />
             Clear
@@ -114,8 +122,8 @@ function BackgroundRow({
   const selectedOption = BACKGROUND_VALUES.find((option) => option.value === background) ?? BACKGROUND_VALUES[0];
 
   return (
-    <div className="layer-item background-item" aria-label="Background">
-      <strong>Background</strong>
+    <EditorListItem className="grid-cols-[minmax(0,1fr)_auto] cursor-default" aria-label="Background">
+      <strong className="min-w-0 text-sm">Background</strong>
       <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
         <SelectTrigger aria-label="Background color">
           <span className="background-select-value">
@@ -132,7 +140,7 @@ function BackgroundRow({
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </EditorListItem>
   );
 }
 
@@ -170,9 +178,13 @@ function LayerRow({
   }, [layer, objects, revision]);
 
   return (
-    <div className={`layer-item${active ? " is-active" : ""}`} onClick={() => setActiveLayer(index)}>
+    <EditorListItem
+      active={active}
+      className="grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
+      onClick={() => setActiveLayer(index)}
+    >
       <canvas ref={thumbnailRef} className="layer-thumb" width={64} height={40} />
-      {layer.type === "object" ? <Box className="layer-object-icon" aria-label="Object layer" /> : null}
+      {layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       <Input
         className="min-w-0"
         aria-label="Layer name"
@@ -198,7 +210,7 @@ function LayerRow({
       >
         {layer.locked ? <Lock /> : <Unlock />}
       </IconAction>
-    </div>
+    </EditorListItem>
   );
 }
 

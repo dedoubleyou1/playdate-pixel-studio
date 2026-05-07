@@ -100,7 +100,7 @@ export function Topbar(): React.JSX.Element {
       </EditorHeaderLeft>
       <EditorHeaderCenter>
         <Input
-          className="project-name-input"
+          className="w-full max-w-[280px] text-center"
           aria-label="Project name"
           value={projectName}
           onChange={(event) => renameProject(event.target.value)}
