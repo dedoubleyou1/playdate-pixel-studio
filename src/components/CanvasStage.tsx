@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Settings2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
@@ -14,6 +17,8 @@ export function CanvasStage(): React.JSX.Element {
   const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const setGridVisible = useEditorStore((state) => state.setGridVisible);
+  const gridSize = useEditorStore((state) => state.gridSize);
+  const setGridSize = useEditorStore((state) => state.setGridSize);
   const status = useEditorStore((state) => state.status);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
@@ -39,7 +44,7 @@ export function CanvasStage(): React.JSX.Element {
             onPointerCancel={handlers.onPointerCancel}
             onPointerLeave={handlers.onPointerLeave}
           />
-          <GridOverlay visible={gridVisible} zoom={zoom} />
+          <GridOverlay visible={gridVisible} zoom={zoom} gridSize={gridSize} />
         </div>
       </div>
       <div className="stage-meta">
@@ -54,6 +59,32 @@ export function CanvasStage(): React.JSX.Element {
           <div className="stage-grid-control">
             <Switch checked={gridVisible} onCheckedChange={setGridVisible} />
             <Label>Grid</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="grid-settings-button" aria-label="Grid settings">
+                  <Settings2 />
+                  {gridSize}px
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="grid-settings-popover">
+                <div className="grid-settings-header">
+                  <strong>Grid Size</strong>
+                  <span>{zoom <= 1 ? "Hidden at 1x zoom" : "Visible above 1x zoom"}</span>
+                </div>
+                <div className="grid-size-options">
+                  {[1, 2, 4, 8, 16].map((size) => (
+                    <Button
+                      key={size}
+                      variant={gridSize === size ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setGridSize(size)}
+                    >
+                      {size}px
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <div className="pixel-readout">

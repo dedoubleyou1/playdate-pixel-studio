@@ -31,6 +31,7 @@ interface EditorStoreState {
   mirrorX: boolean;
   mirrorY: boolean;
   gridVisible: boolean;
+  gridSize: number;
   zoom: number;
   status: string;
   cursorLabel: string;
@@ -53,6 +54,7 @@ interface EditorStoreState {
   setMirrorX: (enabled: boolean) => void;
   setMirrorY: (enabled: boolean) => void;
   setGridVisible: (visible: boolean) => void;
+  setGridSize: (size: number) => void;
   setZoom: (zoom: number) => void;
   setStatus: (status: string) => void;
   setCursorLabel: (label: string) => void;
@@ -98,6 +100,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   mirrorX: false,
   mirrorY: false,
   gridVisible: true,
+  gridSize: 1,
   zoom: 3,
   status: "Pencil ready",
   cursorLabel: "x: -- y: --",
@@ -121,6 +124,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),
   setGridVisible: (gridVisible) => set({ gridVisible }),
+  setGridSize: (gridSize) => set({ gridSize }),
   setZoom: (zoom) => set({ zoom }),
   setStatus: (status) => set({ status }),
   setCursorLabel: (cursorLabel) => set({ cursorLabel }),

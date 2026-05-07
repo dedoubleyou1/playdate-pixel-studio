@@ -3,7 +3,15 @@ import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 
 const GRID_COLOR = "rgba(40, 87, 184, 0.28)";
 
-export function GridOverlay({ visible, zoom }: { visible: boolean; zoom: number }): React.JSX.Element {
+export function GridOverlay({
+  visible,
+  zoom,
+  gridSize,
+}: {
+  visible: boolean;
+  zoom: number;
+  gridSize: number;
+}): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useLayoutEffect(() => {
@@ -23,17 +31,17 @@ export function GridOverlay({ visible, zoom }: { visible: boolean; zoom: number 
 
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, physicalWidth, physicalHeight);
-      if (!visible) return;
+      if (!visible || zoom <= 1) return;
 
       const cellWidth = physicalWidth / PLAYDATE_WIDTH;
       const cellHeight = physicalHeight / PLAYDATE_HEIGHT;
       context.fillStyle = GRID_COLOR;
 
-      for (let column = 1; column < PLAYDATE_WIDTH; column += 1) {
+      for (let column = gridSize; column < PLAYDATE_WIDTH; column += gridSize) {
         context.fillRect(Math.round(column * cellWidth), 0, 1, physicalHeight);
       }
 
-      for (let row = 1; row < PLAYDATE_HEIGHT; row += 1) {
+      for (let row = gridSize; row < PLAYDATE_HEIGHT; row += gridSize) {
         context.fillRect(0, Math.round(row * cellHeight), physicalWidth, 1);
       }
     };
@@ -46,7 +54,7 @@ export function GridOverlay({ visible, zoom }: { visible: boolean; zoom: number 
     return () => {
       observer.disconnect();
     };
-  }, [visible, zoom]);
+  }, [gridSize, visible, zoom]);
 
   return <canvas ref={canvasRef} className="grid-overlay-canvas" aria-hidden="true" />;
 }

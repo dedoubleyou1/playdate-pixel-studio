@@ -423,6 +423,35 @@ input[type="range"] {
   white-space: nowrap;
 }
 
+.grid-settings-button {
+  min-width: 66px;
+}
+
+.grid-settings-popover {
+  width: 220px;
+}
+
+.grid-settings-header {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.grid-settings-header strong {
+  font-size: 13px;
+}
+
+.grid-settings-header span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.grid-size-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
 .layer-list {
   display: grid;
   gap: 8px;
