@@ -136,7 +136,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       <PopoverTrigger asChild>
         <Button variant={enabled ? "secondary" : "default"}>
           <RadioTower />
-          {enabled ? "Streaming" : "Playdate Stream"}
+          {enabled ? "Streaming" : "Stream to Playdate"}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="playdate-stream-menu" align="end">
