@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack } from "../domain/layers";
@@ -108,23 +109,37 @@ function BackgroundRow({
   background: PixelValue;
   onChange: (background: PixelValue) => void;
 }): React.JSX.Element {
+  const selectedOption = BACKGROUND_VALUES.find((option) => option.value === background) ?? BACKGROUND_VALUES[0];
+
   return (
     <div className="layer-item background-item" aria-label="Background">
       <strong>Background</strong>
-      <select
-        className="background-select"
-        aria-label="Background color"
-        value={background}
-        onChange={(event) => onChange(Number(event.target.value) as PixelValue)}
-      >
-        {BACKGROUND_VALUES.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label.replace(" background", "")}
-          </option>
-        ))}
-      </select>
+      <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
+        <SelectTrigger className="background-select-trigger" aria-label="Background color">
+          <span className="background-select-value">
+            <BackgroundColorSwatch value={selectedOption.value} />
+            <span>{getBackgroundShortLabel(selectedOption.label)}</span>
+          </span>
+        </SelectTrigger>
+        <SelectContent align="end" className="background-select-content">
+          {BACKGROUND_VALUES.map((option) => (
+            <SelectItem key={option.value} value={String(option.value)} className="background-select-item">
+              <BackgroundColorSwatch value={option.value} />
+              <span>{getBackgroundShortLabel(option.label)}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
+}
+
+function getBackgroundShortLabel(label: string): string {
+  return label.replace(" background", "");
+}
+
+function BackgroundColorSwatch({ value }: { value: PixelValue }): React.JSX.Element {
+  return <span className={`background-color-swatch background-color-swatch-${value}`} aria-hidden="true" />;
 }
 
 function LayerRow({

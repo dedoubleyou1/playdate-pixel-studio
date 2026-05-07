@@ -2,6 +2,7 @@ import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } fr
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { useEditorStore } from "../state/editorStore";
@@ -47,22 +48,18 @@ export function Topbar(): React.JSX.Element {
           <Save />
           {hasUnsavedChanges ? "Save*" : "Save"}
         </Button>
-        <select
-          className="recent-project-select"
-          aria-label="Open recent project"
-          defaultValue=""
-          onChange={(event) => {
-            if (event.target.value) void loadProject(event.target.value);
-            event.currentTarget.value = "";
-          }}
-        >
-          <option value="">Open recent</option>
-          {recentProjects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
+        <Select value="" onValueChange={(projectId) => void loadProject(projectId)}>
+          <SelectTrigger className="recent-project-select-trigger" aria-label="Open recent project">
+            <SelectValue placeholder="Open recent" />
+          </SelectTrigger>
+          <SelectContent align="end">
+            {recentProjects.map((project) => (
+              <SelectItem key={project.id} value={project.id}>
+                {project.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <TopbarIconButton label="Import project" onClick={() => importInputRef.current?.click()}>
           <Upload />
         </TopbarIconButton>

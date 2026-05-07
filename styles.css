@@ -172,14 +172,9 @@ h1 {
   font-weight: 750;
 }
 
-.recent-project-select {
+.recent-project-select-trigger {
   min-height: 36px;
-  max-width: 150px;
-  border: 1px solid var(--input);
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--ink);
-  padding: 0 10px;
+  width: 150px;
   font-size: 13px;
   font-weight: 650;
 }
@@ -734,16 +729,50 @@ input[type="range"] {
   font-size: 13px;
 }
 
-.background-select {
-  min-height: 32px;
-  min-width: 116px;
-  border: 1px solid var(--input);
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--ink);
+.background-select-trigger {
+  min-width: 132px;
+  height: 32px;
   padding: 0 8px;
   font-size: 12px;
   font-weight: 650;
+}
+
+.background-select-content {
+  width: 164px;
+}
+
+.background-select-value {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.background-select-item {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.background-color-swatch {
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--ink);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 55%);
+}
+
+.background-color-swatch-0 {
+  background: #b8b8b8;
+}
+
+.background-color-swatch-1 {
+  background: #171719;
+}
+
+.background-color-swatch-2 {
+  background: #fffdf8;
 }
 
 .layer-thumb {
