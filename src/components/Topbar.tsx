@@ -1,9 +1,16 @@
 import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } from "lucide-react";
 import { useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { useEditorStore } from "../state/editorStore";
 
@@ -41,13 +48,6 @@ export function Topbar(): React.JSX.Element {
           value={projectName}
           onChange={(event) => renameProject(event.target.value)}
         />
-        <TopbarIconButton label="New project" onClick={newProject}>
-          <FilePlus2 />
-        </TopbarIconButton>
-        <Button variant={hasUnsavedChanges ? "secondary" : "outline"} onClick={() => void saveProject()}>
-          <Save />
-          {hasUnsavedChanges ? "Save*" : "Save"}
-        </Button>
         <Select value="" onValueChange={(projectId) => void loadProject(projectId)}>
           <SelectTrigger className="recent-project-select-trigger" aria-label="Open recent project">
             <SelectValue placeholder="Open recent" />
@@ -60,9 +60,6 @@ export function Topbar(): React.JSX.Element {
             ))}
           </SelectContent>
         </Select>
-        <TopbarIconButton label="Import project" onClick={() => importInputRef.current?.click()}>
-          <Upload />
-        </TopbarIconButton>
         <input
           ref={importInputRef}
           hidden
@@ -76,41 +73,57 @@ export function Topbar(): React.JSX.Element {
         />
       </div>
       <div className="top-actions">
-        <TopbarIconButton label="Undo" disabled={!canUndo} onClick={undo}>
-          <Undo2 />
-        </TopbarIconButton>
-        <TopbarIconButton label="Redo" disabled={!canRedo} onClick={redo}>
-          <Redo2 />
-        </TopbarIconButton>
-        <Button variant="outline" onClick={exportPng}>
-          <Download />
-          Export PNG
-        </Button>
-        <TopbarIconButton label="Export project JSON" onClick={exportProjectFile}>
-          <FileDown />
-        </TopbarIconButton>
-        <TopbarIconButton label="Export project bundle" onClick={() => void exportBundle()}>
-          <Archive />
-        </TopbarIconButton>
+        <Menubar>
+          <MenubarMenu>
+            <MenubarTrigger>File</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem onSelect={newProject}>
+                <FilePlus2 />
+                New Project
+                <MenubarShortcut>⇧⌘N</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem onSelect={() => void saveProject()}>
+                <Save />
+                {hasUnsavedChanges ? "Save Project*" : "Save Project"}
+                <MenubarShortcut>⌘S</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem onSelect={() => importInputRef.current?.click()}>
+                <Upload />
+                Import Project
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem onSelect={exportPng}>
+                <Download />
+                Export PNG
+              </MenubarItem>
+              <MenubarItem onSelect={exportProjectFile}>
+                <FileDown />
+                Export Project JSON
+              </MenubarItem>
+              <MenubarItem onSelect={() => void exportBundle()}>
+                <Archive />
+                Export Project Bundle
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+          <MenubarMenu>
+            <MenubarTrigger>Edit</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem disabled={!canUndo} onSelect={undo}>
+                <Undo2 />
+                Undo
+                <MenubarShortcut>⌘Z</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem disabled={!canRedo} onSelect={redo}>
+                <Redo2 />
+                Redo
+                <MenubarShortcut>⇧⌘Z</MenubarShortcut>
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
         <PlaydateStreamMenu />
       </div>
     </header>
-  );
-}
-
-function TopbarIconButton({
-  label,
-  children,
-  ...props
-}: React.ComponentProps<typeof Button> & { label: string }): React.JSX.Element {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button variant="outline" size="icon" aria-label={label} {...props}>
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
   );
 }
