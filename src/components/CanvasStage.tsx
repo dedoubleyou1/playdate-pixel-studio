@@ -41,9 +41,11 @@ export function CanvasStage(): React.JSX.Element {
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const objectDropsEnabled = activeContext.type === "root";
   const { isDropTarget, ref: droppableRef } = useDroppable({
     id: CANVAS_DROP_ID,
     data: { kind: "canvas" },
+    disabled: !objectDropsEnabled,
   });
 
   useEffect(() => {
@@ -65,6 +67,7 @@ export function CanvasStage(): React.JSX.Element {
       nativeEvent?: Event;
       operation: { source?: { data?: unknown } | null; target?: { id?: unknown } | null };
     }) => {
+      if (!objectDropsEnabled) return null;
       if (event.operation.target?.id !== CANVAS_DROP_ID) return null;
 
       const objectId = getDraggedObjectId(event.operation.source?.data);
@@ -79,7 +82,7 @@ export function CanvasStage(): React.JSX.Element {
         y: center.y - Math.floor(object.height / 2),
       };
     },
-    [canvas, objects, stack.height, stack.width],
+    [canvas, objectDropsEnabled, objects, stack.height, stack.width],
   );
 
   const previewObject = objectDropPreview

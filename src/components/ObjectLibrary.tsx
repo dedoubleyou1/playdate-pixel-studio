@@ -38,6 +38,7 @@ export function ObjectLibrary(): React.JSX.Element {
           objects.map((object) => (
             <ObjectRow
               active={activeContext.type === "object" && activeContext.objectId === object.id}
+              draggable={activeContext.type === "root"}
               key={object.id}
               object={object}
               onRename={renameObject}
@@ -73,12 +74,14 @@ export function ObjectLibrary(): React.JSX.Element {
 
 function ObjectRow({
   active,
+  draggable,
   object,
   onRename,
   onSelect,
   revision,
 }: {
   active: boolean;
+  draggable: boolean;
   object: ObjectDefinition;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
@@ -92,12 +95,15 @@ function ObjectRow({
       kind: "object",
       objectId: object.id,
     },
+    disabled: !draggable,
   });
 
   return (
     <div
       ref={draggableRef}
-      className={`object-item${active ? " is-active" : ""}${isDragging ? " is-dragging" : ""}`}
+      className={`object-item${active ? " is-active" : ""}${isDragging ? " is-dragging" : ""}${
+        draggable ? "" : " is-drag-disabled"
+      }`}
       onClick={() => onSelect(object.id)}
     >
       <div className="object-thumb-frame">
