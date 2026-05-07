@@ -60,6 +60,14 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
   return changed;
 }
 
+export function drawInterpolatedStroke(layer: PixelLayer, start: Point, end: Point, options: BrushOptions): boolean {
+  let changed = false;
+  walkLine(start, end, (point) => {
+    changed = drawBrushAt(layer, point, options) || changed;
+  });
+  return changed;
+}
+
 export function walkLine(start: Point, end: Point, callback: (point: Point) => void): void {
   let x = start.x;
   let y = start.y;
@@ -85,11 +93,7 @@ export function walkLine(start: Point, end: Point, callback: (point: Point) => v
 }
 
 export function drawLine(layer: PixelLayer, start: Point, end: Point, options: BrushOptions): boolean {
-  let changed = false;
-  walkLine(start, end, (point) => {
-    changed = drawBrushAt(layer, point, options) || changed;
-  });
-  return changed;
+  return drawInterpolatedStroke(layer, start, end, options);
 }
 
 export function drawRect(layer: PixelLayer, start: Point, end: Point, options: BrushOptions): boolean {

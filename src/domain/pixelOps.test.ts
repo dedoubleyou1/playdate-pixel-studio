@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "./constants";
 import { createLayer } from "./layers";
-import { drawBrushAt, drawLine, drawRect, floodFill, indexFor, mirroredPoints } from "./pixelOps";
+import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill, indexFor, mirroredPoints } from "./pixelOps";
 
 describe("pixel operations", () => {
   it("maps coordinates into the Playdate screen buffer", () => {
@@ -48,6 +48,19 @@ describe("pixel operations", () => {
     expect(layer.data[indexFor(8, 8)]).toBe(1);
     expect(layer.data[indexFor(9, 9)]).toBe(0);
     expect(layer.data[indexFor(10, 10)]).toBe(1);
+  });
+
+  it("interpolates brush strokes between sampled pointer positions", () => {
+    const layer = createLayer(1, "Layer 1");
+    const options = { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" as const };
+
+    expect(drawInterpolatedStroke(layer, { x: 2, y: 4 }, { x: 6, y: 4 }, options)).toBe(true);
+
+    expect(layer.data[indexFor(2, 4)]).toBe(1);
+    expect(layer.data[indexFor(3, 4)]).toBe(1);
+    expect(layer.data[indexFor(4, 4)]).toBe(1);
+    expect(layer.data[indexFor(5, 4)]).toBe(1);
+    expect(layer.data[indexFor(6, 4)]).toBe(1);
   });
 
   it("flood fills enclosed regions", () => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { activeLayer } from "../domain/layers";
-import { drawBrushAt, drawLine, drawRect, floodFill } from "../domain/pixelOps";
+import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "../domain/pixelOps";
 import type { Point, ShapePreview, Tool } from "../domain/types";
 import { EditorCanvas } from "../rendering/editorCanvas";
 import { useEditorStore } from "../state/editorStore";
@@ -16,6 +16,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const renderFrameRef = useRef<number | null>(null);
   const isDrawingRef = useRef(false);
   const dragStartRef = useRef<Point | null>(null);
+  const lastStrokePointRef = useRef<Point | null>(null);
   const actionChangedRef = useRef(false);
 
   const layers = useEditorStore((state) => state.layers);
@@ -81,12 +82,15 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       isDrawingRef.current = true;
       dragStartRef.current = point;
+      lastStrokePointRef.current = point;
       actionChangedRef.current = false;
 
       if (state.activeTool === "pencil" || state.activeTool === "eraser" || state.activeTool === "dither") {
         state.beginCommand(state.activeTool === "eraser" ? "Erase stroke" : "Draw stroke");
         actionChangedRef.current = drawBrushAt(layer, point, brushOptions(state.activeTool));
-        state.markDocumentChanged();
+        if (actionChangedRef.current) {
+          state.markDocumentChanged();
+        }
       }
 
       if (state.activeTool === "fill") {
@@ -118,9 +122,14 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       const layer = activeLayer(state);
       if (state.activeTool === "pencil" || state.activeTool === "eraser" || state.activeTool === "dither") {
+        const lastPoint = lastStrokePointRef.current ?? point;
+        const strokeChanged = drawInterpolatedStroke(layer, lastPoint, point, brushOptions(state.activeTool));
+        lastStrokePointRef.current = point;
         actionChangedRef.current =
-          drawBrushAt(layer, point, brushOptions(state.activeTool)) || actionChangedRef.current;
-        state.markDocumentChanged();
+          strokeChanged || actionChangedRef.current;
+        if (strokeChanged) {
+          state.markDocumentChanged();
+        }
       }
 
       if (state.shapePreview) {
@@ -149,6 +158,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       isDrawingRef.current = false;
       dragStartRef.current = null;
+      lastStrokePointRef.current = null;
       state.setShapePreview(null);
 
       if (actionChangedRef.current) {
