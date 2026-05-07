@@ -13,7 +13,7 @@ import {
   createObjectDefinition,
   createObjectInstanceLayer,
   createRootStack,
-  isDrawableLayer,
+  isPixelEditableLayer,
   resizeSurface,
 } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
@@ -103,7 +103,6 @@ interface EditorStoreState extends EditorSnapshot {
   setActiveLayer: (index: number) => void;
   renameLayer: (index: number, name: string) => void;
   setLayerVisible: (index: number, visible: boolean) => void;
-  setLayerLocked: (index: number, locked: boolean) => void;
   setLayerOpacity: (opacity: number) => void;
   setStackBackground: (background: PixelValue) => void;
   commitLayerOpacity: () => void;
@@ -155,9 +154,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   setTool: (tool) =>
     set((state) =>
-      isDrawableLayer(activeLayer(state))
+      isPixelEditableLayer(activeLayer(state))
         ? { activeTool: tool, status: `${TOOL_LABELS[tool]} ready` }
-        : { status: "Active layer is not editable" },
+        : { status: "Active layer does not support pixel drawing" },
     ),
   setPaintValue: (activePaintValue) =>
     set({ activePaintValue, status: `Paint ${PIXEL_VALUE_LABELS[activePaintValue]} selected` }),
@@ -476,22 +475,6 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     pushCurrentCommand(set, visible ? "Show layer" : "Hide layer", before);
   },
 
-  setLayerLocked: (index, locked) => {
-    const before = currentSnapshot();
-    set((state) => {
-      const stack = activeStack(state);
-      return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, locked } : layer)),
-        }),
-        revision: state.revision + 1,
-        hasUnsavedChanges: true,
-      };
-    });
-    pushCurrentCommand(set, locked ? "Lock layer" : "Unlock layer", before);
-  },
-
   setLayerOpacity: (opacity) => {
     const state = get();
     if (!state.pendingCommand) get().beginCommand("Set layer opacity");
@@ -532,8 +515,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => {
       const stack = activeStack(state);
       const layer = stack.layers[stack.activeLayerIndex];
-      if (layer?.type !== "pixel") {
-        return { status: "Object instances are linked; edit the source object." };
+      if (!isPixelEditableLayer(layer)) {
+        return { status: "Active layer does not support pixel drawing" };
       }
       return {
         ...replaceActiveStack(state, {
@@ -560,8 +543,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => {
       const stack = activeStack(state);
       const layer = stack.layers[stack.activeLayerIndex];
-      if (layer?.type !== "pixel") {
-        return { status: "Object instances are linked; edit the source object." };
+      if (!isPixelEditableLayer(layer)) {
+        return { status: "Active layer does not support pixel drawing" };
       }
       const data = new Uint8Array(layer.surface.data.length);
       for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {

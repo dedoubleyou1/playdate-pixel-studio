@@ -76,11 +76,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const state = useEditorStore.getState();
       const layer = currentActivePixelLayer();
       if (!layer) {
-        state.setStatus("Object instances are linked; edit the source object.");
-        return;
-      }
-      if (layer.locked) {
-        state.setStatus("Active layer is locked");
+        state.setStatus("Active layer does not support pixel drawing.");
         return;
       }
 

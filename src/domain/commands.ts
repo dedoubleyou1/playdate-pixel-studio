@@ -60,7 +60,7 @@ function layersEqual(left: Layer, right: Layer): boolean {
     left.id !== right.id ||
     left.name !== right.name ||
     left.visible !== right.visible ||
-    left.locked !== right.locked ||
+    left.pixelEditable !== right.pixelEditable ||
     left.opacity !== right.opacity
   ) {
     return false;

@@ -41,7 +41,7 @@ export function createLayer(id: number, name: string, width = PLAYDATE_WIDTH, he
     id,
     name,
     visible: true,
-    locked: false,
+    pixelEditable: true,
     opacity: 100,
     surface: createSurface(width, height),
   };
@@ -53,7 +53,7 @@ export function createObjectInstanceLayer(id: number, name: string, objectId: st
     id,
     name,
     visible: true,
-    locked: false,
+    pixelEditable: false,
     opacity: 100,
     objectId,
     x: 0,
@@ -145,11 +145,11 @@ export function activePixelLayer(
   snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">,
 ): PixelLayer | null {
   const layer = activeLayer(snapshot);
-  return layer?.type === "pixel" ? layer : null;
+  return isPixelEditableLayer(layer) ? layer : null;
 }
 
-export function isDrawableLayer(layer: Layer | null | undefined): layer is PixelLayer {
-  return layer?.type === "pixel" && !layer.locked;
+export function isPixelEditableLayer(layer: Layer | null | undefined): layer is PixelLayer {
+  return layer?.type === "pixel" && layer.pixelEditable;
 }
 
 export function cloneEditContext(context: EditContext): EditContext {

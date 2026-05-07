@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
-import { Box, Copy, Eye, EyeOff, Lock, Minus, Plus, RotateCcwSquare, Trash2, Unlock } from "lucide-react";
+import { Box, Copy, Eye, EyeOff, Minus, Plus, RotateCcwSquare, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { activeStack } from "../domain/layers";
+import { activeStack, isPixelEditableLayer } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
@@ -38,6 +38,7 @@ export function LayersPanel(): React.JSX.Element {
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
   const setStackBackground = useEditorStore((state) => state.setStackBackground);
+  const activeLayerPixelEditable = isPixelEditableLayer(activeLayer);
 
   return (
     <EditorPanel side="right" aria-label="Layers">
@@ -93,11 +94,11 @@ export function LayersPanel(): React.JSX.Element {
           </Button>
         </div>
         <div className="mt-2 flex items-center gap-2">
-          <Button variant="outline" disabled={activeLayer?.type === "object"} onClick={clearActiveLayer}>
+          <Button variant="outline" disabled={!activeLayerPixelEditable} onClick={clearActiveLayer}>
             <Trash2 />
             Clear
           </Button>
-          <Button variant="outline" disabled={activeLayer?.type === "object"} onClick={invertActiveLayer}>
+          <Button variant="outline" disabled={!activeLayerPixelEditable} onClick={invertActiveLayer}>
             <RotateCcwSquare />
             Invert
           </Button>
@@ -163,7 +164,6 @@ function LayerRow({
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const renameLayer = useEditorStore((state) => state.renameLayer);
   const setLayerVisible = useEditorStore((state) => state.setLayerVisible);
-  const setLayerLocked = useEditorStore((state) => state.setLayerLocked);
 
   useEffect(() => {
     if (thumbnailRef.current) {
@@ -174,7 +174,11 @@ function LayerRow({
   return (
     <EditorListItem
       active={active}
-      className="grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
+      className={
+        layer.type === "object"
+          ? "grid-cols-[auto_auto_minmax(0,1fr)_auto]"
+          : "grid-cols-[auto_minmax(0,1fr)_auto]"
+      }
       onClick={() => setActiveLayer(index)}
     >
       <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />
@@ -194,15 +198,6 @@ function LayerRow({
         }}
       >
         {layer.visible ? <Eye /> : <EyeOff />}
-      </IconAction>
-      <IconAction
-        label={layer.locked ? "Unlock layer" : "Lock layer"}
-        onClick={(event) => {
-          event.stopPropagation();
-          setLayerLocked(index, !layer.locked);
-        }}
-      >
-        {layer.locked ? <Lock /> : <Unlock />}
       </IconAction>
     </EditorListItem>
   );

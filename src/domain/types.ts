@@ -19,7 +19,7 @@ export interface BaseLayer {
   id: number;
   name: string;
   visible: boolean;
-  locked: boolean;
+  pixelEditable: boolean;
   opacity: number;
 }
 

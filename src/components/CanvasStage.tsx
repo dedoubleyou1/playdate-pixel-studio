@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { CANVAS_DROP_ID } from "../dragDropIds";
-import { activeLayer, activeStack, isDrawableLayer } from "../domain/layers";
+import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
@@ -45,7 +45,7 @@ export function CanvasStage(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
   const activeLayerName = useEditorStore((state) => activeLayer(state).name);
-  const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
+  const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const canvasCursor = drawingEnabled ? toolCursor(activeTool) : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);

@@ -27,6 +27,8 @@ describe("project schema", () => {
     expect(document.schemaVersion).toBe(PROJECT_SCHEMA_VERSION);
     expect(document.width).toBe(PLAYDATE_WIDTH);
     expect(document.height).toBe(PLAYDATE_HEIGHT);
+    expect(document.snapshot.root.layers[0]).toMatchObject({ pixelEditable: true });
+    expect("locked" in document.snapshot.root.layers[0]).toBe(false);
     expect(restored.root.background).toBe(BLACK_PIXEL);
     expect(restored.objects[0]?.background).toBe(TRANSPARENT_PIXEL);
     expect(restoredLayer.type).toBe("pixel");

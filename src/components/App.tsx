@@ -8,7 +8,7 @@ import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
-import { activeLayer, isDrawableLayer } from "../domain/layers";
+import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -82,7 +82,7 @@ export function App(): React.JSX.Element {
         d: "dither",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
-      if (tool && isDrawableLayer(activeLayer(useEditorStore.getState()))) setTool(tool);
+      if (tool && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) setTool(tool);
     };
 
     window.addEventListener("keydown", onKeyDown);

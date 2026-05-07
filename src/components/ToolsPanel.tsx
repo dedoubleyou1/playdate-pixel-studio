@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { activeLayer, isDrawableLayer } from "../domain/layers";
+import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
@@ -38,7 +38,7 @@ export function ToolsPanel(): React.JSX.Element {
   const mirrorY = useEditorStore((state) => state.mirrorY);
   const setMirrorX = useEditorStore((state) => state.setMirrorX);
   const setMirrorY = useEditorStore((state) => state.setMirrorY);
-  const drawingEnabled = useEditorStore((state) => isDrawableLayer(activeLayer(state)));
+  const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
 
   return (
     <EditorPanel side="left" aria-label="Drawing tools">

@@ -13,7 +13,7 @@ import type {
   PixelValue,
 } from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 3;
+export const PROJECT_SCHEMA_VERSION = 4;
 
 export interface SerializedSurface {
   width: number;
@@ -25,7 +25,7 @@ export interface SerializedBaseLayer {
   id: number;
   name: string;
   visible: boolean;
-  locked: boolean;
+  pixelEditable?: boolean;
   opacity: number;
 }
 
@@ -59,7 +59,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 3;
+  schemaVersion: 4;
   id: string;
   name: string;
   width: number;
@@ -100,7 +100,7 @@ interface LegacyProjectDocument {
 }
 
 interface Version2ProjectDocument extends Omit<PlaydateProjectDocument, "schemaVersion"> {
-  schemaVersion: 2;
+  schemaVersion: 2 | 3;
 }
 
 export function serializeProject(snapshot: EditorSnapshot, id: string, name: string): PlaydateProjectDocument {
@@ -148,7 +148,10 @@ export function parseProjectJson(
   if (
     !parsed ||
     typeof parsed !== "object" ||
-    (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION && parsed.schemaVersion !== 2 && parsed.schemaVersion !== 1)
+    (parsed.schemaVersion !== PROJECT_SCHEMA_VERSION &&
+      parsed.schemaVersion !== 3 &&
+      parsed.schemaVersion !== 2 &&
+      parsed.schemaVersion !== 1)
   ) {
     throw new Error("The selected file is not a Playdate Pixel Studio project.");
   }
@@ -215,7 +218,7 @@ function serializePixelLayer(layer: PixelLayer): SerializedPixelLayer {
     id: layer.id,
     name: layer.name,
     visible: layer.visible,
-    locked: layer.locked,
+    pixelEditable: layer.pixelEditable,
     opacity: layer.opacity,
     surface: serializeSurface(layer.surface),
   };
@@ -227,7 +230,7 @@ function deserializePixelLayer(layer: SerializedPixelLayer): PixelLayer {
     id: layer.id,
     name: layer.name,
     visible: layer.visible,
-    locked: layer.locked,
+    pixelEditable: layer.pixelEditable ?? true,
     opacity: layer.opacity,
     surface: deserializeSurface(layer.surface),
   };
@@ -239,7 +242,7 @@ function serializeObjectInstanceLayer(layer: ObjectInstanceLayer): SerializedObj
     id: layer.id,
     name: layer.name,
     visible: layer.visible,
-    locked: layer.locked,
+    pixelEditable: layer.pixelEditable,
     opacity: layer.opacity,
     objectId: layer.objectId,
     x: layer.x,
@@ -248,7 +251,17 @@ function serializeObjectInstanceLayer(layer: ObjectInstanceLayer): SerializedObj
 }
 
 function deserializeObjectInstanceLayer(layer: SerializedObjectInstanceLayer): ObjectInstanceLayer {
-  return { ...layer };
+  return {
+    type: "object",
+    id: layer.id,
+    name: layer.name,
+    visible: layer.visible,
+    pixelEditable: layer.pixelEditable ?? false,
+    opacity: layer.opacity,
+    objectId: layer.objectId,
+    x: layer.x,
+    y: layer.y,
+  };
 }
 
 function serializeSurface(surface: PixelSurface): SerializedSurface {
@@ -274,7 +287,6 @@ function deserializeLegacyProject(document: LegacyProjectDocument): EditorSnapsh
   root.layers = document.snapshot.layers.map((layer) => {
     const nextLayer = createLayer(layer.id, layer.name, PLAYDATE_WIDTH, PLAYDATE_HEIGHT);
     nextLayer.visible = layer.visible;
-    nextLayer.locked = layer.locked;
     nextLayer.opacity = layer.opacity;
     nextLayer.surface = createSurface(PLAYDATE_WIDTH, PLAYDATE_HEIGHT, base64ToUint8(layer.data));
     return nextLayer;
