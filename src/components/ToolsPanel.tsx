@@ -25,10 +25,6 @@ export function ToolsPanel(): React.JSX.Element {
   const mirrorY = useEditorStore((state) => state.mirrorY);
   const setMirrorX = useEditorStore((state) => state.setMirrorX);
   const setMirrorY = useEditorStore((state) => state.setMirrorY);
-  const zoom = useEditorStore((state) => state.zoom);
-  const setZoom = useEditorStore((state) => state.setZoom);
-  const gridVisible = useEditorStore((state) => state.gridVisible);
-  const setGridVisible = useEditorStore((state) => state.setGridVisible);
 
   return (
     <aside className="tools-panel" aria-label="Drawing tools">
@@ -67,16 +63,6 @@ export function ToolsPanel(): React.JSX.Element {
         </div>
         <ControlSwitch label="Mirror X" checked={mirrorX} onCheckedChange={setMirrorX} />
         <ControlSwitch label="Mirror Y" checked={mirrorY} onCheckedChange={setMirrorY} />
-      </div>
-
-      <div className="panel-section">
-        <h2>View</h2>
-        <div className="control-row">
-          <Label>Zoom</Label>
-          <Slider min={1} max={6} step={1} value={[zoom]} onValueChange={([value]) => setZoom(value ?? 1)} />
-          <strong>{zoom}x</strong>
-        </div>
-        <ControlSwitch label="Grid" checked={gridVisible} onCheckedChange={setGridVisible} />
       </div>
     </aside>
   );

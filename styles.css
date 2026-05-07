@@ -332,7 +332,7 @@ input[type="range"] {
 
 .canvas-stage {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr auto;
   min-width: 0;
   min-height: 0;
   background:
@@ -342,12 +342,12 @@ input[type="range"] {
 }
 
 .stage-meta {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(260px, 520px) minmax(110px, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
   background: rgba(255, 250, 240, 0.86);
 }
 
@@ -384,29 +384,43 @@ input[type="range"] {
   box-shadow: var(--shadow);
 }
 
-.canvas-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  display: none;
-  pointer-events: none;
-  background-image:
-    linear-gradient(to right, rgba(40, 87, 184, 0.24) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(40, 87, 184, 0.24) 1px, transparent 1px);
-  background-size: calc(1px * var(--zoom)) calc(1px * var(--zoom));
-}
-
-.canvas-wrap.has-grid::after {
-  display: block;
-}
-
-#artCanvas {
+#artCanvas,
+.grid-overlay-canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+#artCanvas {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
+}
+
+.grid-overlay-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.stage-view-controls {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr) 36px auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.stage-view-controls strong {
+  font-size: 12px;
+  text-align: right;
+}
+
+.stage-grid-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .layer-list {
@@ -647,6 +661,19 @@ input[type="range"] {
 
   .canvas-stage {
     min-height: 520px;
+  }
+
+  .stage-meta {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .stage-view-controls {
+    grid-template-columns: auto minmax(120px, 1fr) 36px auto;
+  }
+
+  .pixel-readout {
+    text-align: left;
   }
 
   .topbar {
