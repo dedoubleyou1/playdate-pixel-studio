@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { activeLayer, activeStack } from "../domain/layers";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
-import { EditBreadcrumbs } from "./EditBreadcrumbs";
+import { ObjectContextBar } from "./EditBreadcrumbs";
 import { GridOverlay } from "./GridOverlay";
 import { useEditorStore } from "../state/editorStore";
 
@@ -51,7 +51,7 @@ export function CanvasStage(): React.JSX.Element {
     <section className="canvas-stage" aria-label="Pixel art canvas">
       {activeContext.type === "object" ? (
         <div className="canvas-context-bar">
-          <EditBreadcrumbs />
+          <ObjectContextBar />
         </div>
       ) : null}
       <div className="canvas-rail">

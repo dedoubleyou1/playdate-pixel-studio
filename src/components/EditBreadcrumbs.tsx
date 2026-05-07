@@ -1,8 +1,8 @@
-import { ChevronRight } from "lucide-react";
+import { Box } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEditorStore } from "../state/editorStore";
 
-export function EditBreadcrumbs(): React.JSX.Element {
+export function ObjectContextBar(): React.JSX.Element {
   const activeContext = useEditorStore((state) => state.activeContext);
   const objects = useEditorStore((state) => state.objects);
   const switchToRoot = useEditorStore((state) => state.switchToRoot);
@@ -10,17 +10,15 @@ export function EditBreadcrumbs(): React.JSX.Element {
     activeContext.type === "object" ? objects.find((candidate) => candidate.id === activeContext.objectId) : null;
 
   return (
-    <nav className="edit-breadcrumbs" aria-label="Editing context">
+    <nav className="object-context-bar" aria-label="Object editing context">
       <Button variant="outline" size="sm" onClick={switchToRoot}>
-        Root Canvas
+        Return to canvas
       </Button>
       {object ? (
-        <>
-          <ChevronRight size={14} aria-hidden />
-          <span>Objects</span>
-          <ChevronRight size={14} aria-hidden />
+        <div className="object-context-title">
+          <Box size={16} aria-hidden />
           <strong>{object.name}</strong>
-        </>
+        </div>
       ) : null}
     </nav>
   );

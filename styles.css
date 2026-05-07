@@ -484,22 +484,30 @@ input[type="range"] {
   min-width: 0;
 }
 
-.edit-breadcrumbs {
+.object-context-bar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
   min-width: 0;
 }
 
-.edit-breadcrumbs span,
-.edit-breadcrumbs strong {
+.object-context-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.object-context-title strong {
   overflow: hidden;
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.edit-breadcrumbs strong {
+.object-context-title strong {
   color: var(--ink);
 }
 
