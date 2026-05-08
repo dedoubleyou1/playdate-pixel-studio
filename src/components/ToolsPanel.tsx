@@ -12,13 +12,18 @@ import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./la
 import { PixelSwatch } from "./PixelSwatch";
 import { useEditorStore } from "../state/editorStore";
 
-const TOOLS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { tool: "pencil", label: "Pencil", icon: Pencil },
-  { tool: "eraser", label: "Eraser", icon: Eraser },
-  { tool: "line", label: "Line", icon: PenTool },
-  { tool: "rect", label: "Rectangle", icon: Square },
-  { tool: "fill", label: "Fill", icon: PaintBucket },
-  { tool: "dither", label: "Dither", icon: DitherIcon },
+const TOOLS: Array<{
+  tool: Tool;
+  label: string;
+  shortcut: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { tool: "pencil", label: "Pencil", shortcut: "P", icon: Pencil },
+  { tool: "eraser", label: "Eraser", shortcut: "E", icon: Eraser },
+  { tool: "line", label: "Line", shortcut: "L", icon: PenTool },
+  { tool: "rect", label: "Rectangle", shortcut: "R", icon: Square },
+  { tool: "fill", label: "Fill", shortcut: "F", icon: PaintBucket },
+  { tool: "dither", label: "Dither", shortcut: "D", icon: DitherIcon },
 ];
 
 const PAINT_VALUES: Array<{ label: string; value: PixelValue }> = [
@@ -62,7 +67,9 @@ export function ToolsPanel(): React.JSX.Element {
                     <Icon />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>{tool.label}</TooltipContent>
+                <TooltipContent>
+                  {tool.label} ({tool.shortcut})
+                </TooltipContent>
               </Tooltip>
             );
           })}
