@@ -3,6 +3,7 @@ import {
   Download,
   FileDown,
   FilePlus2,
+  Move,
   PaintBucket,
   Pencil,
   Pen,
@@ -20,6 +21,7 @@ import type { Tool } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 
 const TOOL_COMMANDS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+  { tool: "move", label: "Move", icon: Move },
   { tool: "pencil", label: "Pencil", icon: Pencil },
   { tool: "fill", label: "Fill", icon: PaintBucket },
   { tool: "rect", label: "Rectangle", icon: Square },
@@ -42,6 +44,7 @@ export function CommandPalette({
   const exportBundle = useEditorStore((state) => state.exportBundle);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
+  const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
 
   const run = (action: () => void | Promise<void>) => {
@@ -79,7 +82,7 @@ export function CommandPalette({
               key={command.tool}
               icon={command.icon}
               label={`Select ${command.label}`}
-              disabled={!drawingEnabled}
+              disabled={command.tool === "move" ? !layerSelected : !drawingEnabled}
               onClick={() => run(() => setTool(command.tool))}
             />
           ))}

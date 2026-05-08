@@ -1,6 +1,6 @@
 import { clampLayerIndex, cloneLayer, createLayer, isPixelEditableLayer } from "./layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
-import type { LayerStack, PixelValue } from "./types";
+import type { Layer, LayerStack, PixelLayer, PixelValue } from "./types";
 
 export interface LayerStackMutation {
   stack: LayerStack;
@@ -77,6 +77,32 @@ export function moveActiveLayer(stack: LayerStack, direction: -1 | 1): LayerStac
       layers,
     },
     status: direction > 0 ? "Layer moved up" : "Layer moved down",
+  };
+}
+
+export function translateLayer(layer: Layer, dx: number, dy: number): Layer {
+  if (layer.type === "object") {
+    return { ...layer, x: layer.x + dx, y: layer.y + dy };
+  }
+
+  return translatePixelLayer(layer, dx, dy);
+}
+
+export function translateActiveLayerFrom(
+  stack: LayerStack,
+  sourceLayer: Layer,
+  layerIndex: number,
+  dx: number,
+  dy: number,
+): LayerStackMutationResult {
+  if (layerIndex < 0 || layerIndex >= stack.layers.length) return { status: "Layer was not found" };
+
+  return {
+    stack: {
+      ...stack,
+      layers: stack.layers.map((layer, index) => (index === layerIndex ? translateLayer(sourceLayer, dx, dy) : layer)),
+    },
+    status: "Layer moved",
   };
 }
 
@@ -178,4 +204,33 @@ export function invertActivePixelLayer(stack: LayerStack): LayerStackMutationRes
 
 export function hasLayerStackMutation(result: LayerStackMutationResult): result is LayerStackMutation {
   return "stack" in result;
+}
+
+function translatePixelLayer(layer: PixelLayer, dx: number, dy: number): PixelLayer {
+  if (dx === 0 && dy === 0) {
+    return cloneLayer(layer) as PixelLayer;
+  }
+
+  const { height, width } = layer.surface;
+  const data = new Uint8Array(layer.surface.data.length);
+
+  for (let y = 0; y < height; y += 1) {
+    const targetY = y + dy;
+    if (targetY < 0 || targetY >= height) continue;
+
+    for (let x = 0; x < width; x += 1) {
+      const targetX = x + dx;
+      if (targetX < 0 || targetX >= width) continue;
+
+      data[targetY * width + targetX] = layer.surface.data[y * width + x];
+    }
+  }
+
+  return {
+    ...layer,
+    surface: {
+      ...layer.surface,
+      data,
+    },
+  };
 }

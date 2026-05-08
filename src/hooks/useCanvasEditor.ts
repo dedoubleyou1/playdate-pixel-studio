@@ -86,6 +86,20 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (!editorCanvas) return;
 
       const state = useEditorStore.getState();
+      const point = editorCanvas.pointerToPixel(event.nativeEvent);
+      const tool = state.activeTool;
+
+      if (tool === "move") {
+        if (!state.beginMoveLayer()) return;
+        event.currentTarget.setPointerCapture(event.pointerId);
+        isDrawingRef.current = true;
+        dragStartRef.current = point;
+        lastStrokePointRef.current = point;
+        gestureToolRef.current = tool;
+        actionChangedRef.current = false;
+        return;
+      }
+
       const layer = currentActivePixelLayer();
       if (!layer) {
         state.setStatus("Active layer does not support pixel drawing.");
@@ -93,8 +107,6 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       }
 
       event.currentTarget.setPointerCapture(event.pointerId);
-      const point = editorCanvas.pointerToPixel(event.nativeEvent);
-      const tool = state.activeTool;
       isDrawingRef.current = true;
       dragStartRef.current = point;
       lastStrokePointRef.current = point;
@@ -143,8 +155,18 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (!isDrawingRef.current) return;
 
       const layer = currentActivePixelLayer();
-      if (!layer) return;
       const gestureTool = gestureToolRef.current ?? state.activeTool;
+      if (gestureTool === "move") {
+        const dragStart = dragStartRef.current ?? point;
+        const previewChanged = state.previewMoveLayer(point.x - dragStart.x, point.y - dragStart.y);
+        actionChangedRef.current = previewChanged || actionChangedRef.current;
+        if (previewChanged) {
+          requestCanvasRender();
+        }
+        return;
+      }
+
+      if (!layer) return;
       const settings = gestureSettingsRef.current ?? pixelToolSettings();
       if (isBrushTool(gestureTool)) {
         const lastPoint = lastStrokePointRef.current ?? point;
@@ -171,8 +193,18 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       const state = useEditorStore.getState();
-      const layer = currentActivePixelLayer();
       const gestureTool = gestureToolRef.current ?? state.activeTool;
+      if (gestureTool === "move") {
+        const previewChanged = state.previewMoveLayer(point.x - dragStart.x, point.y - dragStart.y);
+        if (previewChanged) {
+          requestCanvasRender();
+        }
+        state.commitMoveLayer();
+        resetGestureRefs();
+        return;
+      }
+
+      const layer = currentActivePixelLayer();
       const settings = gestureSettingsRef.current ?? pixelToolSettings();
       if (!layer) {
         state.setShapePreview(null);
@@ -193,7 +225,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       state.commitCommand(pixelCommandLabel(gestureTool));
       resetGestureRefs();
     },
-    [pixelToolSettings, resetGestureRefs],
+    [pixelToolSettings, requestCanvasRender, resetGestureRefs],
   );
 
   return useMemo(

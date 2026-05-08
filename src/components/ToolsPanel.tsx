@@ -1,4 +1,4 @@
-import { Ellipsis, Eraser, PaintBucket, Pen, Pencil, PenTool, Square } from "lucide-react";
+import { Ellipsis, Eraser, Move, PaintBucket, Pen, Pencil, PenTool, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -20,6 +20,7 @@ const TOOLS: Array<{
   icon: React.ComponentType<{ className?: string }>;
 }> = [
   { tool: "pencil", label: "Pencil", shortcut: "P", icon: Pencil },
+  { tool: "move", label: "Move", shortcut: "V", icon: Move },
   { tool: "eraser", label: "Eraser", shortcut: "E", icon: Eraser },
   { tool: "line", label: "Line", shortcut: "L", icon: PenTool },
   { tool: "rect", label: "Rectangle", shortcut: "R", icon: Square },
@@ -45,16 +46,21 @@ export function ToolsPanel(): React.JSX.Element {
   const mirrorY = useEditorStore((state) => state.mirrorY);
   const setMirrorX = useEditorStore((state) => state.setMirrorX);
   const setMirrorY = useEditorStore((state) => state.setMirrorY);
+  const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
 
   return (
     <EditorPanel side="left" aria-label="Drawing tools">
-      <EditorPane disabled={!drawingEnabled}>
+      <EditorPane disabled={!layerSelected}>
         <EditorPaneTitle className="mb-3">Tools</EditorPaneTitle>
         <div className="grid grid-cols-3 gap-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
-            const active = drawingEnabled && activeTool === tool.tool;
+            const active =
+              tool.tool === "move"
+                ? layerSelected && activeTool === tool.tool
+                : drawingEnabled && activeTool === tool.tool;
+            const disabled = tool.tool === "move" ? !layerSelected : !drawingEnabled;
 
             return (
               <Tooltip key={tool.tool}>
@@ -63,7 +69,7 @@ export function ToolsPanel(): React.JSX.Element {
                     variant={active ? "secondary" : "outline"}
                     size="icon"
                     aria-label={tool.label}
-                    disabled={!drawingEnabled}
+                    disabled={disabled}
                     onClick={() => setTool(tool.tool)}
                   >
                     <Icon />

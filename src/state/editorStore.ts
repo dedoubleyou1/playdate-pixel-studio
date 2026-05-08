@@ -12,11 +12,13 @@ import {
   setActiveLayerOpacity,
   setLayerVisibility,
   setStackBackgroundColor,
+  translateActiveLayerFrom,
 } from "../domain/layerCommands";
 import {
   activeLayer,
   activePixelLayer,
   activeStack,
+  cloneLayer,
   cloneLayerStack,
   cloneObjectDefinition,
   cloneSnapshot,
@@ -59,6 +61,15 @@ interface PendingCommand {
   before: EditorSnapshot;
 }
 
+interface PendingMove {
+  before: EditorSnapshot;
+  context: EditContext;
+  dx: number;
+  dy: number;
+  layer: Layer;
+  layerIndex: number;
+}
+
 export type EditorDocument = EditorSnapshot;
 
 export interface EditorSessionState {
@@ -86,6 +97,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   projectName: string;
   recentProjects: ProjectSummary[];
   pendingCommand: PendingCommand | null;
+  pendingMove: PendingMove | null;
   undoStack: DocumentCommand[];
   redoStack: DocumentCommand[];
   canUndo: boolean;
@@ -109,6 +121,10 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   beginCommand: (label: string) => void;
   commitCommand: (label?: string) => void;
   discardPendingCommand: () => void;
+  beginMoveLayer: () => boolean;
+  previewMoveLayer: (dx: number, dy: number) => boolean;
+  commitMoveLayer: () => void;
+  cancelMoveLayer: () => void;
   undo: () => void;
   redo: () => void;
   switchToRoot: () => void;
@@ -169,6 +185,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   projectName: "Untitled Playdate Art",
   recentProjects: [],
   pendingCommand: null,
+  pendingMove: null,
   undoStack: [],
   redoStack: [],
   canUndo: false,
@@ -177,7 +194,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   setTool: (tool) =>
     set((state) => {
-      if (!isPixelEditableLayer(activeLayer(state))) {
+      if (tool !== "move" && !isPixelEditableLayer(activeLayer(state))) {
         return { status: "Active layer does not support pixel drawing" };
       }
 
@@ -243,6 +260,76 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   discardPendingCommand: () => set({ pendingCommand: null }),
 
+  beginMoveLayer: () => {
+    const state = get();
+    const stack = activeStack(state);
+    const layer = stack.layers[stack.activeLayerIndex];
+    if (!layer) {
+      set({ status: "Select a layer to move" });
+      return false;
+    }
+
+    const before = currentSnapshot();
+    set({
+      pendingCommand: { label: "Move layer", before },
+      pendingMove: {
+        before,
+        context: state.activeContext,
+        dx: 0,
+        dy: 0,
+        layer: cloneLayer(layer),
+        layerIndex: stack.activeLayerIndex,
+      },
+      status: "Moving layer",
+    });
+    return true;
+  },
+
+  previewMoveLayer: (dx, dy) => {
+    let previewChanged = false;
+    set((state) => {
+      const pending = state.pendingMove;
+      if (!pending) return {};
+      if (!editContextsEqual(state.activeContext, pending.context)) return {};
+      if (pending.dx === dx && pending.dy === dy) return {};
+
+      const stack = activeStack(state);
+      const result = translateActiveLayerFrom(stack, pending.layer, pending.layerIndex, dx, dy);
+      if (!hasLayerStackMutation(result)) return { status: result.status ?? state.status };
+
+      previewChanged = true;
+      return {
+        ...replaceActiveStack(state, result.stack),
+        pendingMove: { ...pending, dx, dy },
+        status: `${result.status} ${dx}, ${dy}`,
+      };
+    });
+    return previewChanged;
+  },
+
+  commitMoveLayer: () => {
+    const pending = get().pendingMove;
+    if (!pending) return;
+    const changed = !snapshotsEqual(pending.before, currentSnapshot());
+    set({ pendingMove: null });
+    if (changed) {
+      get().markDocumentChanged("Layer moved");
+    }
+    get().commitCommand("Move layer");
+  },
+
+  cancelMoveLayer: () => {
+    const pending = get().pendingMove;
+    if (!pending) return;
+    set({
+      ...snapshotState(pending.before),
+      pendingCommand: null,
+      pendingMove: null,
+      shapePreview: null,
+      status: "Move cancelled",
+    });
+  },
+
   undo: () =>
     set((state) => {
       const command = state.undoStack.at(-1);
@@ -256,6 +343,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canUndo: undoStack.length > 0,
         canRedo: true,
         pendingCommand: null,
+        pendingMove: null,
         shapePreview: null,
         status: `Undo ${command.label}`,
         documentRevision: state.documentRevision + 1,
@@ -277,6 +365,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canUndo: true,
         canRedo: redoStack.length > 0,
         pendingCommand: null,
+        pendingMove: null,
         shapePreview: null,
         status: `Redo ${command.label}`,
         documentRevision: state.documentRevision + 1,
@@ -289,6 +378,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => ({
       activeContext: { type: "root" },
       shapePreview: null,
+      pendingMove: null,
       cursorLabel: "x: -- y: --",
       status: state.activeContext.type === "root" ? state.status : "Editing root canvas",
     })),
@@ -300,6 +390,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       return {
         activeContext: { type: "object", objectId },
         shapePreview: null,
+        pendingMove: null,
         cursorLabel: "x: -- y: --",
         status: `Editing ${object.name}`,
       };
@@ -582,6 +673,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       currentProjectId: null,
       savedDocumentRevision: state.documentRevision + 1,
       pendingCommand: null,
+      pendingMove: null,
       undoStack: [],
       redoStack: [],
       canUndo: false,
@@ -643,6 +735,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         currentProjectId: document.id,
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
+        pendingMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
@@ -682,6 +775,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         currentProjectId: document.id,
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
+        pendingMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
@@ -743,6 +837,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         currentProjectId: document.id,
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
+        pendingMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
@@ -820,6 +915,7 @@ function pushCommand(set: typeof useEditorStore.setState, command: DocumentComma
       undoStack,
       redoStack: [],
       pendingCommand: null,
+      pendingMove: null,
       canUndo: undoStack.length > 0,
       canRedo: false,
       hasUnsavedChanges: true,
@@ -864,6 +960,11 @@ function replaceActiveStack(
   };
 }
 
+function editContextsEqual(left: EditContext, right: EditContext): boolean {
+  if (left.type !== right.type) return false;
+  return left.type === "root" || left.objectId === (right as { objectId: string }).objectId;
+}
+
 function bumpActiveLayerContent(state: EditorStoreState): Pick<EditorSnapshot, "root" | "objects"> {
   const stack = activeStack(state);
   return replaceActiveStack(state, {
@@ -905,6 +1006,7 @@ export function contextLabel(context: EditContext, objects: ObjectDefinition[]):
 }
 
 const TOOL_LABELS: Record<Tool, string> = {
+  move: "Move",
   pencil: "Pencil",
   eraser: "Eraser",
   line: "Line",

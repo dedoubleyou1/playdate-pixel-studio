@@ -87,6 +87,7 @@ export function App(): React.JSX.Element {
       }
 
       const shortcuts = {
+        v: "move",
         p: "pencil",
         b: "pencil",
         e: "eraser",
@@ -95,7 +96,7 @@ export function App(): React.JSX.Element {
         f: "fill",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
-      if (tool && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) setTool(tool);
+      if (tool && (tool === "move" || isPixelEditableLayer(activeLayer(useEditorStore.getState())))) setTool(tool);
     };
 
     window.addEventListener("keydown", onKeyDown);

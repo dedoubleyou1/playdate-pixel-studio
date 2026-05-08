@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createObjectDefinition, createObjectInstanceLayer } from "../domain/layers";
 import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
 import { indexFor } from "../domain/pixelOps";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
-import { currentActivePixelLayer, useEditorStore } from "./editorStore";
+import { currentActiveLayer, currentActivePixelLayer, useEditorStore } from "./editorStore";
 
 const projectDbMock = vi.hoisted(() => ({
   deleteProjectDocument: vi.fn(),
@@ -225,6 +226,92 @@ describe("editor store pending commands", () => {
   });
 });
 
+describe("editor store layer move gestures", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  it("previews selected pixel layer moves without revising the document until commit", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+
+    expect(state.beginMoveLayer()).toBe(true);
+    expect(state.previewMoveLayer(2, 1)).toBe(true);
+
+    const previewLayer = currentActivePixelLayer();
+    expect(previewLayer?.surface.data[indexFor(3, 2, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(0);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+
+    state.commitMoveLayer();
+
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("keeps no-op selected layer moves out of document revisions and undo history", () => {
+    const state = useEditorStore.getState();
+
+    expect(state.beginMoveLayer()).toBe(true);
+    state.commitMoveLayer();
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(0);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(useEditorStore.getState().pendingMove).toBeNull();
+  });
+
+  it("cancels selected pixel layer moves by restoring the original layer", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+
+    state.beginMoveLayer();
+    state.previewMoveLayer(2, 0);
+    state.cancelMoveLayer();
+
+    const restoredLayer = currentActivePixelLayer();
+    expect(restoredLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(restoredLayer?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(0);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+  });
+
+  it("moves selected object instance layers without changing the source object", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 8, 8);
+    const instance = createObjectInstanceLayer(2, "Object 1", object.id);
+    instance.x = 4;
+    instance.y = 5;
+
+    useEditorStore.setState((state) => ({
+      objects: [object],
+      root: {
+        ...state.root,
+        activeLayerIndex: 1,
+        layers: [state.root.layers[0], instance],
+      },
+    }));
+
+    const state = useEditorStore.getState();
+    expect(state.beginMoveLayer()).toBe(true);
+    expect(state.previewMoveLayer(3, -2)).toBe(true);
+
+    const previewLayer = currentActiveLayer();
+    expect(previewLayer).toMatchObject({ type: "object", x: 7, y: 3 });
+    expect(useEditorStore.getState().objects[0]).toBe(object);
+
+    state.commitMoveLayer();
+
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+  });
+});
+
 function resetStore(): void {
   useEditorStore.getState().newProject();
   useEditorStore.setState({
@@ -233,6 +320,7 @@ function resetStore(): void {
     currentProjectId: null,
     hasUnsavedChanges: false,
     pendingCommand: null,
+    pendingMove: null,
     projectName: "Untitled Playdate Art",
     recentProjects: [],
     redoStack: [],

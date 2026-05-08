@@ -38,7 +38,15 @@ export function CanvasStage(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
-  const canvasCursor = drawingEnabled ? toolCursor(activeTool) : "not-allowed";
+  const moveEnabled = useEditorStore((state) => Boolean(activeLayer(state)));
+  const canvasCursor =
+    activeTool === "move"
+      ? moveEnabled
+        ? toolCursor(activeTool)
+        : "not-allowed"
+      : drawingEnabled
+        ? toolCursor(activeTool)
+        : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);

@@ -11,8 +11,10 @@ import {
   moveActiveLayer,
   setLayerVisibility,
   setStackBackgroundColor,
+  translateActiveLayerFrom,
+  translateLayer,
 } from "./layerCommands";
-import { createRootStack } from "./layers";
+import { createObjectDefinition, createObjectInstanceLayer, createRootStack } from "./layers";
 
 describe("layer commands", () => {
   it("adds a pixel layer above the active layer", () => {
@@ -90,5 +92,52 @@ describe("layer commands", () => {
     if (clearedLayer.type !== "pixel") throw new Error("Expected pixel layer");
     expect(clearedLayer.surface.data.every((pixel) => pixel === TRANSPARENT_PIXEL)).toBe(true);
     expect(clearedLayer.contentRevision).toBe(invertedLayer.contentRevision + 1);
+  });
+
+  it("translates pixel layers with clipping", () => {
+    const stack = createRootStack();
+    const layer = stack.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected pixel layer");
+    layer.surface.data[indexFor(0, 0)] = BLACK_PIXEL;
+    layer.surface.data[indexFor(2, 1)] = WHITE_PIXEL;
+
+    const translated = translateLayer(layer, 1, 1);
+    if (translated.type !== "pixel") throw new Error("Expected translated pixel layer");
+
+    expect(translated.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
+    expect(translated.surface.data[indexFor(3, 2)]).toBe(WHITE_PIXEL);
+    expect(translated.surface.data[indexFor(0, 0)]).toBe(TRANSPARENT_PIXEL);
+
+    const clipped = translateLayer(layer, -1, -1);
+    if (clipped.type !== "pixel") throw new Error("Expected clipped pixel layer");
+    expect(clipped.surface.data[indexFor(0, 0)]).toBe(TRANSPARENT_PIXEL);
+    expect(clipped.surface.data[indexFor(1, 0)]).toBe(WHITE_PIXEL);
+  });
+
+  it("translates object instance layers without changing source objects", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 8, 8);
+    const layer = createObjectInstanceLayer(2, "Object 1", object.id);
+    layer.x = 4;
+    layer.y = 5;
+
+    const translated = translateLayer(layer, -2, 3);
+    if (translated.type !== "object") throw new Error("Expected translated object layer");
+
+    expect(translated).toMatchObject({ x: 2, y: 8, objectId: object.id });
+    expect(object.layers).toHaveLength(1);
+  });
+
+  it("translates the selected layer from an original source layer", () => {
+    const stack = createRootStack();
+    const layer = stack.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected pixel layer");
+    layer.surface.data[indexFor(1, 1)] = BLACK_PIXEL;
+
+    const result = translateActiveLayerFrom(stack, layer, 0, 2, 0);
+    expect(hasLayerStackMutation(result)).toBe(true);
+    if (!hasLayerStackMutation(result)) throw new Error("Expected translated stack");
+    const moved = result.stack.layers[0];
+    if (moved.type !== "pixel") throw new Error("Expected moved pixel layer");
+    expect(moved.surface.data[indexFor(3, 1)]).toBe(BLACK_PIXEL);
   });
 });
