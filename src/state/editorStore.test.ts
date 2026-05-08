@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
+import { indexFor } from "../domain/pixelOps";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
 import { currentActivePixelLayer, useEditorStore } from "./editorStore";
@@ -182,6 +183,45 @@ describe("editor store pending commands", () => {
 
     expect(useEditorStore.getState().pendingCommand).toBeNull();
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("defers brush stroke document revision until the gesture finishes", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    const contentRevision = layer.contentRevision;
+
+    state.beginCommand("Draw stroke");
+    layer.surface.data[indexFor(0, 0, layer.surface.width)] = BLACK_PIXEL;
+    layer.surface.data[indexFor(1, 0, layer.surface.width)] = BLACK_PIXEL;
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+
+    state.markDocumentChanged();
+    state.commitCommand("Draw stroke");
+
+    const changedLayer = currentActivePixelLayer();
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(changedLayer?.contentRevision).toBe(contentRevision + 1);
+  });
+
+  it("keeps no-op brush gestures out of document revisions and undo history", () => {
+    const state = useEditorStore.getState();
+
+    state.beginCommand("Draw stroke");
+    state.commitCommand("Draw stroke");
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+    expect(useEditorStore.getState().pendingCommand).toBeNull();
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
 });
 

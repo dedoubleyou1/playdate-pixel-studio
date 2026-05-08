@@ -40,7 +40,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     editorCanvasRef.current = canvas ? new EditorCanvas(canvas, stack.width, stack.height) : null;
   }, [canvas, stack.height, stack.width]);
 
-  useEffect(() => {
+  const requestCanvasRender = useCallback(() => {
     if (renderFrameRef.current !== null) {
       window.cancelAnimationFrame(renderFrameRef.current);
     }
@@ -48,6 +48,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       editorCanvasRef.current?.render(stack.layers, shapePreview, objects, stack.background);
       renderFrameRef.current = null;
     });
+  }, [objects, shapePreview, stack.background, stack.layers]);
+
+  useEffect(() => {
+    requestCanvasRender();
 
     return () => {
       if (renderFrameRef.current !== null) {
@@ -55,7 +59,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         renderFrameRef.current = null;
       }
     };
-  }, [objects, shapePreview, stack.background, stack.layers, viewRevision]);
+  }, [requestCanvasRender, viewRevision]);
 
   const resetGestureRefs = useCallback(() => {
     isDrawingRef.current = false;
@@ -103,7 +107,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         state.beginCommand(pixelCommandLabel(tool));
         actionChangedRef.current = applyPixelToolStart(layer, point, tool, settings).changed;
         if (actionChangedRef.current) {
-          state.markDocumentChanged();
+          requestCanvasRender();
         }
       }
 
@@ -126,7 +130,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         state.setShapePreview(createShapePreview(point, point, tool, settings));
       }
     },
-    [pixelToolSettings],
+    [pixelToolSettings, requestCanvasRender],
   );
 
   const continueStroke = useCallback(
@@ -148,7 +152,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         lastStrokePointRef.current = point;
         actionChangedRef.current = strokeChanged || actionChangedRef.current;
         if (strokeChanged) {
-          state.markDocumentChanged();
+          requestCanvasRender();
         }
       }
 
@@ -156,7 +160,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         state.setShapePreview(createShapePreview(state.shapePreview.start, point, gestureTool, settings));
       }
     },
-    [pixelToolSettings],
+    [pixelToolSettings, requestCanvasRender],
   );
 
   const finishStroke = useCallback(
