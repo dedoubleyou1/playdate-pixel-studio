@@ -72,7 +72,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       brushSize: state.brushSize,
       mirrorX: state.mirrorX,
       mirrorY: state.mirrorY,
-      paintValue: state.activePaintValue,
+      paintMode: state.activePaintMode,
     };
   }, []);
 

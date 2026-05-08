@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "./layers";
 import { indexFor } from "./pixelOps";
+import { solidPaintMode } from "./paintSources";
 import {
   applyPixelToolDrag,
   applyPixelToolFinish,
@@ -16,7 +17,7 @@ const defaultSettings: PixelToolSettings = {
   brushSize: 1,
   mirrorX: false,
   mirrorY: false,
-  paintValue: BLACK_PIXEL,
+  paintMode: solidPaintMode(BLACK_PIXEL),
 };
 
 describe("pixel command helpers", () => {
@@ -47,7 +48,7 @@ describe("pixel command helpers", () => {
     expect(
       applyPixelToolStart(layer, { x: 2, y: 2 }, "pencil", {
         ...defaultSettings,
-        paintValue: WHITE_PIXEL,
+        paintMode: solidPaintMode(WHITE_PIXEL),
       }).changed,
     ).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(WHITE_PIXEL);

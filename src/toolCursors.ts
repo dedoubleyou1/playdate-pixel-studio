@@ -6,6 +6,7 @@ import Ellipsis from "lucide-static/dist/esm/icons/ellipsis.mjs";
 import ArrowUpLeft from "lucide-static/dist/esm/icons/arrow-up-left.mjs";
 import PaintBucket from "lucide-static/dist/esm/icons/paint-bucket.mjs";
 import Pen from "lucide-static/dist/esm/icons/pen.mjs";
+import type { PaintMode } from "./domain/paintSources";
 import type { Tool } from "./domain/types";
 import { compileLucideCursor } from "./lucideCursorCompiler";
 
@@ -28,6 +29,9 @@ const TOOL_CURSORS: Record<Tool, string> = {
   ),
 };
 
-export function toolCursor(tool: Tool): string {
+export function toolCursor(tool: Tool, paintMode?: PaintMode): string {
+  if (tool === "pencil" && paintMode?.type === "checker-dither") {
+    return TOOL_CURSORS.dither;
+  }
   return TOOL_CURSORS[tool];
 }

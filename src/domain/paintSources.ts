@@ -1,5 +1,16 @@
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, type PixelValue, type Point } from "./types";
 
+export type PaintMode =
+  | {
+      type: "solid";
+      value: PixelValue;
+    }
+  | {
+      type: "checker-dither";
+      background: PixelValue;
+      foreground: PixelValue;
+    };
+
 export type PaintSource =
   | {
       id: string;
@@ -16,6 +27,36 @@ export type PaintSource =
 export interface CheckerDitherPaintOptions {
   background?: PixelValue;
   foreground?: PixelValue;
+}
+
+export function solidPaintMode(value: PixelValue): PaintMode {
+  return { type: "solid", value };
+}
+
+export function checkerDitherPaintMode(options: CheckerDitherPaintOptions = {}): PaintMode {
+  return {
+    type: "checker-dither",
+    foreground: options.foreground ?? BLACK_PIXEL,
+    background: options.background ?? TRANSPARENT_PIXEL,
+  };
+}
+
+export function paintSourceFromMode(mode: PaintMode): PaintSource {
+  if (mode.type === "checker-dither") {
+    return checkerDitherPaint({ foreground: mode.foreground, background: mode.background });
+  }
+  return solidPaint(mode.value);
+}
+
+export function paintModeForeground(mode: PaintMode): PixelValue {
+  return mode.type === "checker-dither" ? mode.foreground : mode.value;
+}
+
+export function withPaintModeForeground(mode: PaintMode, foreground: PixelValue): PaintMode {
+  if (mode.type === "checker-dither") {
+    return { ...mode, foreground };
+  }
+  return solidPaintMode(foreground);
 }
 
 export function solidPaint(value: PixelValue): PaintSource {

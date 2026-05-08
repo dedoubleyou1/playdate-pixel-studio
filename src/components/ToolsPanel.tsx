@@ -35,6 +35,7 @@ const PAINT_VALUES: Array<{ label: string; value: PixelValue }> = [
 export function ToolsPanel(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const setTool = useEditorStore((state) => state.setTool);
+  const activePaintMode = useEditorStore((state) => state.activePaintMode);
   const activePaintValue = useEditorStore((state) => state.activePaintValue);
   const setPaintValue = useEditorStore((state) => state.setPaintValue);
   const brushSize = useEditorStore((state) => state.brushSize);
@@ -52,7 +53,11 @@ export function ToolsPanel(): React.JSX.Element {
         <div className="grid grid-cols-3 gap-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
-            const active = drawingEnabled && activeTool === tool.tool;
+            const active =
+              drawingEnabled &&
+              (tool.tool === "dither"
+                ? activeTool === "pencil" && activePaintMode.type === "checker-dither"
+                : activeTool === tool.tool && !(tool.tool === "pencil" && activePaintMode.type === "checker-dither"));
 
             return (
               <Tooltip key={tool.tool}>

@@ -26,6 +26,13 @@ import {
   resizeSurface,
   isPixelEditableLayer,
 } from "../domain/layers";
+import {
+  checkerDitherPaintMode,
+  paintModeForeground,
+  solidPaintMode,
+  withPaintModeForeground,
+  type PaintMode,
+} from "../domain/paintSources";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type {
   EditContext,
@@ -62,6 +69,7 @@ export type EditorDocument = EditorSnapshot;
 
 export interface EditorSessionState {
   activeTool: Tool;
+  activePaintMode: PaintMode;
   activePaintValue: PixelValue;
   brushSize: number;
   mirrorX: boolean;
@@ -146,6 +154,7 @@ const initialSnapshot = createInitialSnapshot();
 export const useEditorStore = create<EditorStoreState>((set, get) => ({
   ...initialSnapshot,
   activeTool: "pencil",
+  activePaintMode: solidPaintMode(BLACK_PIXEL),
   activePaintValue: BLACK_PIXEL,
   brushSize: 1,
   mirrorX: false,
@@ -172,13 +181,38 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   hasUnsavedChanges: false,
 
   setTool: (tool) =>
-    set((state) =>
-      isPixelEditableLayer(activeLayer(state))
-        ? { activeTool: tool, status: `${TOOL_LABELS[tool]} ready` }
-        : { status: "Active layer does not support pixel drawing" },
-    ),
+    set((state) => {
+      if (!isPixelEditableLayer(activeLayer(state))) {
+        return { status: "Active layer does not support pixel drawing" };
+      }
+
+      if (tool === "dither") {
+        return {
+          activeTool: "pencil",
+          activePaintMode: checkerDitherPaintMode({
+            foreground: state.activePaintValue,
+            background: TRANSPARENT_PIXEL,
+          }),
+          status: "Dither ready",
+        };
+      }
+
+      return {
+        activeTool: tool,
+        activePaintMode:
+          tool === "pencil" && state.activePaintMode.type === "checker-dither"
+            ? solidPaintMode(paintModeForeground(state.activePaintMode))
+            : state.activePaintMode,
+        activePaintValue: paintModeForeground(state.activePaintMode),
+        status: `${TOOL_LABELS[tool]} ready`,
+      };
+    }),
   setPaintValue: (activePaintValue) =>
-    set({ activePaintValue, status: `Paint ${PIXEL_VALUE_LABELS[activePaintValue]} selected` }),
+    set((state) => ({
+      activePaintValue,
+      activePaintMode: withPaintModeForeground(state.activePaintMode, activePaintValue),
+      status: `Paint ${PIXEL_VALUE_LABELS[activePaintValue]} selected`,
+    })),
   setBrushSize: (brushSize) => set({ brushSize }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),
