@@ -17,6 +17,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const isDrawingRef = useRef(false);
   const dragStartRef = useRef<Point | null>(null);
   const lastStrokePointRef = useRef<Point | null>(null);
+  const gestureToolRef = useRef<Tool | null>(null);
   const actionChangedRef = useRef(false);
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
@@ -45,6 +46,14 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     };
   }, [objects, shapePreview, revision, stack.background, stack.layers]);
 
+  const resetGestureRefs = useCallback(() => {
+    isDrawingRef.current = false;
+    dragStartRef.current = null;
+    lastStrokePointRef.current = null;
+    gestureToolRef.current = null;
+    actionChangedRef.current = false;
+  }, []);
+
   const brushOptions = useCallback((tool: Tool) => {
     const state = useEditorStore.getState();
     return {
@@ -56,10 +65,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     };
   }, []);
 
-  const createShapePreview = useCallback((start: Point, end: Point): ShapePreview => {
+  const createShapePreview = useCallback((start: Point, end: Point, tool: Tool): ShapePreview => {
     const state = useEditorStore.getState();
     return {
-      type: state.activeTool === "rect" ? "rect" : "line",
+      type: tool === "rect" ? "rect" : "line",
       start,
       end,
       brushSize: state.brushSize,
@@ -82,32 +91,37 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       event.currentTarget.setPointerCapture(event.pointerId);
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
+      const tool = state.activeTool;
       isDrawingRef.current = true;
       dragStartRef.current = point;
       lastStrokePointRef.current = point;
+      gestureToolRef.current = tool;
       actionChangedRef.current = false;
 
-      if (state.activeTool === "pencil" || state.activeTool === "eraser" || state.activeTool === "dither") {
-        state.beginCommand(state.activeTool === "eraser" ? "Erase stroke" : "Draw stroke");
-        actionChangedRef.current = drawBrushAt(layer, point, brushOptions(state.activeTool));
+      if (tool === "pencil" || tool === "eraser" || tool === "dither") {
+        state.beginCommand(tool === "eraser" ? "Erase stroke" : "Draw stroke");
+        actionChangedRef.current = drawBrushAt(layer, point, brushOptions(tool));
         if (actionChangedRef.current) {
           state.markDocumentChanged();
         }
       }
 
-      if (state.activeTool === "fill") {
+      if (tool === "fill") {
         state.beginCommand("Fill area");
         actionChangedRef.current = floodFill(layer, point, state.activePaintValue);
         isDrawingRef.current = false;
+        dragStartRef.current = null;
+        lastStrokePointRef.current = null;
+        gestureToolRef.current = null;
         if (actionChangedRef.current) {
           state.markDocumentChanged();
-          state.commitCommand("Fill area");
         }
+        state.commitCommand("Fill area");
       }
 
-      if (state.activeTool === "line" || state.activeTool === "rect") {
-        state.beginCommand(state.activeTool === "line" ? "Draw line" : "Draw rectangle");
-        state.setShapePreview(createShapePreview(point, point));
+      if (tool === "line" || tool === "rect") {
+        state.beginCommand(tool === "line" ? "Draw line" : "Draw rectangle");
+        state.setShapePreview(createShapePreview(point, point, tool));
       }
     },
     [brushOptions, createShapePreview],
@@ -124,9 +138,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       const layer = currentActivePixelLayer();
       if (!layer) return;
-      if (state.activeTool === "pencil" || state.activeTool === "eraser" || state.activeTool === "dither") {
+      const gestureTool = gestureToolRef.current ?? state.activeTool;
+      if (gestureTool === "pencil" || gestureTool === "eraser" || gestureTool === "dither") {
         const lastPoint = lastStrokePointRef.current ?? point;
-        const strokeChanged = drawInterpolatedStroke(layer, lastPoint, point, brushOptions(state.activeTool));
+        const strokeChanged = drawInterpolatedStroke(layer, lastPoint, point, brushOptions(gestureTool));
         lastStrokePointRef.current = point;
         actionChangedRef.current = strokeChanged || actionChangedRef.current;
         if (strokeChanged) {
@@ -135,7 +150,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       }
 
       if (state.shapePreview) {
-        state.setShapePreview(createShapePreview(state.shapePreview.start, point));
+        state.setShapePreview(createShapePreview(state.shapePreview.start, point, gestureTool));
       }
     },
     [brushOptions, createShapePreview],
@@ -150,31 +165,30 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       const state = useEditorStore.getState();
       const layer = currentActivePixelLayer();
+      const gestureTool = gestureToolRef.current ?? state.activeTool;
       if (!layer) {
         state.setShapePreview(null);
+        state.discardPendingCommand();
+        resetGestureRefs();
         return;
       }
 
-      if (state.activeTool === "line") {
+      if (gestureTool === "line") {
         actionChangedRef.current = drawLine(layer, dragStart, point, brushOptions("line"));
       }
-      if (state.activeTool === "rect") {
+      if (gestureTool === "rect") {
         actionChangedRef.current = drawRect(layer, dragStart, point, brushOptions("rect"));
       }
 
-      isDrawingRef.current = false;
-      dragStartRef.current = null;
-      lastStrokePointRef.current = null;
       state.setShapePreview(null);
 
       if (actionChangedRef.current) {
         state.markDocumentChanged();
-        state.commitCommand(
-          state.activeTool === "line" ? "Draw line" : state.activeTool === "rect" ? "Draw rectangle" : undefined,
-        );
       }
+      state.commitCommand(gestureTool === "line" ? "Draw line" : gestureTool === "rect" ? "Draw rectangle" : undefined);
+      resetGestureRefs();
     },
-    [brushOptions],
+    [brushOptions, resetGestureRefs],
   );
 
   return useMemo(

@@ -3,6 +3,12 @@ import net from "node:net";
 import os from "node:os";
 import { URL } from "node:url";
 import { encodeFramePacket, PLAYDATE_FRAME_BYTES } from "../../src/companion/protocol.ts";
+import {
+  normalizeStreamId,
+  PDPS_FRAME_REQUEST_HEADERS,
+  PDPS_STREAM_ID_HEADER,
+  shouldAcceptFrameRevision,
+} from "../../src/companion/streamMetadata.ts";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../../src/domain/constants.ts";
 
 const CONTROL_PORT = Number.parseInt(process.env.PDPS_CONTROL_PORT ?? "9137", 10);
@@ -13,6 +19,7 @@ const ALLOWED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
 
 interface LatestFrame {
   revision: number;
+  streamId: string;
   flags: number;
   payload: Uint8Array;
   packet: Uint8Array;
@@ -69,6 +76,7 @@ const httpServer = http.createServer((request, response) => {
       streamPort: STREAM_PORT,
       hostCandidates: getLanAddresses(),
       latestRevision: latestFrame?.revision ?? null,
+      latestStreamId: latestFrame?.streamId ?? null,
       connectedDevices: readyClientCount(),
       devices: readyClientSnapshots(),
     });
@@ -93,6 +101,7 @@ const httpServer = http.createServer((request, response) => {
       "content-type": "application/octet-stream",
       "content-length": latestFrame.packet.byteLength,
       "x-pdps-revision": String(latestFrame.revision),
+      [PDPS_STREAM_ID_HEADER]: latestFrame.streamId,
     });
     response.end(Buffer.from(latestFrame.packet));
     return;
@@ -174,6 +183,7 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
   try {
     const body = await readRequestBody(request, PLAYDATE_FRAME_BYTES);
     const revision = Number.parseInt(String(request.headers["x-pdps-revision"] ?? "0"), 10);
+    const streamId = normalizeStreamId(request.headers[PDPS_STREAM_ID_HEADER]);
     const flags = Number.parseInt(String(request.headers["x-pdps-flags"] ?? "0"), 10);
 
     if (!Number.isFinite(revision) || revision < 0) {
@@ -181,12 +191,19 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
       return;
     }
 
-    if (latestFrame && revision < latestFrame.revision) {
+    const acceptance = shouldAcceptFrameRevision(
+      latestFrame ? { revision: latestFrame.revision, streamId: latestFrame.streamId } : null,
+      { revision, streamId },
+    );
+
+    if (!acceptance.accepted) {
       writeJson(response, 202, {
         ok: true,
         ignored: true,
-        revision: latestFrame.revision,
-        latestRevision: latestFrame.revision,
+        revision: acceptance.latestRevision,
+        streamId,
+        latestRevision: acceptance.latestRevision,
+        latestStreamId: acceptance.latestStreamId,
         connectedDevices: readyClientCount(),
         devices: readyClientSnapshots(),
       });
@@ -203,6 +220,7 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
 
     latestFrame = {
       revision,
+      streamId,
       flags,
       payload: body,
       packet,
@@ -212,6 +230,7 @@ async function receiveFrame(request: http.IncomingMessage, response: http.Server
     writeJson(response, 200, {
       ok: true,
       revision,
+      streamId,
       bytes: body.byteLength,
       connectedDevices: readyClientCount(),
       devices: readyClientSnapshots(),
@@ -294,6 +313,7 @@ function healthPayload(): Record<string, unknown> {
     controlPort: CONTROL_PORT,
     streamPort: STREAM_PORT,
     latestRevision: latestFrame?.revision ?? null,
+    latestStreamId: latestFrame?.streamId ?? null,
     latestFrameAgeMs: latestFrame ? Date.now() - latestFrame.receivedAt : null,
     latestFrameBytes: latestFrame?.payload.byteLength ?? null,
     connectedDevices: readyClientCount(),
@@ -314,7 +334,7 @@ function setCorsHeaders(response: http.ServerResponse, origin: string | undefine
   if (origin) response.setHeader("access-control-allow-origin", origin);
   response.setHeader("vary", "origin");
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  response.setHeader("access-control-allow-headers", "content-type,x-pdps-revision,x-pdps-flags,x-pdps-crc32");
+  response.setHeader("access-control-allow-headers", PDPS_FRAME_REQUEST_HEADERS.join(","));
 }
 
 function readyClientCount(): number {

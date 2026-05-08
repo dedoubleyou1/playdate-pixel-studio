@@ -81,6 +81,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
 
     const controller = new AbortController();
     const runId = streamRunIdRef.current + 1;
+    const streamId = createStreamId();
     streamRunIdRef.current = runId;
     lastPostedRevisionRef.current = null;
 
@@ -97,6 +98,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         frame.revision,
         frame.objects,
         frame.background,
+        streamId,
         controller.signal,
       )
         .then((result) => {
@@ -191,6 +193,10 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       </PopoverContent>
     </Popover>
   );
+}
+
+function createStreamId(): string {
+  return `browser-${crypto.randomUUID()}`;
 }
 
 function Readout({ label, value }: { label: string; value: string }): React.JSX.Element {

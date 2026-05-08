@@ -1,6 +1,7 @@
 import type { PreviewMode } from "../export/playdateExport";
 import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
 import { packPlaydateFrame, PLAYDATE_FRAME_BYTES } from "./protocol";
+import { PDPS_STREAM_ID_HEADER } from "./streamMetadata";
 
 export const COMPANION_CONTROL_ORIGIN = "http://127.0.0.1:9137";
 
@@ -10,6 +11,7 @@ export interface BridgeHealth {
   controlPort: number;
   streamPort: number;
   latestRevision: number | null;
+  latestStreamId?: string | null;
   connectedDevices: number;
   devices?: BridgeDevice[];
 }
@@ -20,6 +22,7 @@ export interface BridgeSession {
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
+  latestStreamId?: string | null;
   connectedDevices: number;
   devices?: BridgeDevice[];
 }
@@ -37,6 +40,7 @@ export interface BridgeDevice {
 
 export interface FrameSendResult {
   revision: number;
+  streamId: string;
   byteLength: number;
   crc32: number;
   roundTripMs: number;
@@ -62,6 +66,7 @@ export async function sendFrameToBridge(
   revision: number,
   objects: ObjectDefinition[],
   background: PixelValue,
+  streamId: string,
   signal?: AbortSignal,
 ): Promise<FrameSendResult> {
   const packed = packPlaydateFrame(layers, mode, revision, objects, background);
@@ -81,6 +86,7 @@ export async function sendFrameToBridge(
       "x-pdps-revision": String(packed.revision),
       "x-pdps-flags": String(packed.flags),
       "x-pdps-crc32": String(packed.crc32),
+      [PDPS_STREAM_ID_HEADER]: streamId,
     },
     body,
     signal,
@@ -90,9 +96,10 @@ export async function sendFrameToBridge(
     throw new Error(`Bridge rejected frame (${response.status}).`);
   }
 
-  const result = (await response.json()) as { revision: number };
+  const result = (await response.json()) as { revision: number; streamId?: string };
   return {
     revision: result.revision,
+    streamId: result.streamId ?? streamId,
     byteLength: packed.byteLength,
     crc32: packed.crc32,
     roundTripMs: Math.round(performance.now() - startedAt),

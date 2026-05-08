@@ -88,6 +88,7 @@ interface EditorStoreState extends EditorSnapshot {
   markDocumentChanged: (status?: string) => void;
   beginCommand: (label: string) => void;
   commitCommand: (label?: string) => void;
+  discardPendingCommand: () => void;
   undo: () => void;
   redo: () => void;
   switchToRoot: () => void;
@@ -195,6 +196,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     }
     pushCommand(set, createDocumentCommand(label ?? pending.label, pending.before, after));
   },
+
+  discardPendingCommand: () => set({ pendingCommand: null }),
 
   undo: () =>
     set((state) => {
@@ -608,16 +611,20 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     try {
       const state = get();
       const id = state.currentProjectId ?? crypto.randomUUID();
+      const revisionBeingSaved = state.revision;
       const document = serializeProject(currentSnapshot(), id, state.projectName);
       const summary = await saveProjectDocument(document);
-      set((current) => ({
-        currentProjectId: id,
-        projectName: document.name,
-        savedRevision: current.revision,
-        hasUnsavedChanges: false,
-        status: "Project saved locally",
-        recentProjects: mergeSummary(current.recentProjects, summary),
-      }));
+      set((current) => {
+        const savedRevision = Math.max(current.savedRevision, revisionBeingSaved);
+        const allCurrentChangesSaved = current.revision <= savedRevision;
+        return {
+          currentProjectId: id,
+          savedRevision,
+          hasUnsavedChanges: allCurrentChangesSaved ? false : current.hasUnsavedChanges,
+          status: allCurrentChangesSaved ? "Project saved locally" : current.status,
+          recentProjects: mergeSummary(current.recentProjects, summary),
+        };
+      });
     } catch {
       set({ status: "Unable to save project locally" });
     }
