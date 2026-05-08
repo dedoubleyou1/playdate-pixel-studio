@@ -1,5 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
-import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
+import { defaultProjectPalette } from "./palette";
+import { MAX_PALETTE_INDEX, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type {
   EditContext,
   EditorSnapshot,
@@ -7,9 +8,11 @@ import type {
   LayerStack,
   ObjectDefinition,
   ObjectInstanceLayer,
+  PaletteEntry,
   PixelLayer,
   PixelSurface,
   PixelValue,
+  ProjectPalette,
 } from "./types";
 
 export function createSurface(width: number, height: number, data?: Uint8Array): PixelSurface {
@@ -126,10 +129,15 @@ export function cloneLayerStack(stack: LayerStack): LayerStack {
 
 export function cloneSnapshot(snapshot: EditorSnapshot): EditorSnapshot {
   return {
+    palette: clonePalette(snapshot.palette),
     root: cloneLayerStack(snapshot.root),
     objects: snapshot.objects.map(cloneObjectDefinition),
     activeContext: cloneEditContext(snapshot.activeContext),
   };
+}
+
+export function createDefaultPalette(): ProjectPalette {
+  return clonePalette(defaultProjectPalette());
 }
 
 export function activeStack(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): LayerStack {
@@ -172,5 +180,15 @@ function normalizeSurfaceData(data: Uint8Array, expectedLength: number): Uint8Ar
 }
 
 function normalizePixelValue(value: number): PixelValue {
-  return value === 1 || value === 2 ? value : TRANSPARENT_PIXEL;
+  return Number.isInteger(value) && value >= 0 && value <= MAX_PALETTE_INDEX ? value : TRANSPARENT_PIXEL;
+}
+
+function clonePalette(palette: ProjectPalette): ProjectPalette {
+  return {
+    entries: palette.entries.map(clonePaletteEntry),
+  };
+}
+
+function clonePaletteEntry(entry: PaletteEntry): PaletteEntry {
+  return { ...entry };
 }

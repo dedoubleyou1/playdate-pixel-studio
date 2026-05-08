@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "./layers";
 import { indexFor } from "./pixelOps";
-import { checkerDitherPaintMode, solidPaintMode } from "./paintSources";
 import {
   applyPixelToolDrag,
   applyPixelToolFinish,
@@ -16,7 +15,7 @@ const defaultSettings: PixelToolSettings = {
   brushSize: 1,
   mirrorX: false,
   mirrorY: false,
-  paintMode: solidPaintMode(BLACK_PIXEL),
+  paletteIndex: BLACK_PIXEL,
 };
 
 describe("pixel command helpers", () => {
@@ -46,7 +45,7 @@ describe("pixel command helpers", () => {
     expect(
       applyPixelToolStart(layer, { x: 2, y: 2 }, "pencil", {
         ...defaultSettings,
-        paintMode: solidPaintMode(WHITE_PIXEL),
+        paletteIndex: WHITE_PIXEL,
       }).changed,
     ).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(WHITE_PIXEL);
@@ -64,19 +63,19 @@ describe("pixel command helpers", () => {
     expect(applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", defaultSettings).changed).toBe(false);
   });
 
-  it("applies the active paint mode to fill tools", () => {
+  it("applies the active palette index to fill tools", () => {
     const layer = createLayer(1, "Layer 1");
 
     expect(
       applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", {
         ...defaultSettings,
-        paintMode: checkerDitherPaintMode({ foreground: BLACK_PIXEL, background: WHITE_PIXEL }),
+        paletteIndex: 3,
       }).changed,
     ).toBe(true);
 
-    expect(layer.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
-    expect(layer.surface.data[indexFor(1, 0)]).toBe(WHITE_PIXEL);
-    expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(0, 0)]).toBe(3);
+    expect(layer.surface.data[indexFor(1, 0)]).toBe(3);
+    expect(layer.surface.data[indexFor(1, 1)]).toBe(3);
   });
 
   it("creates shape previews and applies shape finishes", () => {

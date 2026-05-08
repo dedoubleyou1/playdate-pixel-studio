@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
-import type { ObjectDefinition } from "../domain/types";
+import type { ObjectDefinition, ProjectPalette } from "../domain/types";
 import { renderObjectThumbnail } from "../rendering/compositor";
 
 export function ObjectPreviewCanvas({
@@ -9,6 +9,7 @@ export function ObjectPreviewCanvas({
   canvasWidth,
   className,
   object,
+  palette,
   thumbnailKey = objectThumbnailKey(object),
   style,
 }: {
@@ -16,6 +17,7 @@ export function ObjectPreviewCanvas({
   canvasWidth?: number;
   className?: string;
   object: ObjectDefinition;
+  palette: ProjectPalette;
   thumbnailKey?: string;
   style?: CSSProperties;
 }): React.JSX.Element {
@@ -28,9 +30,9 @@ export function ObjectPreviewCanvas({
 
   useEffect(() => {
     if (previewRef.current) {
-      renderObjectThumbnail(previewRef.current, objectRef.current);
+      renderObjectThumbnail(previewRef.current, objectRef.current, palette);
     }
-  }, [canvasHeight, canvasWidth, thumbnailKey]);
+  }, [canvasHeight, canvasWidth, palette, thumbnailKey]);
 
   return (
     <canvas

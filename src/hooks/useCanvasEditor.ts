@@ -37,6 +37,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
   const objects = useEditorStore((state) => state.objects);
+  const palette = useEditorStore((state) => state.palette);
   const shapePreview = useEditorStore((state) => state.shapePreview);
   const viewRevision = useEditorStore((state) => state.viewRevision);
 
@@ -56,13 +57,14 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
           shapePreview,
           objects,
           stack.background,
+          palette,
           renderMovePreviewRef.current,
         );
         renderFrameRef.current = null;
         renderMovePreviewRef.current = null;
       });
     },
-    [objects, shapePreview, stack.background, stack.layers],
+    [objects, palette, shapePreview, stack.background, stack.layers],
   );
 
   useEffect(() => {
@@ -93,7 +95,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       brushSize: state.brushSize,
       mirrorX: state.mirrorX,
       mirrorY: state.mirrorY,
-      paintMode: state.activePaintMode,
+      paletteIndex: state.activePaletteIndex,
     };
   }, []);
 

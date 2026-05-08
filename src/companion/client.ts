@@ -1,5 +1,5 @@
 import type { PreviewMode } from "../export/playdateExport";
-import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { packPlaydateFrame, PLAYDATE_FRAME_BYTES } from "./protocol";
 import { PDPS_STREAM_ID_HEADER } from "./streamMetadata";
 
@@ -66,10 +66,11 @@ export async function sendFrameToBridge(
   revision: number,
   objects: ObjectDefinition[],
   background: PixelValue,
+  palette: ProjectPalette,
   streamId: string,
   signal?: AbortSignal,
 ): Promise<FrameSendResult> {
-  const packed = packPlaydateFrame(layers, mode, revision, objects, background);
+  const packed = packPlaydateFrame(layers, mode, revision, objects, background, palette);
   if (packed.payload.byteLength !== PLAYDATE_FRAME_BYTES) {
     throw new Error("Packed frame had an unexpected size.");
   }

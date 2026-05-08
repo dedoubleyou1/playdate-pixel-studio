@@ -6,7 +6,6 @@ import {
   Move,
   PaintBucket,
   Pencil,
-  Pen,
   RotateCcwSquare,
   Save,
   Square,
@@ -15,8 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
-import { TRANSPARENT_PIXEL } from "../domain/types";
+import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
+import { BLACK_PIXEL } from "../domain/types";
 import type { Tool } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 
@@ -35,8 +34,7 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }): React.JSX.Element {
   const setTool = useEditorStore((state) => state.setTool);
-  const setPaintMode = useEditorStore((state) => state.setPaintMode);
-  const activePaintValue = useEditorStore((state) => state.activePaintValue);
+  const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
   const newProject = useEditorStore((state) => state.newProject);
   const saveProject = useEditorStore((state) => state.saveProject);
   const exportPng = useEditorStore((state) => state.exportPng);
@@ -88,24 +86,15 @@ export function CommandPalette({
           ))}
           <CommandButton
             icon={Pencil}
-            label="Select solid paint"
+            label="Select black paint"
             disabled={!drawingEnabled}
-            onClick={() => run(() => setPaintMode(solidPaintMode(activePaintValue)))}
+            onClick={() => run(() => setActivePaletteIndex(BLACK_PIXEL))}
           />
           <CommandButton
-            icon={Pen}
-            label="Select dither paint"
+            icon={Pencil}
+            label="Select dither palette entry"
             disabled={!drawingEnabled}
-            onClick={() =>
-              run(() =>
-                setPaintMode(
-                  checkerDitherPaintMode({
-                    foreground: activePaintValue,
-                    background: TRANSPARENT_PIXEL,
-                  }),
-                ),
-              )
-            }
+            onClick={() => run(() => setActivePaletteIndex(FIRST_DITHER_PALETTE_INDEX))}
           />
         </div>
       </DialogContent>

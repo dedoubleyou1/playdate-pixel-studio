@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createObjectDefinition, createObjectInstanceLayer } from "../domain/layers";
-import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
 import { indexFor } from "../domain/pixelOps";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
@@ -136,14 +135,14 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
   });
 
-  it("tracks paint mode separately from the active tool", () => {
+  it("tracks palette selection separately from the active tool", () => {
     const state = useEditorStore.getState();
 
     state.setTool("fill");
-    state.setPaintMode(checkerDitherPaintMode({ foreground: BLACK_PIXEL }));
+    state.setActivePaletteIndex(3);
 
     expect(useEditorStore.getState().activeTool).toBe("fill");
-    expect(useEditorStore.getState().activePaintMode).toMatchObject({ type: "checker-dither" });
+    expect(useEditorStore.getState().activePaletteIndex).toBe(3);
   });
 });
 
@@ -329,8 +328,7 @@ function resetStore(): void {
     recentProjects: [],
     redoStack: [],
     documentRevision: 0,
-    activePaintMode: solidPaintMode(BLACK_PIXEL),
-    activePaintValue: BLACK_PIXEL,
+    activePaletteIndex: BLACK_PIXEL,
     savedDocumentRevision: 0,
     status: "Ready",
     undoStack: [],

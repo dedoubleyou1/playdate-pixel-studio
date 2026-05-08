@@ -1,6 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants.ts";
+import { defaultProjectPalette } from "../domain/palette.ts";
 import { WHITE_PIXEL } from "../domain/types.ts";
-import type { Layer, ObjectDefinition, PixelValue } from "../domain/types.ts";
+import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types.ts";
 import { composeShades } from "../rendering/frameComposer.ts";
 
 export const PLAYDATE_FRAME_BYTES = (PLAYDATE_WIDTH * PLAYDATE_HEIGHT) / 8;
@@ -37,10 +38,11 @@ export function packPlaydateFrame(
   revision = 0,
   objects: ObjectDefinition[] = [],
   background: PixelValue = WHITE_PIXEL,
+  palette: ProjectPalette = defaultProjectPalette(),
 ): PackedPlaydateFrame {
   const payload = new Uint8Array(PLAYDATE_FRAME_BYTES);
   const inverted = mode === "inverted";
-  const shades = composeShades(layers, PLAYDATE_WIDTH, PLAYDATE_HEIGHT, objects, background);
+  const shades = composeShades(layers, PLAYDATE_WIDTH, PLAYDATE_HEIGHT, objects, background, palette);
 
   for (let pixel = 0; pixel < PLAYDATE_WIDTH * PLAYDATE_HEIGHT; pixel += 1) {
     const shade = shades[pixel] < 224 ? 0 : 255;

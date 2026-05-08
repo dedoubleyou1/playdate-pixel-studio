@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "./constants";
 import { createLayer } from "./layers";
-import { checkerDitherPaint, solidPaint } from "./paintSources";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import {
   drawBrushAt,
@@ -14,8 +13,8 @@ import {
 } from "./pixelOps";
 
 describe("pixel operations", () => {
-  const pencilOptions = { size: 1, mirrorX: false, mirrorY: false, paintSource: solidPaint(BLACK_PIXEL) };
-  const eraserOptions = { size: 1, mirrorX: false, mirrorY: false, paintSource: solidPaint(TRANSPARENT_PIXEL) };
+  const pencilOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: BLACK_PIXEL };
+  const eraserOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: TRANSPARENT_PIXEL };
 
   it("maps coordinates into the Playdate screen buffer", () => {
     expect(indexFor(0, 0)).toBe(0);
@@ -31,7 +30,7 @@ describe("pixel operations", () => {
     ]);
   });
 
-  it("draws pencil, eraser, and dither brush pixels", () => {
+  it("draws pencil, eraser, and palette-index brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
 
     expect(drawBrushAt(layer, { x: 10, y: 10 }, pencilOptions)).toBe(true);
@@ -47,11 +46,11 @@ describe("pixel operations", () => {
         size: 2,
         mirrorX: false,
         mirrorY: false,
-        paintSource: checkerDitherPaint({ foreground: BLACK_PIXEL, background: TRANSPARENT_PIXEL }),
+        paletteIndex: 3,
       },
     );
-    expect(layer.surface.data[indexFor(11, 11)]).toBe(BLACK_PIXEL);
-    expect(layer.surface.data[indexFor(12, 11)]).toBe(TRANSPARENT_PIXEL);
+    expect(layer.surface.data[indexFor(11, 11)]).toBe(3);
+    expect(layer.surface.data[indexFor(12, 11)]).toBe(3);
   });
 
   it("draws explicit white paint", () => {
@@ -65,7 +64,7 @@ describe("pixel operations", () => {
           size: 1,
           mirrorX: false,
           mirrorY: false,
-          paintSource: solidPaint(WHITE_PIXEL),
+          paletteIndex: WHITE_PIXEL,
         },
       ),
     ).toBe(true);
@@ -101,19 +100,18 @@ describe("pixel operations", () => {
     const layer = createLayer(1, "Layer 1");
     drawRect(layer, { x: 1, y: 1 }, { x: 4, y: 4 }, pencilOptions);
 
-    expect(floodFill(layer, { x: 2, y: 2 }, solidPaint(BLACK_PIXEL))).toBe(true);
+    expect(floodFill(layer, { x: 2, y: 2 }, BLACK_PIXEL)).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(1);
     expect(layer.surface.data[indexFor(0, 0)]).toBe(0);
   });
 
-  it("flood fills with pattern paint sources", () => {
+  it("flood fills with palette indexes", () => {
     const layer = createLayer(1, "Layer 1");
-    const paint = checkerDitherPaint({ foreground: BLACK_PIXEL, background: WHITE_PIXEL });
 
-    expect(floodFill(layer, { x: 0, y: 0 }, paint)).toBe(true);
+    expect(floodFill(layer, { x: 0, y: 0 }, 3)).toBe(true);
 
-    expect(layer.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
-    expect(layer.surface.data[indexFor(1, 0)]).toBe(WHITE_PIXEL);
-    expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(0, 0)]).toBe(3);
+    expect(layer.surface.data[indexFor(1, 0)]).toBe(3);
+    expect(layer.surface.data[indexFor(1, 1)]).toBe(3);
   });
 });

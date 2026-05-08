@@ -61,6 +61,20 @@ describe("composeImageData", () => {
     expect(redAt(transparent, 1, 1)).toBe(192);
   });
 
+  it("resolves dither palette indexes at composition time", () => {
+    const layer = createLayer(1, "Layer");
+    layer.surface.data[indexFor(0, 0)] = 4;
+    layer.surface.data[indexFor(1, 0)] = 4;
+    layer.surface.data[indexFor(1, 1)] = 4;
+
+    const image = composeImageData([layer], createImageData, { height: 2, width: 2 });
+
+    expect(redAtWidth(image, 2, 0, 0)).toBe(0);
+    expect(redAtWidth(image, 2, 1, 0)).toBe(255);
+    expect(redAtWidth(image, 2, 1, 1)).toBe(0);
+    expect(layer.surface.data[indexFor(1, 0)]).toBe(4);
+  });
+
   it("renders layer move previews without moving source pixels", () => {
     const layer = createLayer(1, "Layer");
     layer.surface.data[indexFor(1, 1)] = BLACK_PIXEL;

@@ -9,8 +9,7 @@ import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { checkerDitherPaintMode } from "../domain/paintSources";
-import { TRANSPARENT_PIXEL } from "../domain/types";
+import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -22,7 +21,7 @@ export function App(): React.JSX.Element {
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const setTool = useEditorStore((state) => state.setTool);
-  const setPaintMode = useEditorStore((state) => state.setPaintMode);
+  const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
   const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
@@ -76,13 +75,7 @@ export function App(): React.JSX.Element {
       if (event.target instanceof HTMLInputElement) return;
 
       if (key === "d" && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) {
-        const state = useEditorStore.getState();
-        setPaintMode(
-          checkerDitherPaintMode({
-            foreground: state.activePaintValue,
-            background: TRANSPARENT_PIXEL,
-          }),
-        );
+        setActivePaletteIndex(FIRST_DITHER_PALETTE_INDEX);
         return;
       }
 
@@ -101,7 +94,7 @@ export function App(): React.JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newProject, redo, saveProject, setPaintMode, setTool, undo]);
+  }, [newProject, redo, saveProject, setActivePaletteIndex, setTool, undo]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;

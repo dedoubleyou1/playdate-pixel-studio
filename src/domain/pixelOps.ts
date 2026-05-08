@@ -1,6 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
-import { paintValueAt, type PaintSource } from "./paintSources";
-import type { PixelLayer, PixelSurface, PixelValue, Point } from "./types";
+import type { PaletteIndex, PixelLayer, PixelSurface, PixelValue, Point } from "./types";
 
 export function indexFor(x: number, y: number, width = PLAYDATE_WIDTH): number {
   return y * width + x;
@@ -45,7 +44,7 @@ export function setSurfacePixel(surface: PixelSurface, x: number, y: number, val
 }
 
 export interface BrushOptions {
-  paintSource: PaintSource;
+  paletteIndex: PaletteIndex;
   size: number;
   mirrorX: boolean;
   mirrorY: boolean;
@@ -67,8 +66,7 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
       for (let xx = 0; xx < options.size; xx += 1) {
         const x = mirroredPoint.x + xx - half;
         const y = mirroredPoint.y + yy - half;
-        const value = paintValueAt(options.paintSource, { x, y });
-        changed = setPixel(layer, x, y, value) || changed;
+        changed = setPixel(layer, x, y, options.paletteIndex) || changed;
       }
     }
   }
@@ -132,11 +130,11 @@ export function drawRect(layer: PixelLayer, start: Point, end: Point, options: B
   return changed;
 }
 
-export function floodFill(layer: PixelLayer, point: Point, paintSource: PaintSource): boolean {
+export function floodFill(layer: PixelLayer, point: Point, paletteIndex: PaletteIndex): boolean {
   if (!inBounds(point.x, point.y, layer.surface.width, layer.surface.height)) return false;
   const startIndex = indexFor(point.x, point.y, layer.surface.width);
   const target = layer.surface.data[startIndex];
-  if (paintSource.type === "solid" && target === paintSource.value) return false;
+  if (target === paletteIndex) return false;
 
   const stack: Point[] = [point];
   const visited = new Uint8Array(layer.surface.data.length);
@@ -150,7 +148,7 @@ export function floodFill(layer: PixelLayer, point: Point, paintSource: PaintSou
     visited[index] = 1;
     if (layer.surface.data[index] !== target) continue;
 
-    changed = setSurfacePixel(layer.surface, current.x, current.y, paintValueAt(paintSource, current)) || changed;
+    changed = setSurfacePixel(layer.surface, current.x, current.y, paletteIndex) || changed;
     stack.push(
       { x: current.x + 1, y: current.y },
       { x: current.x - 1, y: current.y },

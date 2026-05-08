@@ -1,6 +1,8 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { defaultProjectPalette, resolvePaletteEntry } from "../domain/palette";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
+import type { ProjectPalette } from "../domain/types";
 import { composeFrame } from "./frameComposer";
 import type { ComposedFrame, LayerMovePreview } from "./frameComposer";
 
@@ -14,6 +16,7 @@ export interface ComposeOptions {
   width?: number;
   height?: number;
   objects?: ObjectDefinition[];
+  palette?: ProjectPalette;
 }
 
 export function composeImageData(
@@ -23,11 +26,13 @@ export function composeImageData(
 ): ImageData {
   const width = options.width ?? PLAYDATE_WIDTH;
   const height = options.height ?? PLAYDATE_HEIGHT;
+  const palette = options.palette ?? defaultProjectPalette();
   const shades = composeFrame(layers, width, height, {
     baseShade: options.baseShade,
     background: options.background,
     movePreview: options.movePreview,
     objects: options.objects ?? [],
+    palette,
   }).shades;
   const image = createImageData(width, height);
   const pixels = image.data;
@@ -44,7 +49,12 @@ export function composeImageData(
   return image;
 }
 
-export function renderLayerThumbnail(canvas: HTMLCanvasElement, layer: Layer, objects: ObjectDefinition[] = []): void {
+export function renderLayerThumbnail(
+  canvas: HTMLCanvasElement,
+  layer: Layer,
+  objects: ObjectDefinition[] = [],
+  palette: ProjectPalette = defaultProjectPalette(),
+): void {
   const context = requireCanvasContext(canvas);
   const width = canvas.width;
   const height = canvas.height;
@@ -52,21 +62,25 @@ export function renderLayerThumbnail(canvas: HTMLCanvasElement, layer: Layer, ob
   const pixels = image.data;
 
   if (layer.type === "pixel") {
-    drawPixelSurfaceThumbnail(layer.surface, pixels, width, height);
+    drawPixelSurfaceThumbnail(layer.surface, pixels, width, height, palette);
   } else {
-    drawObjectLayerThumbnail(layer, objects, pixels, width, height);
+    drawObjectLayerThumbnail(layer, objects, pixels, width, height, palette);
   }
 
   context.putImageData(image, 0, 0);
 }
 
-export function renderObjectThumbnail(canvas: HTMLCanvasElement, object: ObjectDefinition): void {
+export function renderObjectThumbnail(
+  canvas: HTMLCanvasElement,
+  object: ObjectDefinition,
+  palette: ProjectPalette = defaultProjectPalette(),
+): void {
   const context = requireCanvasContext(canvas);
   const width = canvas.width;
   const height = canvas.height;
   const image = context.createImageData(width, height);
   const pixels = image.data;
-  const frame = composeFrame(object.layers, object.width, object.height, { background: object.background });
+  const frame = composeFrame(object.layers, object.width, object.height, { background: object.background, palette });
 
   drawFrameThumbnail(frame, object.width, object.height, pixels, width, height);
 
@@ -78,11 +92,13 @@ export function drawPixelSurfaceThumbnail(
   pixels: Uint8ClampedArray,
   width: number,
   height: number,
+  palette: ProjectPalette = defaultProjectPalette(),
 ): void {
   drawThumbnail(
     {
       height: surface.height,
-      shadeAt: (x, y) => pixelToThumbnailShade(surface.data[y * surface.width + x]),
+      shadeAt: (x, y) =>
+        pixelToThumbnailShade(resolvePaletteEntry(palette, surface.data[y * surface.width + x], { x, y })),
       width: surface.width,
     },
     pixels,
@@ -103,11 +119,16 @@ function drawObjectLayerThumbnail(
   pixels: Uint8ClampedArray,
   width: number,
   height: number,
+  palette: ProjectPalette,
 ): void {
   const object = objects.find((candidate) => candidate.id === layer.objectId);
   if (!object) return;
 
-  const frame = composeFrame(object.layers, object.width, object.height, { background: object.background, objects });
+  const frame = composeFrame(object.layers, object.width, object.height, {
+    background: object.background,
+    objects,
+    palette,
+  });
   drawFrameThumbnail(frame, object.width, object.height, pixels, width, height);
 }
 

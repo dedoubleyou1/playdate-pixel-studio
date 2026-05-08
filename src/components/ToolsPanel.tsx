@@ -1,13 +1,11 @@
-import { Ellipsis, Eraser, Move, PaintBucket, Pen, Pencil, PenTool, Square } from "lucide-react";
+import { Eraser, Move, PaintBucket, Pencil, PenTool, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
-import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { PixelValue, Tool } from "../domain/types";
+import type { Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
@@ -27,19 +25,12 @@ const TOOLS: Array<{
   { tool: "fill", label: "Fill", shortcut: "F", icon: PaintBucket },
 ];
 
-const PAINT_VALUES: Array<{ label: string; value: PixelValue }> = [
-  { label: "Black paint", value: BLACK_PIXEL },
-  { label: "White paint", value: WHITE_PIXEL },
-  { label: "Transparent paint", value: TRANSPARENT_PIXEL },
-];
-
 export function ToolsPanel(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const setTool = useEditorStore((state) => state.setTool);
-  const activePaintMode = useEditorStore((state) => state.activePaintMode);
-  const setPaintMode = useEditorStore((state) => state.setPaintMode);
-  const activePaintValue = useEditorStore((state) => state.activePaintValue);
-  const setPaintValue = useEditorStore((state) => state.setPaintValue);
+  const palette = useEditorStore((state) => state.palette);
+  const activePaletteIndex = useEditorStore((state) => state.activePaletteIndex);
+  const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
   const brushSize = useEditorStore((state) => state.brushSize);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
   const mirrorX = useEditorStore((state) => state.mirrorX);
@@ -86,58 +77,24 @@ export function ToolsPanel(): React.JSX.Element {
 
       <EditorPane disabled={!drawingEnabled}>
         <EditorPaneTitle className="mb-3">Brush</EditorPaneTitle>
-        <div className="mb-3.5 grid grid-cols-2 gap-2" aria-label="Paint mode">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={activePaintMode.type === "solid" ? "secondary" : "outline"}
-                size="icon"
-                aria-label="Solid paint"
-                disabled={!drawingEnabled}
-                onClick={() => setPaintMode(solidPaintMode(activePaintValue))}
-              >
-                <PixelSwatch value={activePaintValue} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Solid paint</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={activePaintMode.type === "checker-dither" ? "secondary" : "outline"}
-                size="icon"
-                aria-label="Dither paint"
-                disabled={!drawingEnabled}
-                onClick={() =>
-                  setPaintMode(
-                    checkerDitherPaintMode({
-                      foreground: activePaintValue,
-                      background: TRANSPARENT_PIXEL,
-                    }),
-                  )
-                }
-              >
-                <DitherIcon />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Dither paint (D)</TooltipContent>
-          </Tooltip>
-        </div>
-        <div className="mb-3.5 grid grid-cols-3 gap-2" aria-label="Paint value">
-          {PAINT_VALUES.map((paint) => (
-            <Tooltip key={paint.value}>
+        <div className="mb-3.5 grid grid-cols-3 gap-2" aria-label="Palette">
+          {palette.entries.map((entry) => (
+            <Tooltip key={entry.id}>
               <TooltipTrigger asChild>
                 <Button
-                  variant={activePaintValue === paint.value ? "secondary" : "outline"}
+                  variant={activePaletteIndex === entry.index ? "secondary" : "outline"}
                   size="icon"
-                  aria-label={paint.label}
+                  aria-label={`${entry.name} paint`}
                   disabled={!drawingEnabled}
-                  onClick={() => setPaintValue(paint.value)}
+                  onClick={() => setActivePaletteIndex(entry.index)}
                 >
-                  <PixelSwatch value={paint.value} />
+                  <PixelSwatch palette={palette} value={entry.index} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>{paint.label}</TooltipContent>
+              <TooltipContent>
+                {entry.name}
+                {entry.index === 3 ? " (D)" : ""}
+              </TooltipContent>
             </Tooltip>
           ))}
         </div>
@@ -177,22 +134,5 @@ function ControlSwitch({
       <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
       <Label>{label}</Label>
     </div>
-  );
-}
-
-function DitherIcon({ className }: { className?: string }): React.JSX.Element {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <Pen />
-      <Ellipsis x={-2} y={9.5} />
-    </svg>
   );
 }

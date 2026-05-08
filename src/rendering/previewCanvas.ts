@@ -1,6 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { defaultProjectPalette } from "../domain/palette";
 import { WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { applyPreviewMode, type PreviewMode } from "../export/playdateExport";
 import { composeImageData } from "./compositor";
 
@@ -20,6 +21,7 @@ export class PreviewCanvas {
     mode: PreviewMode = "normal",
     objects: ObjectDefinition[] = [],
     background: PixelValue = WHITE_PIXEL,
+    palette: ProjectPalette = defaultProjectPalette(),
   ): void {
     const image = composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
       device: true,
@@ -27,6 +29,7 @@ export class PreviewCanvas {
       height: PLAYDATE_HEIGHT,
       background,
       objects,
+      palette,
     });
     applyPreviewMode(image, mode);
     this.context.putImageData(image, 0, 0);
@@ -36,6 +39,7 @@ export class PreviewCanvas {
     layers: Layer[],
     objects: ObjectDefinition[] = [],
     background: PixelValue = WHITE_PIXEL,
+    palette: ProjectPalette = defaultProjectPalette(),
   ): HTMLCanvasElement {
     const exportCanvas = document.createElement("canvas");
     exportCanvas.width = PLAYDATE_WIDTH;
@@ -51,6 +55,7 @@ export class PreviewCanvas {
         height: PLAYDATE_HEIGHT,
         background,
         objects,
+        palette,
       }),
       0,
       0,

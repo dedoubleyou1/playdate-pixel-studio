@@ -1,5 +1,13 @@
 import { cloneSnapshot } from "./layers";
-import type { EditContext, EditorSnapshot, Layer, LayerStack, ObjectDefinition, PixelLayer } from "./types";
+import type {
+  EditContext,
+  EditorSnapshot,
+  Layer,
+  LayerStack,
+  ObjectDefinition,
+  PaletteEntry,
+  PixelLayer,
+} from "./types";
 
 export interface DocumentCommand {
   id: string;
@@ -21,6 +29,7 @@ export function createDocumentCommand(label: string, before: EditorSnapshot, aft
 
 export function snapshotsEqual(left: EditorSnapshot, right: EditorSnapshot): boolean {
   if (!editContextsEqual(left.activeContext, right.activeContext)) return false;
+  if (!palettesEqual(left.palette, right.palette)) return false;
   if (!layerStacksEqual(left.root, right.root)) return false;
   if (left.objects.length !== right.objects.length) return false;
 
@@ -28,6 +37,37 @@ export function snapshotsEqual(left: EditorSnapshot, right: EditorSnapshot): boo
     const other = right.objects[index];
     if (!other) return false;
     return objectDefinitionsEqual(object, other);
+  });
+}
+
+function palettesEqual(left: { entries: PaletteEntry[] }, right: { entries: PaletteEntry[] }): boolean {
+  if (left.entries.length !== right.entries.length) return false;
+
+  return left.entries.every((entry, index) => {
+    const other = right.entries[index];
+    if (
+      !other ||
+      entry.type !== other.type ||
+      entry.id !== other.id ||
+      entry.index !== other.index ||
+      entry.name !== other.name
+    ) {
+      return false;
+    }
+
+    if (entry.type === "solid" && other.type === "solid") {
+      return entry.value === other.value;
+    }
+
+    if (entry.type === "dither" && other.type === "dither") {
+      return (
+        entry.patternId === other.patternId &&
+        entry.foregroundIndex === other.foregroundIndex &&
+        entry.backgroundIndex === other.backgroundIndex
+      );
+    }
+
+    return false;
   });
 }
 

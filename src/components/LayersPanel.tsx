@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeStack, isPixelEditableLayer } from "../domain/layers";
+import { projectPaletteKey } from "../domain/palette";
 import { layerThumbnailKey } from "../domain/thumbnailKeys";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { renderLayerThumbnail } from "../rendering/compositor";
 import {
   EditorControlRow,
@@ -29,6 +30,7 @@ export function LayersPanel(): React.JSX.Element {
   const activeLayerIndex = stack.activeLayerIndex;
   const activeLayer = layers[activeLayerIndex];
   const objects = useEditorStore((state) => state.objects);
+  const palette = useEditorStore((state) => state.palette);
   const addLayer = useEditorStore((state) => state.addLayer);
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer);
   const deleteLayer = useEditorStore((state) => state.deleteLayer);
@@ -67,6 +69,7 @@ export function LayersPanel(): React.JSX.Element {
               index={index}
               active={index === activeLayerIndex}
               objects={objects}
+              palette={palette}
             />
           ))}
         <BackgroundRow background={stack.background} onChange={setStackBackground} />
@@ -125,7 +128,7 @@ function BackgroundRow({
   return (
     <EditorListItem className="grid-cols-[minmax(0,1fr)_auto] cursor-default" aria-label="Background">
       <strong className="min-w-0 text-sm">Background</strong>
-      <Select value={String(background)} onValueChange={(value) => onChange(Number(value) as PixelValue)}>
+      <Select value={String(background)} onValueChange={(value) => onChange(Number(value))}>
         <SelectTrigger className="min-w-[132px]" aria-label="Background color">
           <SelectValue placeholder={getBackgroundShortLabel(selectedOption.label)} />
         </SelectTrigger>
@@ -151,16 +154,18 @@ function LayerRow({
   index,
   active,
   objects,
+  palette,
 }: {
   layer: Layer;
   index: number;
   active: boolean;
   objects: ObjectDefinition[];
+  palette: ProjectPalette;
 }): React.JSX.Element {
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const renameLayer = useEditorStore((state) => state.renameLayer);
   const setLayerVisible = useEditorStore((state) => state.setLayerVisible);
-  const thumbnailKey = layerThumbnailKey(layer, objects);
+  const thumbnailKey = `${layerThumbnailKey(layer, objects)}:${projectPaletteKey(palette)}`;
 
   return (
     <EditorAssetItem
@@ -169,7 +174,7 @@ function LayerRow({
       leadingIcon={layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       name={layer.name}
       nameLabel="Layer name"
-      thumbnail={<LayerThumbnail layer={layer} objects={objects} thumbnailKey={thumbnailKey} />}
+      thumbnail={<LayerThumbnail layer={layer} objects={objects} palette={palette} thumbnailKey={thumbnailKey} />}
       onClick={() => setActiveLayer(index)}
       onRename={(name) => renameLayer(index, name)}
       actions={
@@ -190,26 +195,25 @@ function LayerRow({
 const LayerThumbnail = memo(function LayerThumbnail({
   layer,
   objects,
+  palette,
 }: {
   layer: Layer;
   objects: ObjectDefinition[];
+  palette: ProjectPalette;
   thumbnailKey: string;
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     if (thumbnailRef.current) {
-      renderLayerThumbnail(thumbnailRef.current, layer, objects);
+      renderLayerThumbnail(thumbnailRef.current, layer, objects, palette);
     }
-  }, [layer, objects]);
+  }, [layer, objects, palette]);
 
   return <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />;
 }, areThumbnailPropsEqual);
 
-function areThumbnailPropsEqual(
-  previous: { thumbnailKey: string },
-  next: { thumbnailKey: string },
-): boolean {
+function areThumbnailPropsEqual(previous: { thumbnailKey: string }, next: { thumbnailKey: string }): boolean {
   return previous.thumbnailKey === next.thumbnailKey;
 }
 

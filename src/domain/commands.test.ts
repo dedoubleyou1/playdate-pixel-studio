@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDocumentCommand, snapshotsEqual } from "./commands";
-import { createRootStack } from "./layers";
+import { createDefaultPalette, createRootStack } from "./layers";
 import { indexFor } from "./pixelOps";
 import type { EditorSnapshot } from "./types";
 
@@ -39,6 +39,7 @@ describe("document commands", () => {
 
 function makeSnapshot(): EditorSnapshot {
   return {
+    palette: createDefaultPalette(),
     root: createRootStack(),
     objects: [],
     activeContext: { type: "root" },

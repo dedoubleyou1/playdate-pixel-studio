@@ -8,12 +8,14 @@ import type {
   LayerStack,
   ObjectDefinition,
   ObjectInstanceLayer,
+  PaletteEntry,
   PixelLayer,
   PixelSurface,
   PixelValue,
+  ProjectPalette,
 } from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 5;
+export const PROJECT_SCHEMA_VERSION = 6;
 
 export interface SerializedSurface {
   width: number;
@@ -53,6 +55,12 @@ export interface SerializedLayerStack {
   layers: SerializedLayer[];
 }
 
+export type SerializedPaletteEntry = PaletteEntry;
+
+export interface SerializedProjectPalette {
+  entries: SerializedPaletteEntry[];
+}
+
 export interface SerializedObjectDefinition extends SerializedLayerStack {
   id: string;
   name: string;
@@ -60,13 +68,14 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 5;
+  schemaVersion: 6;
   id: string;
   name: string;
   width: number;
   height: number;
   updatedAt: number;
   snapshot: {
+    palette: SerializedProjectPalette;
     root: SerializedLayerStack;
     objects: SerializedObjectDefinition[];
     activeContext: EditContext;
@@ -88,6 +97,7 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
     height: PLAYDATE_HEIGHT,
     updatedAt: Date.now(),
     snapshot: {
+      palette: serializePalette(snapshot.palette),
       root: serializeLayerStack(snapshot.root),
       objects: snapshot.objects.map(serializeObjectDefinition),
       activeContext: cloneEditContext(snapshot.activeContext),
@@ -107,6 +117,7 @@ export function deserializeProject(document: PlaydateProjectDocument): EditorSna
   return cloneSnapshot({
     root: deserializeLayerStack(document.snapshot.root),
     objects: document.snapshot.objects.map(deserializeObjectDefinition),
+    palette: deserializePalette(document.snapshot.palette),
     activeContext: cloneEditContext(document.snapshot.activeContext),
   });
 }
@@ -142,6 +153,18 @@ function deserializeObjectDefinition(object: SerializedObjectDefinition): Object
     nextLayerId: object.nextLayerId,
     activeLayerIndex: object.activeLayerIndex,
     layers: object.layers.map(deserializePixelLayer),
+  };
+}
+
+function serializePalette(palette: ProjectPalette): SerializedProjectPalette {
+  return {
+    entries: palette.entries.map((entry) => ({ ...entry })),
+  };
+}
+
+function deserializePalette(palette: SerializedProjectPalette): ProjectPalette {
+  return {
+    entries: palette.entries.map((entry) => ({ ...entry })),
   };
 }
 

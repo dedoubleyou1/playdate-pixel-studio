@@ -1,5 +1,13 @@
+import { defaultProjectPalette, resolvePaletteEntry } from "../domain/palette.ts";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types.ts";
-import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelLayer, PixelValue } from "../domain/types.ts";
+import type {
+  Layer,
+  ObjectDefinition,
+  ObjectInstanceLayer,
+  PixelLayer,
+  PixelValue,
+  ProjectPalette,
+} from "../domain/types.ts";
 
 export interface ComposedFrame {
   coverage: Uint8ClampedArray;
@@ -11,6 +19,7 @@ interface ComposeFrameOptions {
   background?: PixelValue;
   movePreview?: LayerMovePreview;
   objects?: ObjectDefinition[];
+  palette?: ProjectPalette;
 }
 
 export interface LayerMovePreview {
@@ -25,8 +34,9 @@ export function composeShades(
   height: number,
   objects: ObjectDefinition[] = [],
   background: PixelValue = TRANSPARENT_PIXEL,
+  palette: ProjectPalette = defaultProjectPalette(),
 ): Uint8ClampedArray {
-  return composeFrame(layers, width, height, { background, objects }).shades;
+  return composeFrame(layers, width, height, { background, objects, palette }).shades;
 }
 
 export function composeFrame(
@@ -37,13 +47,29 @@ export function composeFrame(
 ): ComposedFrame {
   const shades = new Uint8ClampedArray(width * height);
   const coverage = new Uint8ClampedArray(width * height);
-  initializeBackground({ coverage, shades }, options.background ?? TRANSPARENT_PIXEL, options.baseShade ?? 255);
+  const palette = options.palette ?? defaultProjectPalette();
+  initializeBackground(
+    { coverage, shades },
+    width,
+    height,
+    options.background ?? TRANSPARENT_PIXEL,
+    options.baseShade ?? 255,
+    palette,
+  );
 
   for (const [index, layer] of layers.entries()) {
     if (!layer.visible) continue;
     const movePreview = options.movePreview?.layerIndex === index ? options.movePreview : null;
     if (layer.type === "pixel") {
-      compositePixelLayer({ coverage, shades }, width, height, layer, movePreview?.dx ?? 0, movePreview?.dy ?? 0);
+      compositePixelLayer(
+        { coverage, shades },
+        width,
+        height,
+        layer,
+        palette,
+        movePreview?.dx ?? 0,
+        movePreview?.dy ?? 0,
+      );
     } else {
       compositeObjectLayer(
         { coverage, shades },
@@ -51,6 +77,7 @@ export function composeFrame(
         height,
         layer,
         options.objects ?? [],
+        palette,
         movePreview?.dx ?? 0,
         movePreview?.dy ?? 0,
       );
@@ -65,6 +92,7 @@ function compositePixelLayer(
   width: number,
   height: number,
   layer: PixelLayer,
+  palette: ProjectPalette,
   dx = 0,
   dy = 0,
 ): void {
@@ -81,7 +109,7 @@ function compositePixelLayer(
       if (targetX < 0 || targetX >= width) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = layer.surface.data[sourceIndex];
-      const sourceShade = pixelToShade(pixel);
+      const sourceShade = pixelToShade(resolvePaletteEntry(palette, pixel, { x, y }));
       if (sourceShade === null) continue;
       const targetIndex = targetY * width + targetX;
       frame.shades[targetIndex] = compositeShade(frame.shades[targetIndex], sourceShade, alpha);
@@ -96,6 +124,7 @@ function compositeObjectLayer(
   height: number,
   layer: ObjectInstanceLayer,
   objects: ObjectDefinition[],
+  palette: ProjectPalette,
   dx = 0,
   dy = 0,
 ): void {
@@ -107,6 +136,7 @@ function compositeObjectLayer(
   const objectFrame = composeFrame(object.layers, object.width, object.height, {
     background: object.background,
     objects,
+    palette,
   });
 
   for (let y = 0; y < object.height; y += 1) {
@@ -136,10 +166,22 @@ function compositeShade(targetShade: number, sourceShade: number, alpha: number)
   return Math.round(targetShade * (1 - alpha) + sourceShade * alpha);
 }
 
-function initializeBackground(frame: ComposedFrame, background: PixelValue, transparentShade: number): void {
-  const backgroundShade = pixelToShade(background);
-  frame.shades.fill(backgroundShade ?? transparentShade);
-  if (backgroundShade !== null) {
-    frame.coverage.fill(1);
+function initializeBackground(
+  frame: ComposedFrame,
+  width: number,
+  height: number,
+  background: PixelValue,
+  transparentShade: number,
+  palette: ProjectPalette,
+): void {
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const backgroundShade = pixelToShade(resolvePaletteEntry(palette, background, { x, y }));
+      const index = y * width + x;
+      frame.shades[index] = backgroundShade ?? transparentShade;
+      if (backgroundShade !== null) {
+        frame.coverage[index] = 1;
+      }
+    }
   }
 }

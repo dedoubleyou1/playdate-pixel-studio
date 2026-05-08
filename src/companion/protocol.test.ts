@@ -40,6 +40,18 @@ describe("Playdate companion protocol", () => {
     expect(frame.payload.every((byte) => byte === 0x00)).toBe(true);
   });
 
+  it("resolves dither palette indexes before packing physical frames", () => {
+    const layer = createLayer(1, "Dither");
+    layer.surface.data[indexFor(0, 0)] = 4;
+    layer.surface.data[indexFor(1, 0)] = 4;
+    layer.surface.data[indexFor(1, 1)] = 4;
+
+    const frame = packPlaydateFrame([layer], "normal");
+
+    expect(frame.payload[0]).toBe(0b01111111);
+    expect(frame.payload[50]).toBe(0b10111111);
+  });
+
   it("can invert a physical preview frame", () => {
     const layer = createLayer(1, "Pixels");
     layer.surface.data[indexFor(0, 0)] = 1;

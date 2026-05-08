@@ -27,15 +27,17 @@ import {
   createRootStack,
   resizeSurface,
   isPixelEditableLayer,
+  createDefaultPalette,
 } from "../domain/layers";
-import { paintModeForeground, solidPaintMode, withPaintModeForeground, type PaintMode } from "../domain/paintSources";
-import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
+import { paletteEntryLabel } from "../domain/palette";
+import { BLACK_PIXEL } from "../domain/types";
 import type {
   EditContext,
   EditorSnapshot,
   Layer,
   LayerStack,
   ObjectDefinition,
+  PaletteIndex,
   PixelValue,
   PixelLayer,
   ShapePreview,
@@ -74,8 +76,7 @@ export type EditorDocument = EditorSnapshot;
 
 export interface EditorSessionState {
   activeTool: Tool;
-  activePaintMode: PaintMode;
-  activePaintValue: PixelValue;
+  activePaletteIndex: PaletteIndex;
   brushSize: number;
   mirrorX: boolean;
   mirrorY: boolean;
@@ -104,8 +105,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   canRedo: boolean;
   hasUnsavedChanges: boolean;
   setTool: (tool: Tool) => void;
-  setPaintMode: (mode: PaintMode) => void;
-  setPaintValue: (value: PixelValue) => void;
+  setActivePaletteIndex: (index: PaletteIndex) => void;
   setBrushSize: (size: number) => void;
   setMirrorX: (enabled: boolean) => void;
   setMirrorY: (enabled: boolean) => void;
@@ -164,8 +164,7 @@ const initialSnapshot = createInitialSnapshot();
 export const useEditorStore = create<EditorStoreState>((set, get) => ({
   ...initialSnapshot,
   activeTool: "pencil",
-  activePaintMode: solidPaintMode(BLACK_PIXEL),
-  activePaintValue: BLACK_PIXEL,
+  activePaletteIndex: BLACK_PIXEL,
   brushSize: 1,
   mirrorX: false,
   mirrorY: false,
@@ -199,21 +198,13 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
       return {
         activeTool: tool,
-        activePaintValue: paintModeForeground(state.activePaintMode),
         status: `${TOOL_LABELS[tool]} ready`,
       };
     }),
-  setPaintMode: (activePaintMode) =>
-    set({
-      activePaintMode,
-      activePaintValue: paintModeForeground(activePaintMode),
-      status: activePaintMode.type === "checker-dither" ? "Dither paint selected" : "Solid paint selected",
-    }),
-  setPaintValue: (activePaintValue) =>
+  setActivePaletteIndex: (activePaletteIndex) =>
     set((state) => ({
-      activePaintValue,
-      activePaintMode: withPaintModeForeground(state.activePaintMode, activePaintValue),
-      status: `Paint ${PIXEL_VALUE_LABELS[activePaintValue]} selected`,
+      activePaletteIndex,
+      status: `${paletteEntryLabel(state.palette, activePaletteIndex)} selected`,
     })),
   setBrushSize: (brushSize) => set({ brushSize }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
@@ -621,7 +612,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!hasLayerStackMutation(result)) return {};
       return {
         ...replaceActiveStack(state, result.stack),
-        status: `Background ${PIXEL_VALUE_LABELS[background]}`,
+        status: `Background ${paletteEntryLabel(state.palette, background)}`,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -682,6 +673,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       canRedo: false,
       shapePreview: null,
       status: "New project",
+      activePaletteIndex: BLACK_PIXEL,
       documentRevision: state.documentRevision + 1,
       viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: false,
@@ -744,6 +736,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Project loaded",
+        activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
@@ -784,6 +777,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Most recent project loaded",
+        activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
@@ -846,6 +840,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Project imported",
+        activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
@@ -858,7 +853,13 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   exportPng: () => {
     const state = get();
-    const canvas = createPlaydatePngCanvas(state.root.layers, state.previewMode, state.objects, state.root.background);
+    const canvas = createPlaydatePngCanvas(
+      state.root.layers,
+      state.previewMode,
+      state.objects,
+      state.root.background,
+      state.palette,
+    );
     canvas.toBlob((blob) => {
       if (!blob) return;
       downloadBlob(blob, `${slugify(state.projectName)}.png`);
@@ -871,7 +872,13 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       const state = get();
       const id = state.currentProjectId ?? crypto.randomUUID();
       const document = serializeProject(currentSnapshot(), id, state.projectName);
-      const bundle = await createProjectBundle(document, state.root.layers, state.objects, state.root.background);
+      const bundle = await createProjectBundle(
+        document,
+        state.root.layers,
+        state.objects,
+        state.root.background,
+        state.palette,
+      );
       downloadBlob(bundle, `${slugify(document.name)}.playdate-pixel.zip`);
       set({ status: "Project bundle exported" });
     } catch {
@@ -898,6 +905,7 @@ export function currentActivePixelLayer(): PixelLayer | null {
 
 function createInitialSnapshot(): EditorSnapshot {
   return {
+    palette: createDefaultPalette(),
     root: createRootStack(),
     objects: [],
     activeContext: { type: "root" },
@@ -926,17 +934,23 @@ function pushCommand(set: typeof useEditorStore.setState, command: DocumentComma
   });
 }
 
-function snapshotFrom(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): EditorSnapshot {
+function snapshotFrom(
+  snapshot: Pick<EditorSnapshot, "palette" | "root" | "objects" | "activeContext">,
+): EditorSnapshot {
   return cloneSnapshot({
+    palette: snapshot.palette,
     root: snapshot.root,
     objects: snapshot.objects,
     activeContext: snapshot.activeContext,
   });
 }
 
-function snapshotState(snapshot: EditorSnapshot): Pick<EditorStoreState, "root" | "objects" | "activeContext"> {
+function snapshotState(
+  snapshot: EditorSnapshot,
+): Pick<EditorStoreState, "palette" | "root" | "objects" | "activeContext"> {
   const cloned = cloneSnapshot(snapshot);
   return {
+    palette: cloned.palette,
     root: cloned.root,
     objects: cloned.objects,
     activeContext: cloned.activeContext,
@@ -1014,10 +1028,4 @@ const TOOL_LABELS: Record<Tool, string> = {
   line: "Line",
   rect: "Rectangle",
   fill: "Fill",
-};
-
-const PIXEL_VALUE_LABELS: Record<PixelValue, string> = {
-  [TRANSPARENT_PIXEL]: "transparent",
-  [BLACK_PIXEL]: "black",
-  [WHITE_PIXEL]: "white",
 };

@@ -36,6 +36,7 @@ export function CanvasStage(): React.JSX.Element {
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
+  const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const moveEnabled = useEditorStore((state) => Boolean(activeLayer(state)));
@@ -211,6 +212,7 @@ export function CanvasStage(): React.JSX.Element {
             <ObjectPreviewCanvas
               className="canvas-object-drop-preview"
               object={previewObject}
+              palette={palette}
               thumbnailKey={objectThumbnailKey(previewObject)}
               style={{
                 height: `${previewObject.height * zoom}px`,

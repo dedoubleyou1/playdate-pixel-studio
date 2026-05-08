@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLayer } from "../domain/layers";
+import { createDefaultPalette, createLayer } from "../domain/layers";
 import { WHITE_PIXEL } from "../domain/types";
 import { sendFrameToBridge } from "./client";
 import { PDPS_STREAM_ID_HEADER } from "./streamMetadata";
@@ -17,7 +17,15 @@ describe("companion bridge client", () => {
       }),
     );
 
-    await sendFrameToBridge([createLayer(1, "Layer")], "normal", 8, [], WHITE_PIXEL, "stream-1");
+    await sendFrameToBridge(
+      [createLayer(1, "Layer")],
+      "normal",
+      8,
+      [],
+      WHITE_PIXEL,
+      createDefaultPalette(),
+      "stream-1",
+    );
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.method).toBe("POST");

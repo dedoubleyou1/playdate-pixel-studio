@@ -1,5 +1,6 @@
 import { inBounds, mirroredPoints, walkLine } from "../domain/pixelOps";
-import type { Layer, ObjectDefinition, ShapePreview } from "../domain/types";
+import { defaultProjectPalette } from "../domain/palette";
+import type { Layer, ObjectDefinition, ProjectPalette, ShapePreview } from "../domain/types";
 import type { PixelValue } from "../domain/types";
 import { composeImageData, TRANSPARENT_PREVIEW_SHADE } from "./compositor";
 import type { LayerMovePreview } from "./frameComposer";
@@ -24,6 +25,7 @@ export class EditorCanvas {
     preview: ShapePreview | null,
     objects: ObjectDefinition[],
     background: PixelValue,
+    palette: ProjectPalette = defaultProjectPalette(),
     movePreview?: LayerMovePreview | null,
   ): void {
     this.context.putImageData(
@@ -34,6 +36,7 @@ export class EditorCanvas {
         background,
         movePreview: movePreview ?? undefined,
         objects,
+        palette,
       }),
       0,
       0,

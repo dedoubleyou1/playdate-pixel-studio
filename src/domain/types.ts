@@ -2,7 +2,34 @@ export type Tool = "move" | "pencil" | "eraser" | "line" | "rect" | "fill";
 export const TRANSPARENT_PIXEL = 0;
 export const BLACK_PIXEL = 1;
 export const WHITE_PIXEL = 2;
-export type PixelValue = typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL;
+export const MAX_PALETTE_INDEX = 63;
+export type PaletteIndex = number;
+export type PixelValue = PaletteIndex;
+export type SolidPaletteValue = "alpha" | "black" | "white";
+
+export interface BasePaletteEntry {
+  id: string;
+  index: PaletteIndex;
+  name: string;
+}
+
+export interface SolidPaletteEntry extends BasePaletteEntry {
+  type: "solid";
+  value: SolidPaletteValue;
+}
+
+export interface DitherPaletteEntry extends BasePaletteEntry {
+  type: "dither";
+  patternId: string;
+  foregroundIndex: PaletteIndex;
+  backgroundIndex: PaletteIndex;
+}
+
+export type PaletteEntry = SolidPaletteEntry | DitherPaletteEntry;
+
+export interface ProjectPalette {
+  entries: PaletteEntry[];
+}
 
 export interface Point {
   x: number;
@@ -56,6 +83,7 @@ export interface ObjectDefinition extends LayerStack {
 export type EditContext = { type: "root" } | { type: "object"; objectId: string };
 
 export interface EditorSnapshot {
+  palette: ProjectPalette;
   root: LayerStack;
   objects: ObjectDefinition[];
   activeContext: EditContext;

@@ -17,6 +17,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const layers = useEditorStore((state) => state.root.layers);
   const background = useEditorStore((state) => state.root.background);
   const objects = useEditorStore((state) => state.objects);
+  const palette = useEditorStore((state) => state.palette);
   const documentRevision = useEditorStore((state) => state.documentRevision);
   const previewMode = useEditorStore((state) => state.previewMode);
   const [enabled, setEnabled] = useState(false);
@@ -27,7 +28,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const [connectedDevices, setConnectedDevices] = useState(0);
   const [devices, setDevices] = useState<BridgeDevice[]>([]);
   const [statusText, setStatusText] = useState("Start the bridge, connect the companion, then stream.");
-  const latestFrameRef = useRef({ background, layers, objects, previewMode, documentRevision });
+  const latestFrameRef = useRef({ background, layers, objects, palette, previewMode, documentRevision });
   const lastPostedRevisionRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
   const streamRunIdRef = useRef(0);
@@ -35,8 +36,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
 
   useEffect(() => {
-    latestFrameRef.current = { background, layers, objects, previewMode, documentRevision };
-  }, [background, layers, objects, previewMode, documentRevision]);
+    latestFrameRef.current = { background, layers, objects, palette, previewMode, documentRevision };
+  }, [background, layers, objects, palette, previewMode, documentRevision]);
 
   const refreshSession = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -98,6 +99,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         frame.documentRevision,
         frame.objects,
         frame.background,
+        frame.palette,
         streamId,
         controller.signal,
       )

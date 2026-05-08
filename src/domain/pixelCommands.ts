@@ -1,12 +1,18 @@
-import { TRANSPARENT_PIXEL, type PixelLayer, type Point, type ShapePreview, type Tool } from "./types";
-import { paintSourceFromMode, solidPaint, type PaintMode, type PaintSource } from "./paintSources";
+import {
+  TRANSPARENT_PIXEL,
+  type PaletteIndex,
+  type PixelLayer,
+  type Point,
+  type ShapePreview,
+  type Tool,
+} from "./types";
 import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill, type BrushOptions } from "./pixelOps";
 
 export interface PixelToolSettings {
   brushSize: number;
   mirrorX: boolean;
   mirrorY: boolean;
-  paintMode: PaintMode;
+  paletteIndex: PaletteIndex;
 }
 
 export interface PixelOperationResult {
@@ -61,7 +67,7 @@ export function applyPixelToolStart(
   }
 
   if (isFillTool(tool)) {
-    return { changed: floodFill(layer, point, paintSourceForTool(tool, settings)) };
+    return { changed: floodFill(layer, point, paletteIndexForTool(tool, settings)) };
   }
 
   return { changed: false };
@@ -101,11 +107,11 @@ function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
     size: settings.brushSize,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
-    paintSource: paintSourceForTool(tool, settings),
+    paletteIndex: paletteIndexForTool(tool, settings),
   };
 }
 
-export function paintSourceForTool(tool: Tool, settings: PixelToolSettings): PaintSource {
-  if (tool === "eraser") return solidPaint(TRANSPARENT_PIXEL);
-  return paintSourceFromMode(settings.paintMode);
+export function paletteIndexForTool(tool: Tool, settings: PixelToolSettings): PaletteIndex {
+  if (tool === "eraser") return TRANSPARENT_PIXEL;
+  return settings.paletteIndex;
 }

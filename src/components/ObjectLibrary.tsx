@@ -3,8 +3,9 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
+import { projectPaletteKey } from "../domain/palette";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
-import type { ObjectDefinition } from "../domain/types";
+import type { ObjectDefinition, ProjectPalette } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 import { EditorAssetItem } from "./EditorAssetItem";
 import { EditorList, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
@@ -12,6 +13,7 @@ import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 export function ObjectLibrary(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
+  const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
   const addObject = useEditorStore((state) => state.addObject);
   const renameObject = useEditorStore((state) => state.renameObject);
@@ -43,6 +45,7 @@ export function ObjectLibrary(): React.JSX.Element {
               draggable={activeContext.type === "root"}
               key={object.id}
               object={object}
+              palette={palette}
               onRename={renameObject}
               onSelect={switchToObject}
             />
@@ -56,13 +59,14 @@ export function ObjectLibrary(): React.JSX.Element {
           if (!object) return null;
 
           const thumbnailSize = getObjectThumbnailSize(object.width, object.height, 96, 72);
-          const thumbnailKey = objectThumbnailKey(object);
+          const thumbnailKey = `${objectThumbnailKey(object)}:${projectPaletteKey(palette)}`;
           return (
             <ObjectPreviewCanvas
               canvasHeight={thumbnailSize.height}
               canvasWidth={thumbnailSize.width}
               className="object-thumb object-drag-preview"
               object={object}
+              palette={palette}
               thumbnailKey={thumbnailKey}
               style={{
                 height: `${thumbnailSize.height}px`,
@@ -80,17 +84,19 @@ function ObjectRow({
   active,
   draggable,
   object,
+  palette,
   onRename,
   onSelect,
 }: {
   active: boolean;
   draggable: boolean;
   object: ObjectDefinition;
+  palette: ProjectPalette;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
 }): React.JSX.Element {
   const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
-  const thumbnailKey = objectThumbnailKey(object);
+  const thumbnailKey = `${objectThumbnailKey(object)}:${projectPaletteKey(palette)}`;
   const { isDragging, ref: draggableRef } = useDraggable({
     id: `object:${object.id}`,
     type: "object",
@@ -117,6 +123,7 @@ function ObjectRow({
           canvasWidth={thumbnailSize.width}
           className="object-thumb"
           object={object}
+          palette={palette}
           thumbnailKey={thumbnailKey}
           style={{
             height: `${thumbnailSize.height}px`,

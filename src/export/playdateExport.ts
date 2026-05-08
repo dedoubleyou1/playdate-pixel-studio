@@ -1,6 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { defaultProjectPalette } from "../domain/palette";
 import { WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, PixelValue } from "../domain/types";
+import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { composeImageData } from "../rendering/compositor";
 import type { PlaydateProjectDocument } from "../persistence/projectSchema";
 
@@ -21,6 +22,7 @@ export function createPlaydatePngCanvas(
   mode: PreviewMode = "normal",
   objects: ObjectDefinition[] = [],
   background: PixelValue = WHITE_PIXEL,
+  palette: ProjectPalette = defaultProjectPalette(),
 ): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = PLAYDATE_WIDTH;
@@ -32,6 +34,7 @@ export function createPlaydatePngCanvas(
     height: PLAYDATE_HEIGHT,
     background,
     objects,
+    palette,
   });
   applyPreviewMode(image, mode);
   context.putImageData(image, 0, 0);
@@ -55,10 +58,11 @@ export async function createProjectBundle(
   layers: Layer[],
   objects: ObjectDefinition[] = [],
   background: PixelValue = WHITE_PIXEL,
+  palette: ProjectPalette = defaultProjectPalette(),
 ): Promise<Blob> {
   const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
-  const pngCanvas = createPlaydatePngCanvas(layers, "normal", objects, background);
+  const pngCanvas = createPlaydatePngCanvas(layers, "normal", objects, background, palette);
   const pngBlob = await canvasToBlob(pngCanvas);
   zip.file("project.playdate-pixel.json", JSON.stringify(document, null, 2));
   zip.file("exports/screen.png", pngBlob);
