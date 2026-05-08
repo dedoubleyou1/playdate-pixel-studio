@@ -60,6 +60,22 @@ describe("composeImageData", () => {
     expect(redAt(white, 1, 1)).toBe(255);
     expect(redAt(transparent, 1, 1)).toBe(192);
   });
+
+  it("renders layer move previews without moving source pixels", () => {
+    const layer = createLayer(1, "Layer");
+    layer.surface.data[indexFor(1, 1)] = BLACK_PIXEL;
+
+    const image = composeImageData([layer], createImageData, {
+      baseShade: 192,
+      height: 4,
+      movePreview: { layerIndex: 0, dx: 2, dy: 1 },
+      width: 4,
+    });
+
+    expect(redAtWidth(image, 4, 1, 1)).toBe(192);
+    expect(redAtWidth(image, 4, 3, 2)).toBe(0);
+    expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
+  });
 });
 
 describe("drawPixelSurfaceThumbnail", () => {
@@ -132,6 +148,10 @@ function createImageData(width: number, height: number): ImageData {
 
 function redAt(image: ImageData, x: number, y: number): number {
   return image.data[(y * PLAYDATE_WIDTH + x) * 4];
+}
+
+function redAtWidth(image: ImageData, width: number, x: number, y: number): number {
+  return image.data[(y * width + x) * 4];
 }
 
 function pixelAt(pixels: Uint8ClampedArray, width: number, x: number, y: number): number[] {

@@ -13,6 +13,7 @@ import {
 } from "../domain/pixelCommands";
 import type { EditorSnapshot, Point, Tool } from "../domain/types";
 import { EditorCanvas } from "../rendering/editorCanvas";
+import type { LayerMovePreview } from "../rendering/frameComposer";
 import { currentActivePixelLayer, useEditorStore } from "../state/editorStore";
 
 export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
@@ -30,6 +31,9 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const gestureToolRef = useRef<Tool | null>(null);
   const gestureSettingsRef = useRef<PixelToolSettings | null>(null);
   const actionChangedRef = useRef(false);
+  const moveLayerIndexRef = useRef<number | null>(null);
+  const lastMoveDeltaRef = useRef<Point | null>(null);
+  const renderMovePreviewRef = useRef<LayerMovePreview | null>(null);
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
   const objects = useEditorStore((state) => state.objects);
@@ -40,15 +44,26 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     editorCanvasRef.current = canvas ? new EditorCanvas(canvas, stack.width, stack.height) : null;
   }, [canvas, stack.height, stack.width]);
 
-  const requestCanvasRender = useCallback(() => {
-    if (renderFrameRef.current !== null) {
-      window.cancelAnimationFrame(renderFrameRef.current);
-    }
-    renderFrameRef.current = window.requestAnimationFrame(() => {
-      editorCanvasRef.current?.render(stack.layers, shapePreview, objects, stack.background);
-      renderFrameRef.current = null;
-    });
-  }, [objects, shapePreview, stack.background, stack.layers]);
+  const requestCanvasRender = useCallback(
+    (movePreview: LayerMovePreview | null = null) => {
+      renderMovePreviewRef.current = movePreview;
+      if (renderFrameRef.current !== null) {
+        window.cancelAnimationFrame(renderFrameRef.current);
+      }
+      renderFrameRef.current = window.requestAnimationFrame(() => {
+        editorCanvasRef.current?.render(
+          stack.layers,
+          shapePreview,
+          objects,
+          stack.background,
+          renderMovePreviewRef.current,
+        );
+        renderFrameRef.current = null;
+        renderMovePreviewRef.current = null;
+      });
+    },
+    [objects, shapePreview, stack.background, stack.layers],
+  );
 
   useEffect(() => {
     requestCanvasRender();
@@ -67,6 +82,8 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     lastStrokePointRef.current = null;
     gestureToolRef.current = null;
     gestureSettingsRef.current = null;
+    moveLayerIndexRef.current = null;
+    lastMoveDeltaRef.current = null;
     actionChangedRef.current = false;
   }, []);
 
@@ -91,6 +108,8 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       if (tool === "move") {
         if (!state.beginMoveLayer()) return;
+        moveLayerIndexRef.current = activeStack(state).activeLayerIndex;
+        lastMoveDeltaRef.current = { x: 0, y: 0 };
         event.currentTarget.setPointerCapture(event.pointerId);
         isDrawingRef.current = true;
         dragStartRef.current = point;
@@ -158,10 +177,14 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const gestureTool = gestureToolRef.current ?? state.activeTool;
       if (gestureTool === "move") {
         const dragStart = dragStartRef.current ?? point;
-        const previewChanged = state.previewMoveLayer(point.x - dragStart.x, point.y - dragStart.y);
+        const dx = point.x - dragStart.x;
+        const dy = point.y - dragStart.y;
+        const lastDelta = lastMoveDeltaRef.current;
+        const previewChanged = !lastDelta || lastDelta.x !== dx || lastDelta.y !== dy;
         actionChangedRef.current = previewChanged || actionChangedRef.current;
-        if (previewChanged) {
-          requestCanvasRender();
+        if (previewChanged && moveLayerIndexRef.current !== null) {
+          lastMoveDeltaRef.current = { x: dx, y: dy };
+          requestCanvasRender({ layerIndex: moveLayerIndexRef.current, dx, dy });
         }
         return;
       }
@@ -195,11 +218,12 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const state = useEditorStore.getState();
       const gestureTool = gestureToolRef.current ?? state.activeTool;
       if (gestureTool === "move") {
-        const previewChanged = state.previewMoveLayer(point.x - dragStart.x, point.y - dragStart.y);
-        if (previewChanged) {
+        const dx = point.x - dragStart.x;
+        const dy = point.y - dragStart.y;
+        const changed = state.commitMoveLayer(dx, dy);
+        if (!changed) {
           requestCanvasRender();
         }
-        state.commitMoveLayer();
         resetGestureRefs();
         return;
       }

@@ -2,7 +2,7 @@ import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
 import { composeFrame } from "./frameComposer";
-import type { ComposedFrame } from "./frameComposer";
+import type { ComposedFrame, LayerMovePreview } from "./frameComposer";
 
 export const TRANSPARENT_PREVIEW_SHADE = 192;
 
@@ -10,6 +10,7 @@ export interface ComposeOptions {
   baseShade?: number;
   background?: PixelValue;
   device?: boolean;
+  movePreview?: LayerMovePreview;
   width?: number;
   height?: number;
   objects?: ObjectDefinition[];
@@ -25,6 +26,7 @@ export function composeImageData(
   const shades = composeFrame(layers, width, height, {
     baseShade: options.baseShade,
     background: options.background,
+    movePreview: options.movePreview,
     objects: options.objects ?? [],
   }).shades;
   const image = createImageData(width, height);
@@ -138,12 +140,7 @@ interface ThumbnailSource {
   shadeAt: (x: number, y: number) => number;
 }
 
-function drawThumbnail(
-  source: ThumbnailSource,
-  pixels: Uint8ClampedArray,
-  width: number,
-  height: number,
-): void {
+function drawThumbnail(source: ThumbnailSource, pixels: Uint8ClampedArray, width: number, height: number): void {
   const scale = Math.min(width / source.width, height / source.height);
   const targetWidth = Math.max(1, Math.floor(source.width * scale));
   const targetHeight = Math.max(1, Math.floor(source.height * scale));

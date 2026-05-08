@@ -231,22 +231,25 @@ describe("editor store layer move gestures", () => {
     resetStore();
   });
 
-  it("previews selected pixel layer moves without revising the document until commit", () => {
+  it("keeps selected pixel layer move previews out of document state until commit", () => {
     const state = useEditorStore.getState();
     const layer = currentActivePixelLayer();
     if (!layer) throw new Error("Expected active pixel layer");
     layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
 
     expect(state.beginMoveLayer()).toBe(true);
-    expect(state.previewMoveLayer(2, 1)).toBe(true);
 
-    const previewLayer = currentActivePixelLayer();
-    expect(previewLayer?.surface.data[indexFor(3, 2, layer.surface.width)]).toBe(BLACK_PIXEL);
+    const pendingLayer = currentActivePixelLayer();
+    expect(pendingLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(pendingLayer?.surface.data[indexFor(3, 2, layer.surface.width)]).toBe(0);
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().viewRevision).toBe(0);
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
 
-    state.commitMoveLayer();
+    expect(state.commitMoveLayer(2, 1)).toBe(true);
+
+    const movedLayer = currentActivePixelLayer();
+    expect(movedLayer?.surface.data[indexFor(3, 2, layer.surface.width)]).toBe(BLACK_PIXEL);
 
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().viewRevision).toBe(1);
@@ -257,7 +260,7 @@ describe("editor store layer move gestures", () => {
     const state = useEditorStore.getState();
 
     expect(state.beginMoveLayer()).toBe(true);
-    state.commitMoveLayer();
+    expect(state.commitMoveLayer(0, 0)).toBe(false);
 
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().viewRevision).toBe(0);
@@ -272,7 +275,6 @@ describe("editor store layer move gestures", () => {
     layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
 
     state.beginMoveLayer();
-    state.previewMoveLayer(2, 0);
     state.cancelMoveLayer();
 
     const restoredLayer = currentActivePixelLayer();
@@ -299,13 +301,15 @@ describe("editor store layer move gestures", () => {
 
     const state = useEditorStore.getState();
     expect(state.beginMoveLayer()).toBe(true);
-    expect(state.previewMoveLayer(3, -2)).toBe(true);
 
-    const previewLayer = currentActiveLayer();
-    expect(previewLayer).toMatchObject({ type: "object", x: 7, y: 3 });
+    const pendingLayer = currentActiveLayer();
+    expect(pendingLayer).toMatchObject({ type: "object", x: 4, y: 5 });
     expect(useEditorStore.getState().objects[0]).toBe(object);
 
-    state.commitMoveLayer();
+    expect(state.commitMoveLayer(3, -2)).toBe(true);
+
+    const movedLayer = currentActiveLayer();
+    expect(movedLayer).toMatchObject({ type: "object", x: 7, y: 3 });
 
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);

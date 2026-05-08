@@ -9,7 +9,14 @@ export interface ComposedFrame {
 interface ComposeFrameOptions {
   baseShade?: number;
   background?: PixelValue;
+  movePreview?: LayerMovePreview;
   objects?: ObjectDefinition[];
+}
+
+export interface LayerMovePreview {
+  layerIndex: number;
+  dx: number;
+  dy: number;
 }
 
 export function composeShades(
@@ -32,31 +39,51 @@ export function composeFrame(
   const coverage = new Uint8ClampedArray(width * height);
   initializeBackground({ coverage, shades }, options.background ?? TRANSPARENT_PIXEL, options.baseShade ?? 255);
 
-  for (const layer of layers) {
+  for (const [index, layer] of layers.entries()) {
     if (!layer.visible) continue;
+    const movePreview = options.movePreview?.layerIndex === index ? options.movePreview : null;
     if (layer.type === "pixel") {
-      compositePixelLayer({ coverage, shades }, width, height, layer);
+      compositePixelLayer({ coverage, shades }, width, height, layer, movePreview?.dx ?? 0, movePreview?.dy ?? 0);
     } else {
-      compositeObjectLayer({ coverage, shades }, width, height, layer, options.objects ?? []);
+      compositeObjectLayer(
+        { coverage, shades },
+        width,
+        height,
+        layer,
+        options.objects ?? [],
+        movePreview?.dx ?? 0,
+        movePreview?.dy ?? 0,
+      );
     }
   }
 
   return { coverage, shades };
 }
 
-function compositePixelLayer(frame: ComposedFrame, width: number, height: number, layer: PixelLayer): void {
+function compositePixelLayer(
+  frame: ComposedFrame,
+  width: number,
+  height: number,
+  layer: PixelLayer,
+  dx = 0,
+  dy = 0,
+): void {
   const alpha = Math.max(0, Math.min(1, layer.opacity / 100));
   if (alpha <= 0) return;
   const sourceWidth = layer.surface.width;
   const sourceHeight = layer.surface.height;
 
-  for (let y = 0; y < Math.min(height, sourceHeight); y += 1) {
-    for (let x = 0; x < Math.min(width, sourceWidth); x += 1) {
+  for (let y = 0; y < sourceHeight; y += 1) {
+    const targetY = y + dy;
+    if (targetY < 0 || targetY >= height) continue;
+    for (let x = 0; x < sourceWidth; x += 1) {
+      const targetX = x + dx;
+      if (targetX < 0 || targetX >= width) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = layer.surface.data[sourceIndex];
       const sourceShade = pixelToShade(pixel);
       if (sourceShade === null) continue;
-      const targetIndex = y * width + x;
+      const targetIndex = targetY * width + targetX;
       frame.shades[targetIndex] = compositeShade(frame.shades[targetIndex], sourceShade, alpha);
       frame.coverage[targetIndex] = 1;
     }
@@ -69,6 +96,8 @@ function compositeObjectLayer(
   height: number,
   layer: ObjectInstanceLayer,
   objects: ObjectDefinition[],
+  dx = 0,
+  dy = 0,
 ): void {
   const object = objects.find((candidate) => candidate.id === layer.objectId);
   if (!object) return;
@@ -81,10 +110,10 @@ function compositeObjectLayer(
   });
 
   for (let y = 0; y < object.height; y += 1) {
-    const targetY = layer.y + y;
+    const targetY = layer.y + dy + y;
     if (targetY < 0 || targetY >= height) continue;
     for (let x = 0; x < object.width; x += 1) {
-      const targetX = layer.x + x;
+      const targetX = layer.x + dx + x;
       if (targetX < 0 || targetX >= width) continue;
 
       const sourceIndex = y * object.width + x;

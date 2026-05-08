@@ -122,8 +122,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   commitCommand: (label?: string) => void;
   discardPendingCommand: () => void;
   beginMoveLayer: () => boolean;
-  previewMoveLayer: (dx: number, dy: number) => boolean;
-  commitMoveLayer: () => void;
+  commitMoveLayer: (dx: number, dy: number) => boolean;
   cancelMoveLayer: () => void;
   undo: () => void;
   redo: () => void;
@@ -285,37 +284,40 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     return true;
   },
 
-  previewMoveLayer: (dx, dy) => {
-    let previewChanged = false;
-    set((state) => {
-      const pending = state.pendingMove;
-      if (!pending) return {};
-      if (!editContextsEqual(state.activeContext, pending.context)) return {};
-      if (pending.dx === dx && pending.dy === dy) return {};
-
-      const stack = activeStack(state);
-      const result = translateActiveLayerFrom(stack, pending.layer, pending.layerIndex, dx, dy);
-      if (!hasLayerStackMutation(result)) return { status: result.status ?? state.status };
-
-      previewChanged = true;
-      return {
-        ...replaceActiveStack(state, result.stack),
-        pendingMove: { ...pending, dx, dy },
-        status: `${result.status} ${dx}, ${dy}`,
-      };
-    });
-    return previewChanged;
-  },
-
-  commitMoveLayer: () => {
+  commitMoveLayer: (dx, dy) => {
     const pending = get().pendingMove;
-    if (!pending) return;
+    if (!pending) return false;
+    const current = get();
+    if (!editContextsEqual(current.activeContext, pending.context)) {
+      set({
+        pendingCommand: null,
+        pendingMove: null,
+        status: "Move cancelled",
+      });
+      return false;
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      set((state) => {
+        const stack = activeStack(state);
+        const result = translateActiveLayerFrom(stack, pending.layer, pending.layerIndex, dx, dy);
+        if (!hasLayerStackMutation(result)) return { status: result.status ?? state.status };
+
+        return {
+          ...replaceActiveStack(state, result.stack),
+          pendingMove: { ...pending, dx, dy },
+          status: `${result.status} ${dx}, ${dy}`,
+        };
+      });
+    }
+
     const changed = !snapshotsEqual(pending.before, currentSnapshot());
     set({ pendingMove: null });
     if (changed) {
       get().markDocumentChanged("Layer moved");
     }
     get().commitCommand("Move layer");
+    return changed;
   },
 
   cancelMoveLayer: () => {
