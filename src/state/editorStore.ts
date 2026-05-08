@@ -1,20 +1,30 @@
 import { create } from "zustand";
 import { createDocumentCommand, snapshotsEqual, type DocumentCommand } from "../domain/commands";
 import {
+  addPixelLayer,
+  clearActivePixelLayer,
+  deleteActiveLayer,
+  duplicateActiveLayer,
+  hasLayerStackMutation,
+  invertActivePixelLayer,
+  moveActiveLayer,
+  setActiveLayerName,
+  setActiveLayerOpacity,
+  setLayerVisibility,
+  setStackBackgroundColor,
+} from "../domain/layerCommands";
+import {
   activeLayer,
   activePixelLayer,
   activeStack,
-  clampLayerIndex,
-  cloneLayer,
   cloneLayerStack,
   cloneObjectDefinition,
   cloneSnapshot,
-  createLayer,
   createObjectDefinition,
   createObjectInstanceLayer,
   createRootStack,
-  isPixelEditableLayer,
   resizeSurface,
+  isPixelEditableLayer,
 } from "../domain/layers";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type {
@@ -371,17 +381,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      const layer = createLayer(stack.nextLayerId, `Layer ${stack.layers.length + 1}`, stack.width, stack.height);
-      const layers = [...stack.layers];
-      layers.splice(stack.activeLayerIndex + 1, 0, layer);
+      const result = addPixelLayer(stack);
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          nextLayerId: stack.nextLayerId + 1,
-          layers,
-          activeLayerIndex: stack.activeLayerIndex + 1,
-        }),
-        status: "Layer added",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -394,20 +397,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      const source = activeLayer(state);
-      const layer = cloneLayer(source);
-      layer.id = stack.nextLayerId;
-      layer.name = `${source.name} copy`;
-      const layers = [...stack.layers];
-      layers.splice(stack.activeLayerIndex + 1, 0, layer);
+      const result = duplicateActiveLayer(stack);
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          nextLayerId: stack.nextLayerId + 1,
-          layers,
-          activeLayerIndex: stack.activeLayerIndex + 1,
-        }),
-        status: "Layer duplicated",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -420,15 +413,11 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      if (stack.layers.length <= 1) return {};
-      const layers = stack.layers.filter((_, index) => index !== stack.activeLayerIndex);
+      const result = deleteActiveLayer(stack);
+      if (!hasLayerStackMutation(result)) return {};
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers,
-          activeLayerIndex: clampLayerIndex(stack.activeLayerIndex, layers.length),
-        }),
-        status: "Layer deleted",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -441,18 +430,11 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      const target = stack.activeLayerIndex + direction;
-      if (target < 0 || target >= stack.layers.length) return {};
-      const layers = [...stack.layers];
-      const [layer] = layers.splice(stack.activeLayerIndex, 1);
-      layers.splice(target, 0, layer);
+      const result = moveActiveLayer(stack, direction);
+      if (!hasLayerStackMutation(result)) return {};
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers,
-          activeLayerIndex: target,
-        }),
-        status: direction > 0 ? "Layer moved up" : "Layer moved down",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -475,11 +457,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
+      const result = setActiveLayerName(stack, index, name);
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, name } : layer)),
-        }),
+        ...replaceActiveStack(state, result.stack),
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -492,11 +472,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
+      const result = setLayerVisibility(stack, index, visible);
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, visible } : layer)),
-        }),
+        ...replaceActiveStack(state, result.stack),
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -510,13 +488,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     if (!state.pendingCommand) get().beginCommand("Set layer opacity");
     set((current) => {
       const stack = activeStack(current);
+      const result = setActiveLayerOpacity(stack, opacity);
       return {
-        ...replaceActiveStack(current, {
-          ...stack,
-          layers: stack.layers.map((layer, index) =>
-            index === stack.activeLayerIndex ? { ...layer, opacity } : layer,
-          ),
-        }),
+        ...replaceActiveStack(current, result.stack),
         documentRevision: current.documentRevision + 1,
         viewRevision: current.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -530,9 +504,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      if (stack.background === background) return {};
+      const result = setStackBackgroundColor(stack, background);
+      if (!hasLayerStackMutation(result)) return {};
       return {
-        ...replaceActiveStack(state, { ...stack, background }),
+        ...replaceActiveStack(state, result.stack),
         status: `Background ${PIXEL_VALUE_LABELS[background]}`,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
@@ -546,27 +521,11 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      const layer = stack.layers[stack.activeLayerIndex];
-      if (!isPixelEditableLayer(layer)) {
-        return { status: "Active layer does not support pixel drawing" };
-      }
-      if (!layer.surface.data.some((pixel) => pixel !== TRANSPARENT_PIXEL)) {
-        return { status: "Layer is already clear" };
-      }
+      const result = clearActivePixelLayer(stack);
+      if (!hasLayerStackMutation(result)) return { status: result.status };
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers: stack.layers.map((candidate, index) =>
-            index === stack.activeLayerIndex
-              ? {
-                  ...layer,
-                  contentRevision: layer.contentRevision + 1,
-                  surface: { ...layer.surface, data: new Uint8Array(layer.surface.data.length) },
-                }
-              : candidate,
-          ),
-        }),
-        status: "Layer cleared",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
@@ -579,32 +538,11 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const before = currentSnapshot();
     set((state) => {
       const stack = activeStack(state);
-      const layer = stack.layers[stack.activeLayerIndex];
-      if (!isPixelEditableLayer(layer)) {
-        return { status: "Active layer does not support pixel drawing" };
-      }
-      if (!layer.surface.data.some((pixel) => pixel === BLACK_PIXEL || pixel === WHITE_PIXEL)) {
-        return { status: "Layer has no black or white pixels to invert" };
-      }
-      const data = new Uint8Array(layer.surface.data.length);
-      for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {
-        data[pixel] =
-          layer.surface.data[pixel] === BLACK_PIXEL
-            ? WHITE_PIXEL
-            : layer.surface.data[pixel] === WHITE_PIXEL
-              ? BLACK_PIXEL
-              : TRANSPARENT_PIXEL;
-      }
+      const result = invertActivePixelLayer(stack);
+      if (!hasLayerStackMutation(result)) return { status: result.status };
       return {
-        ...replaceActiveStack(state, {
-          ...stack,
-          layers: stack.layers.map((candidate, index) =>
-            index === stack.activeLayerIndex
-              ? { ...layer, contentRevision: layer.contentRevision + 1, surface: { ...layer.surface, data } }
-              : candidate,
-          ),
-        }),
-        status: "Layer inverted",
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
         documentRevision: state.documentRevision + 1,
         viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
