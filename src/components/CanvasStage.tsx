@@ -33,13 +33,12 @@ export function CanvasStage(): React.JSX.Element {
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const activeTool = useEditorStore((state) => state.activeTool);
-  const activePaintMode = useEditorStore((state) => state.activePaintMode);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
   const activeContext = useEditorStore((state) => state.activeContext);
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
-  const canvasCursor = drawingEnabled ? toolCursor(activeTool, activePaintMode) : "not-allowed";
+  const canvasCursor = drawingEnabled ? toolCursor(activeTool) : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);

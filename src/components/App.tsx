@@ -9,6 +9,8 @@ import { ToolsPanel } from "./ToolsPanel";
 import { Topbar } from "./Topbar";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
+import { checkerDitherPaintMode } from "../domain/paintSources";
+import { TRANSPARENT_PIXEL } from "../domain/types";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -20,6 +22,7 @@ export function App(): React.JSX.Element {
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const setTool = useEditorStore((state) => state.setTool);
+  const setPaintMode = useEditorStore((state) => state.setPaintMode);
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
   const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
@@ -72,6 +75,17 @@ export function App(): React.JSX.Element {
 
       if (event.target instanceof HTMLInputElement) return;
 
+      if (key === "d" && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) {
+        const state = useEditorStore.getState();
+        setPaintMode(
+          checkerDitherPaintMode({
+            foreground: state.activePaintValue,
+            background: TRANSPARENT_PIXEL,
+          }),
+        );
+        return;
+      }
+
       const shortcuts = {
         p: "pencil",
         b: "pencil",
@@ -79,7 +93,6 @@ export function App(): React.JSX.Element {
         l: "line",
         r: "rect",
         f: "fill",
-        d: "dither",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
       if (tool && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) setTool(tool);
@@ -87,7 +100,7 @@ export function App(): React.JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newProject, redo, saveProject, setTool, undo]);
+  }, [newProject, redo, saveProject, setPaintMode, setTool, undo]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;

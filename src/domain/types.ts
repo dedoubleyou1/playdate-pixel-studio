@@ -1,4 +1,4 @@
-export type Tool = "pencil" | "eraser" | "line" | "rect" | "fill" | "dither";
+export type Tool = "pencil" | "eraser" | "line" | "rect" | "fill";
 export const TRANSPARENT_PIXEL = 0;
 export const BLACK_PIXEL = 1;
 export const WHITE_PIXEL = 2;

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { solidPaintMode } from "../domain/paintSources";
+import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
 import { currentActivePixelLayer, useEditorStore } from "./editorStore";
@@ -134,12 +134,13 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
   });
 
-  it("normalizes the legacy dither tool into pencil plus dither paint mode", () => {
+  it("tracks paint mode separately from the active tool", () => {
     const state = useEditorStore.getState();
 
-    state.setTool("dither");
+    state.setTool("fill");
+    state.setPaintMode(checkerDitherPaintMode({ foreground: BLACK_PIXEL }));
 
-    expect(useEditorStore.getState().activeTool).toBe("pencil");
+    expect(useEditorStore.getState().activeTool).toBe("fill");
     expect(useEditorStore.getState().activePaintMode).toMatchObject({ type: "checker-dither" });
   });
 });

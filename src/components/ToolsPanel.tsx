@@ -5,6 +5,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
+import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
@@ -23,7 +24,6 @@ const TOOLS: Array<{
   { tool: "line", label: "Line", shortcut: "L", icon: PenTool },
   { tool: "rect", label: "Rectangle", shortcut: "R", icon: Square },
   { tool: "fill", label: "Fill", shortcut: "F", icon: PaintBucket },
-  { tool: "dither", label: "Dither", shortcut: "D", icon: DitherIcon },
 ];
 
 const PAINT_VALUES: Array<{ label: string; value: PixelValue }> = [
@@ -36,6 +36,7 @@ export function ToolsPanel(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const setTool = useEditorStore((state) => state.setTool);
   const activePaintMode = useEditorStore((state) => state.activePaintMode);
+  const setPaintMode = useEditorStore((state) => state.setPaintMode);
   const activePaintValue = useEditorStore((state) => state.activePaintValue);
   const setPaintValue = useEditorStore((state) => state.setPaintValue);
   const brushSize = useEditorStore((state) => state.brushSize);
@@ -53,11 +54,7 @@ export function ToolsPanel(): React.JSX.Element {
         <div className="grid grid-cols-3 gap-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
-            const active =
-              drawingEnabled &&
-              (tool.tool === "dither"
-                ? activeTool === "pencil" && activePaintMode.type === "checker-dither"
-                : activeTool === tool.tool && !(tool.tool === "pencil" && activePaintMode.type === "checker-dither"));
+            const active = drawingEnabled && activeTool === tool.tool;
 
             return (
               <Tooltip key={tool.tool}>
@@ -83,6 +80,43 @@ export function ToolsPanel(): React.JSX.Element {
 
       <EditorPane disabled={!drawingEnabled}>
         <EditorPaneTitle className="mb-3">Brush</EditorPaneTitle>
+        <div className="mb-3.5 grid grid-cols-2 gap-2" aria-label="Paint mode">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={activePaintMode.type === "solid" ? "secondary" : "outline"}
+                size="icon"
+                aria-label="Solid paint"
+                disabled={!drawingEnabled}
+                onClick={() => setPaintMode(solidPaintMode(activePaintValue))}
+              >
+                <PixelSwatch value={activePaintValue} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Solid paint</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={activePaintMode.type === "checker-dither" ? "secondary" : "outline"}
+                size="icon"
+                aria-label="Dither paint"
+                disabled={!drawingEnabled}
+                onClick={() =>
+                  setPaintMode(
+                    checkerDitherPaintMode({
+                      foreground: activePaintValue,
+                      background: TRANSPARENT_PIXEL,
+                    }),
+                  )
+                }
+              >
+                <DitherIcon />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Dither paint (D)</TooltipContent>
+          </Tooltip>
+        </div>
         <div className="mb-3.5 grid grid-cols-3 gap-2" aria-label="Paint value">
           {PAINT_VALUES.map((paint) => (
             <Tooltip key={paint.value}>

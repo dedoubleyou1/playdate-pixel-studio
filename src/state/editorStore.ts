@@ -26,13 +26,7 @@ import {
   resizeSurface,
   isPixelEditableLayer,
 } from "../domain/layers";
-import {
-  checkerDitherPaintMode,
-  paintModeForeground,
-  solidPaintMode,
-  withPaintModeForeground,
-  type PaintMode,
-} from "../domain/paintSources";
+import { paintModeForeground, solidPaintMode, withPaintModeForeground, type PaintMode } from "../domain/paintSources";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type {
   EditContext,
@@ -98,6 +92,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   canRedo: boolean;
   hasUnsavedChanges: boolean;
   setTool: (tool: Tool) => void;
+  setPaintMode: (mode: PaintMode) => void;
   setPaintValue: (value: PixelValue) => void;
   setBrushSize: (size: number) => void;
   setMirrorX: (enabled: boolean) => void;
@@ -186,26 +181,17 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         return { status: "Active layer does not support pixel drawing" };
       }
 
-      if (tool === "dither") {
-        return {
-          activeTool: "pencil",
-          activePaintMode: checkerDitherPaintMode({
-            foreground: state.activePaintValue,
-            background: TRANSPARENT_PIXEL,
-          }),
-          status: "Dither ready",
-        };
-      }
-
       return {
         activeTool: tool,
-        activePaintMode:
-          tool === "pencil" && state.activePaintMode.type === "checker-dither"
-            ? solidPaintMode(paintModeForeground(state.activePaintMode))
-            : state.activePaintMode,
         activePaintValue: paintModeForeground(state.activePaintMode),
         status: `${TOOL_LABELS[tool]} ready`,
       };
+    }),
+  setPaintMode: (activePaintMode) =>
+    set({
+      activePaintMode,
+      activePaintValue: paintModeForeground(activePaintMode),
+      status: activePaintMode.type === "checker-dither" ? "Dither paint selected" : "Solid paint selected",
     }),
   setPaintValue: (activePaintValue) =>
     set((state) => ({
@@ -924,7 +910,6 @@ const TOOL_LABELS: Record<Tool, string> = {
   line: "Line",
   rect: "Rectangle",
   fill: "Fill",
-  dither: "Dither",
 };
 
 const PIXEL_VALUE_LABELS: Record<PixelValue, string> = {

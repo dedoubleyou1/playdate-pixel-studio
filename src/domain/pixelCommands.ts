@@ -1,12 +1,5 @@
 import { TRANSPARENT_PIXEL, type PixelLayer, type Point, type ShapePreview, type Tool } from "./types";
-import {
-  checkerDitherPaintMode,
-  paintModeForeground,
-  paintSourceFromMode,
-  solidPaint,
-  type PaintMode,
-  type PaintSource,
-} from "./paintSources";
+import { paintSourceFromMode, solidPaint, type PaintMode, type PaintSource } from "./paintSources";
 import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill, type BrushOptions } from "./pixelOps";
 
 export interface PixelToolSettings {
@@ -29,7 +22,7 @@ export function pixelCommandLabel(tool: Tool): string {
 }
 
 export function isBrushTool(tool: Tool): boolean {
-  return tool === "pencil" || tool === "eraser" || tool === "dither";
+  return tool === "pencil" || tool === "eraser";
 }
 
 export function isShapeTool(tool: Tool): boolean {
@@ -114,13 +107,5 @@ function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
 
 export function paintSourceForTool(tool: Tool, settings: PixelToolSettings): PaintSource {
   if (tool === "eraser") return solidPaint(TRANSPARENT_PIXEL);
-  if (tool === "dither") {
-    return paintSourceFromMode(
-      checkerDitherPaintMode({
-        foreground: paintModeForeground(settings.paintMode),
-        background: TRANSPARENT_PIXEL,
-      }),
-    );
-  }
   return paintSourceFromMode(settings.paintMode);
 }

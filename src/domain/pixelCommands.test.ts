@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "./layers";
 import { indexFor } from "./pixelOps";
-import { solidPaintMode } from "./paintSources";
+import { checkerDitherPaintMode, solidPaintMode } from "./paintSources";
 import {
   applyPixelToolDrag,
   applyPixelToolFinish,
   applyPixelToolStart,
   createShapePreview,
-  paintSourceForTool,
   pixelCommandLabel,
   type PixelToolSettings,
 } from "./pixelCommands";
@@ -23,7 +22,6 @@ const defaultSettings: PixelToolSettings = {
 describe("pixel command helpers", () => {
   it("maps tools to command labels", () => {
     expect(pixelCommandLabel("pencil")).toBe("Draw stroke");
-    expect(pixelCommandLabel("dither")).toBe("Draw stroke");
     expect(pixelCommandLabel("eraser")).toBe("Erase stroke");
     expect(pixelCommandLabel("fill")).toBe("Fill area");
     expect(pixelCommandLabel("line")).toBe("Draw line");
@@ -57,14 +55,6 @@ describe("pixel command helpers", () => {
     expect(layer.surface.data[indexFor(2, 2)]).toBe(TRANSPARENT_PIXEL);
   });
 
-  it("maps the legacy dither tool to checker pattern paint", () => {
-    const paint = paintSourceForTool("dither", defaultSettings);
-
-    expect(paint.type).toBe("pattern");
-    expect(paint.pixelAt({ x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(paint.pixelAt({ x: 1, y: 0 })).toBe(TRANSPARENT_PIXEL);
-  });
-
   it("fills from start and reports no-op fills", () => {
     const layer = createLayer(1, "Layer 1");
 
@@ -72,6 +62,21 @@ describe("pixel command helpers", () => {
     expect(layer.surface.data[indexFor(10, 10)]).toBe(BLACK_PIXEL);
 
     expect(applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", defaultSettings).changed).toBe(false);
+  });
+
+  it("applies the active paint mode to fill tools", () => {
+    const layer = createLayer(1, "Layer 1");
+
+    expect(
+      applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", {
+        ...defaultSettings,
+        paintMode: checkerDitherPaintMode({ foreground: BLACK_PIXEL, background: WHITE_PIXEL }),
+      }).changed,
+    ).toBe(true);
+
+    expect(layer.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(1, 0)]).toBe(WHITE_PIXEL);
+    expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
   });
 
   it("creates shape previews and applies shape finishes", () => {

@@ -5,6 +5,7 @@ import {
   FilePlus2,
   PaintBucket,
   Pencil,
+  Pen,
   RotateCcwSquare,
   Save,
   Square,
@@ -13,6 +14,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
+import { checkerDitherPaintMode, solidPaintMode } from "../domain/paintSources";
+import { TRANSPARENT_PIXEL } from "../domain/types";
 import type { Tool } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 
@@ -30,6 +33,8 @@ export function CommandPalette({
   onOpenChange: (open: boolean) => void;
 }): React.JSX.Element {
   const setTool = useEditorStore((state) => state.setTool);
+  const setPaintMode = useEditorStore((state) => state.setPaintMode);
+  const activePaintValue = useEditorStore((state) => state.activePaintValue);
   const newProject = useEditorStore((state) => state.newProject);
   const saveProject = useEditorStore((state) => state.saveProject);
   const exportPng = useEditorStore((state) => state.exportPng);
@@ -78,6 +83,27 @@ export function CommandPalette({
               onClick={() => run(() => setTool(command.tool))}
             />
           ))}
+          <CommandButton
+            icon={Pencil}
+            label="Select solid paint"
+            disabled={!drawingEnabled}
+            onClick={() => run(() => setPaintMode(solidPaintMode(activePaintValue)))}
+          />
+          <CommandButton
+            icon={Pen}
+            label="Select dither paint"
+            disabled={!drawingEnabled}
+            onClick={() =>
+              run(() =>
+                setPaintMode(
+                  checkerDitherPaintMode({
+                    foreground: activePaintValue,
+                    background: TRANSPARENT_PIXEL,
+                  }),
+                ),
+              )
+            }
+          />
         </div>
       </DialogContent>
     </Dialog>
