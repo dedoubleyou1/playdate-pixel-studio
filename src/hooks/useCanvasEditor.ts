@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { activeStack } from "../domain/layers";
-import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "../domain/pixelOps";
-import type { EditorSnapshot, Point, ShapePreview, Tool } from "../domain/types";
+import {
+  applyPixelToolDrag,
+  applyPixelToolFinish,
+  applyPixelToolStart,
+  createShapePreview,
+  isBrushTool,
+  isFillTool,
+  isShapeTool,
+  pixelCommandLabel,
+  type PixelToolSettings,
+} from "../domain/pixelCommands";
+import type { EditorSnapshot, Point, Tool } from "../domain/types";
 import { EditorCanvas } from "../rendering/editorCanvas";
 import { currentActivePixelLayer, useEditorStore } from "../state/editorStore";
 
@@ -18,6 +28,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const dragStartRef = useRef<Point | null>(null);
   const lastStrokePointRef = useRef<Point | null>(null);
   const gestureToolRef = useRef<Tool | null>(null);
+  const gestureSettingsRef = useRef<PixelToolSettings | null>(null);
   const actionChangedRef = useRef(false);
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
@@ -51,29 +62,17 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     dragStartRef.current = null;
     lastStrokePointRef.current = null;
     gestureToolRef.current = null;
+    gestureSettingsRef.current = null;
     actionChangedRef.current = false;
   }, []);
 
-  const brushOptions = useCallback((tool: Tool) => {
+  const pixelToolSettings = useCallback((): PixelToolSettings => {
     const state = useEditorStore.getState();
     return {
-      size: state.brushSize,
-      mirrorX: state.mirrorX,
-      mirrorY: state.mirrorY,
-      paintValue: state.activePaintValue,
-      tool,
-    };
-  }, []);
-
-  const createShapePreview = useCallback((start: Point, end: Point, tool: Tool): ShapePreview => {
-    const state = useEditorStore.getState();
-    return {
-      type: tool === "rect" ? "rect" : "line",
-      start,
-      end,
       brushSize: state.brushSize,
       mirrorX: state.mirrorX,
       mirrorY: state.mirrorY,
+      paintValue: state.activePaintValue,
     };
   }, []);
 
@@ -97,34 +96,37 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       lastStrokePointRef.current = point;
       gestureToolRef.current = tool;
       actionChangedRef.current = false;
+      const settings = pixelToolSettings();
+      gestureSettingsRef.current = settings;
 
-      if (tool === "pencil" || tool === "eraser" || tool === "dither") {
-        state.beginCommand(tool === "eraser" ? "Erase stroke" : "Draw stroke");
-        actionChangedRef.current = drawBrushAt(layer, point, brushOptions(tool));
+      if (isBrushTool(tool)) {
+        state.beginCommand(pixelCommandLabel(tool));
+        actionChangedRef.current = applyPixelToolStart(layer, point, tool, settings).changed;
         if (actionChangedRef.current) {
           state.markDocumentChanged();
         }
       }
 
-      if (tool === "fill") {
-        state.beginCommand("Fill area");
-        actionChangedRef.current = floodFill(layer, point, state.activePaintValue);
+      if (isFillTool(tool)) {
+        state.beginCommand(pixelCommandLabel(tool));
+        actionChangedRef.current = applyPixelToolStart(layer, point, tool, settings).changed;
         isDrawingRef.current = false;
         dragStartRef.current = null;
         lastStrokePointRef.current = null;
         gestureToolRef.current = null;
+        gestureSettingsRef.current = null;
         if (actionChangedRef.current) {
           state.markDocumentChanged();
         }
-        state.commitCommand("Fill area");
+        state.commitCommand(pixelCommandLabel(tool));
       }
 
-      if (tool === "line" || tool === "rect") {
-        state.beginCommand(tool === "line" ? "Draw line" : "Draw rectangle");
-        state.setShapePreview(createShapePreview(point, point, tool));
+      if (isShapeTool(tool)) {
+        state.beginCommand(pixelCommandLabel(tool));
+        state.setShapePreview(createShapePreview(point, point, tool, settings));
       }
     },
-    [brushOptions, createShapePreview],
+    [pixelToolSettings],
   );
 
   const continueStroke = useCallback(
@@ -139,9 +141,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const layer = currentActivePixelLayer();
       if (!layer) return;
       const gestureTool = gestureToolRef.current ?? state.activeTool;
-      if (gestureTool === "pencil" || gestureTool === "eraser" || gestureTool === "dither") {
+      const settings = gestureSettingsRef.current ?? pixelToolSettings();
+      if (isBrushTool(gestureTool)) {
         const lastPoint = lastStrokePointRef.current ?? point;
-        const strokeChanged = drawInterpolatedStroke(layer, lastPoint, point, brushOptions(gestureTool));
+        const strokeChanged = applyPixelToolDrag(layer, lastPoint, point, gestureTool, settings).changed;
         lastStrokePointRef.current = point;
         actionChangedRef.current = strokeChanged || actionChangedRef.current;
         if (strokeChanged) {
@@ -150,10 +153,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       }
 
       if (state.shapePreview) {
-        state.setShapePreview(createShapePreview(state.shapePreview.start, point, gestureTool));
+        state.setShapePreview(createShapePreview(state.shapePreview.start, point, gestureTool, settings));
       }
     },
-    [brushOptions, createShapePreview],
+    [pixelToolSettings],
   );
 
   const finishStroke = useCallback(
@@ -166,6 +169,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const state = useEditorStore.getState();
       const layer = currentActivePixelLayer();
       const gestureTool = gestureToolRef.current ?? state.activeTool;
+      const settings = gestureSettingsRef.current ?? pixelToolSettings();
       if (!layer) {
         state.setShapePreview(null);
         state.discardPendingCommand();
@@ -173,11 +177,8 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         return;
       }
 
-      if (gestureTool === "line") {
-        actionChangedRef.current = drawLine(layer, dragStart, point, brushOptions("line"));
-      }
-      if (gestureTool === "rect") {
-        actionChangedRef.current = drawRect(layer, dragStart, point, brushOptions("rect"));
+      if (isShapeTool(gestureTool)) {
+        actionChangedRef.current = applyPixelToolFinish(layer, dragStart, point, gestureTool, settings).changed;
       }
 
       state.setShapePreview(null);
@@ -185,10 +186,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (actionChangedRef.current) {
         state.markDocumentChanged();
       }
-      state.commitCommand(gestureTool === "line" ? "Draw line" : gestureTool === "rect" ? "Draw rectangle" : undefined);
+      state.commitCommand(pixelCommandLabel(gestureTool));
       resetGestureRefs();
     },
-    [brushOptions, resetGestureRefs],
+    [pixelToolSettings, resetGestureRefs],
   );
 
   return useMemo(

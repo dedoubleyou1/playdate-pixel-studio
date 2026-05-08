@@ -44,7 +44,7 @@ export function setSurfacePixel(surface: PixelSurface, x: number, y: number, val
   return true;
 }
 
-interface BrushOptions {
+export interface BrushOptions {
   paintValue?: PixelValue;
   size: number;
   mirrorX: boolean;
