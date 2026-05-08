@@ -6,6 +6,7 @@ import {
   applyPixelToolFinish,
   applyPixelToolStart,
   createShapePreview,
+  paintSourceForTool,
   pixelCommandLabel,
   type PixelToolSettings,
 } from "./pixelCommands";
@@ -53,6 +54,14 @@ describe("pixel command helpers", () => {
 
     expect(applyPixelToolStart(layer, { x: 2, y: 2 }, "eraser", defaultSettings).changed).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(TRANSPARENT_PIXEL);
+  });
+
+  it("maps the legacy dither tool to checker pattern paint", () => {
+    const paint = paintSourceForTool("dither", defaultSettings);
+
+    expect(paint.type).toBe("pattern");
+    expect(paint.pixelAt({ x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(paint.pixelAt({ x: 1, y: 0 })).toBe(TRANSPARENT_PIXEL);
   });
 
   it("fills from start and reports no-op fills", () => {

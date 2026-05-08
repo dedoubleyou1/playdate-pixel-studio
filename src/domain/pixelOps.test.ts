@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "./constants";
 import { createLayer } from "./layers";
+import { checkerDitherPaint, solidPaint } from "./paintSources";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import {
   drawBrushAt,
@@ -13,6 +14,9 @@ import {
 } from "./pixelOps";
 
 describe("pixel operations", () => {
+  const pencilOptions = { size: 1, mirrorX: false, mirrorY: false, paintSource: solidPaint(BLACK_PIXEL) };
+  const eraserOptions = { size: 1, mirrorX: false, mirrorY: false, paintSource: solidPaint(TRANSPARENT_PIXEL) };
+
   it("maps coordinates into the Playdate screen buffer", () => {
     expect(indexFor(0, 0)).toBe(0);
     expect(indexFor(2, 1)).toBe(PLAYDATE_WIDTH + 2);
@@ -30,17 +34,22 @@ describe("pixel operations", () => {
   it("draws pencil, eraser, and dither brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
 
-    expect(drawBrushAt(layer, { x: 10, y: 10 }, { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" })).toBe(
-      true,
-    );
+    expect(drawBrushAt(layer, { x: 10, y: 10 }, pencilOptions)).toBe(true);
     expect(layer.surface.data[indexFor(10, 10)]).toBe(BLACK_PIXEL);
 
-    expect(drawBrushAt(layer, { x: 10, y: 10 }, { size: 1, mirrorX: false, mirrorY: false, tool: "eraser" })).toBe(
-      true,
-    );
+    expect(drawBrushAt(layer, { x: 10, y: 10 }, eraserOptions)).toBe(true);
     expect(layer.surface.data[indexFor(10, 10)]).toBe(TRANSPARENT_PIXEL);
 
-    drawBrushAt(layer, { x: 12, y: 12 }, { size: 2, mirrorX: false, mirrorY: false, tool: "dither" });
+    drawBrushAt(
+      layer,
+      { x: 12, y: 12 },
+      {
+        size: 2,
+        mirrorX: false,
+        mirrorY: false,
+        paintSource: checkerDitherPaint({ foreground: BLACK_PIXEL, background: TRANSPARENT_PIXEL }),
+      },
+    );
     expect(layer.surface.data[indexFor(11, 11)]).toBe(BLACK_PIXEL);
     expect(layer.surface.data[indexFor(12, 11)]).toBe(TRANSPARENT_PIXEL);
   });
@@ -56,8 +65,7 @@ describe("pixel operations", () => {
           size: 1,
           mirrorX: false,
           mirrorY: false,
-          paintValue: WHITE_PIXEL,
-          tool: "pencil",
+          paintSource: solidPaint(WHITE_PIXEL),
         },
       ),
     ).toBe(true);
@@ -66,13 +74,12 @@ describe("pixel operations", () => {
 
   it("draws lines and rectangle outlines", () => {
     const layer = createLayer(1, "Layer 1");
-    const options = { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" as const };
 
-    drawLine(layer, { x: 2, y: 3 }, { x: 5, y: 3 }, options);
+    drawLine(layer, { x: 2, y: 3 }, { x: 5, y: 3 }, pencilOptions);
     expect(layer.surface.data[indexFor(2, 3)]).toBe(1);
     expect(layer.surface.data[indexFor(5, 3)]).toBe(1);
 
-    drawRect(layer, { x: 8, y: 8 }, { x: 10, y: 10 }, options);
+    drawRect(layer, { x: 8, y: 8 }, { x: 10, y: 10 }, pencilOptions);
     expect(layer.surface.data[indexFor(8, 8)]).toBe(1);
     expect(layer.surface.data[indexFor(9, 9)]).toBe(0);
     expect(layer.surface.data[indexFor(10, 10)]).toBe(1);
@@ -80,9 +87,8 @@ describe("pixel operations", () => {
 
   it("interpolates brush strokes between sampled pointer positions", () => {
     const layer = createLayer(1, "Layer 1");
-    const options = { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" as const };
 
-    expect(drawInterpolatedStroke(layer, { x: 2, y: 4 }, { x: 6, y: 4 }, options)).toBe(true);
+    expect(drawInterpolatedStroke(layer, { x: 2, y: 4 }, { x: 6, y: 4 }, pencilOptions)).toBe(true);
 
     expect(layer.surface.data[indexFor(2, 4)]).toBe(1);
     expect(layer.surface.data[indexFor(3, 4)]).toBe(1);
@@ -93,11 +99,21 @@ describe("pixel operations", () => {
 
   it("flood fills enclosed regions", () => {
     const layer = createLayer(1, "Layer 1");
-    const options = { size: 1, mirrorX: false, mirrorY: false, tool: "pencil" as const };
-    drawRect(layer, { x: 1, y: 1 }, { x: 4, y: 4 }, options);
+    drawRect(layer, { x: 1, y: 1 }, { x: 4, y: 4 }, pencilOptions);
 
-    expect(floodFill(layer, { x: 2, y: 2 }, 1)).toBe(true);
+    expect(floodFill(layer, { x: 2, y: 2 }, solidPaint(BLACK_PIXEL))).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(1);
     expect(layer.surface.data[indexFor(0, 0)]).toBe(0);
+  });
+
+  it("flood fills with pattern paint sources", () => {
+    const layer = createLayer(1, "Layer 1");
+    const paint = checkerDitherPaint({ foreground: BLACK_PIXEL, background: WHITE_PIXEL });
+
+    expect(floodFill(layer, { x: 0, y: 0 }, paint)).toBe(true);
+
+    expect(layer.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(1, 0)]).toBe(WHITE_PIXEL);
+    expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
   });
 });

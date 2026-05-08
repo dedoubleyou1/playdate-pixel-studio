@@ -1,6 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
-import { BLACK_PIXEL, TRANSPARENT_PIXEL, type PixelValue } from "./types";
-import type { PixelLayer, PixelSurface, Point, Tool } from "./types";
+import { paintValueAt, type PaintSource } from "./paintSources";
+import type { PixelLayer, PixelSurface, PixelValue, Point } from "./types";
 
 export function indexFor(x: number, y: number, width = PLAYDATE_WIDTH): number {
   return y * width + x;
@@ -45,11 +45,10 @@ export function setSurfacePixel(surface: PixelSurface, x: number, y: number, val
 }
 
 export interface BrushOptions {
-  paintValue?: PixelValue;
+  paintSource: PaintSource;
   size: number;
   mirrorX: boolean;
   mirrorY: boolean;
-  tool: Tool;
 }
 
 export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptions): boolean {
@@ -68,10 +67,7 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
       for (let xx = 0; xx < options.size; xx += 1) {
         const x = mirroredPoint.x + xx - half;
         const y = mirroredPoint.y + yy - half;
-        let value: PixelValue = options.tool === "eraser" ? TRANSPARENT_PIXEL : (options.paintValue ?? BLACK_PIXEL);
-        if (options.tool === "dither") {
-          value = (x + y) % 2 === 0 ? (options.paintValue ?? BLACK_PIXEL) : TRANSPARENT_PIXEL;
-        }
+        const value = paintValueAt(options.paintSource, { x, y });
         changed = setPixel(layer, x, y, value) || changed;
       }
     }
@@ -136,23 +132,25 @@ export function drawRect(layer: PixelLayer, start: Point, end: Point, options: B
   return changed;
 }
 
-export function floodFill(layer: PixelLayer, point: Point, value: PixelValue): boolean {
+export function floodFill(layer: PixelLayer, point: Point, paintSource: PaintSource): boolean {
   if (!inBounds(point.x, point.y, layer.surface.width, layer.surface.height)) return false;
   const startIndex = indexFor(point.x, point.y, layer.surface.width);
   const target = layer.surface.data[startIndex];
-  if (target === value) return false;
+  if (paintSource.type === "solid" && target === paintSource.value) return false;
 
   const stack: Point[] = [point];
+  const visited = new Uint8Array(layer.surface.data.length);
   let changed = false;
 
   while (stack.length > 0) {
     const current = stack.pop();
     if (!current || !inBounds(current.x, current.y, layer.surface.width, layer.surface.height)) continue;
     const index = indexFor(current.x, current.y, layer.surface.width);
+    if (visited[index]) continue;
+    visited[index] = 1;
     if (layer.surface.data[index] !== target) continue;
 
-    layer.surface.data[index] = value;
-    changed = true;
+    changed = setSurfacePixel(layer.surface, current.x, current.y, paintValueAt(paintSource, current)) || changed;
     stack.push(
       { x: current.x + 1, y: current.y },
       { x: current.x - 1, y: current.y },

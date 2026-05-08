@@ -1,4 +1,5 @@
-import { BLACK_PIXEL, type PixelLayer, type PixelValue, type Point, type ShapePreview, type Tool } from "./types";
+import { TRANSPARENT_PIXEL, type PixelLayer, type PixelValue, type Point, type ShapePreview, type Tool } from "./types";
+import { checkerDitherPaint, solidPaint, type PaintSource } from "./paintSources";
 import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill, type BrushOptions } from "./pixelOps";
 
 export interface PixelToolSettings {
@@ -60,7 +61,7 @@ export function applyPixelToolStart(
   }
 
   if (isFillTool(tool)) {
-    return { changed: floodFill(layer, point, settings.paintValue) };
+    return { changed: floodFill(layer, point, paintSourceForTool(tool, settings)) };
   }
 
   return { changed: false };
@@ -100,7 +101,17 @@ function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
     size: settings.brushSize,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
-    paintValue: settings.paintValue ?? BLACK_PIXEL,
-    tool,
+    paintSource: paintSourceForTool(tool, settings),
   };
+}
+
+export function paintSourceForTool(tool: Tool, settings: PixelToolSettings): PaintSource {
+  if (tool === "eraser") return solidPaint(TRANSPARENT_PIXEL);
+  if (tool === "dither") {
+    return checkerDitherPaint({
+      foreground: settings.paintValue,
+      background: TRANSPARENT_PIXEL,
+    });
+  }
+  return solidPaint(settings.paintValue);
 }
