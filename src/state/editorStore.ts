@@ -48,7 +48,9 @@ interface PendingCommand {
   before: EditorSnapshot;
 }
 
-interface EditorStoreState extends EditorSnapshot {
+export type EditorDocument = EditorSnapshot;
+
+export interface EditorSessionState {
   activeTool: Tool;
   activePaintValue: PixelValue;
   brushSize: number;
@@ -62,8 +64,12 @@ interface EditorStoreState extends EditorSnapshot {
   previewOpen: boolean;
   previewMode: PreviewMode;
   shapePreview: ShapePreview | null;
-  revision: number;
-  savedRevision: number;
+}
+
+interface EditorStoreState extends EditorDocument, EditorSessionState {
+  documentRevision: number;
+  savedDocumentRevision: number;
+  viewRevision: number;
   currentProjectId: string | null;
   projectName: string;
   recentProjects: ProjectSummary[];
@@ -85,6 +91,7 @@ interface EditorStoreState extends EditorSnapshot {
   setCursorLabel: (label: string) => void;
   setShapePreview: (preview: ShapePreview | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
+  markViewChanged: () => void;
   markDocumentChanged: (status?: string) => void;
   beginCommand: (label: string) => void;
   commitCommand: (label?: string) => void;
@@ -141,8 +148,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   previewOpen: false,
   previewMode: "normal",
   shapePreview: null,
-  revision: 0,
-  savedRevision: 0,
+  documentRevision: 0,
+  savedDocumentRevision: 0,
+  viewRevision: 0,
   currentProjectId: null,
   projectName: "Untitled Playdate Art",
   recentProjects: [],
@@ -164,19 +172,25 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   setBrushSize: (brushSize) => set({ brushSize }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),
-  setGridVisible: (gridVisible) => set({ gridVisible }),
-  setGridSize: (gridSize) => set({ gridSize }),
+  setGridVisible: (gridVisible) =>
+    set((state) => (state.gridVisible === gridVisible ? {} : { gridVisible, viewRevision: state.viewRevision + 1 })),
+  setGridSize: (gridSize) =>
+    set((state) => (state.gridSize === gridSize ? {} : { gridSize, viewRevision: state.viewRevision + 1 })),
   setZoom: (zoom) => set({ zoom }),
   setStatus: (status) => set({ status }),
   setCursorLabel: (cursorLabel) => set({ cursorLabel }),
-  setPreviewMode: (previewMode) => set({ previewMode }),
-  setShapePreview: (shapePreview) => set((state) => ({ shapePreview, revision: state.revision + 1 })),
+  setPreviewMode: (previewMode) =>
+    set((state) => (state.previewMode === previewMode ? {} : { previewMode, viewRevision: state.viewRevision + 1 })),
+  setShapePreview: (shapePreview) => set((state) => ({ shapePreview, viewRevision: state.viewRevision + 1 })),
+
+  markViewChanged: () => set((state) => ({ viewRevision: state.viewRevision + 1 })),
 
   markDocumentChanged: (status) =>
     set((state) => ({
       ...bumpActiveLayerContent(state),
       status: status ?? state.status,
-      revision: state.revision + 1,
+      documentRevision: state.documentRevision + 1,
+      viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: true,
     })),
 
@@ -214,7 +228,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         pendingCommand: null,
         shapePreview: null,
         status: `Undo ${command.label}`,
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     }),
@@ -234,7 +249,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         pendingCommand: null,
         shapePreview: null,
         status: `Redo ${command.label}`,
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     }),
@@ -267,7 +283,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       activeContext: { type: "object", objectId: object.id },
       shapePreview: null,
       status: `Created ${object.name}`,
-      revision: state.revision + 1,
+      documentRevision: state.documentRevision + 1,
+      viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: true,
     }));
     pushCurrentCommand(set, `Create ${object.name}`, before);
@@ -284,7 +301,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ),
       },
       status: "Object renamed",
-      revision: state.revision + 1,
+      documentRevision: state.documentRevision + 1,
+      viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: true,
     }));
     pushCurrentCommand(set, "Rename object", before);
@@ -312,7 +330,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           : object,
       ),
       status: "Object resized",
-      revision: state.revision + 1,
+      documentRevision: state.documentRevision + 1,
+      viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: true,
     }));
     pushCurrentCommand(set, "Resize object", before);
@@ -340,7 +359,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         },
         activeContext: { type: "root" },
         status: `${object.name} instance added`,
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -362,7 +382,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           activeLayerIndex: stack.activeLayerIndex + 1,
         }),
         status: "Layer added",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -387,7 +408,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           activeLayerIndex: stack.activeLayerIndex + 1,
         }),
         status: "Layer duplicated",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -407,7 +429,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           activeLayerIndex: clampLayerIndex(stack.activeLayerIndex, layers.length),
         }),
         status: "Layer deleted",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -430,7 +453,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           activeLayerIndex: target,
         }),
         status: direction > 0 ? "Layer moved up" : "Layer moved down",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -456,7 +480,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           ...stack,
           layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, name } : layer)),
         }),
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -472,7 +497,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           ...stack,
           layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, visible } : layer)),
         }),
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -491,7 +517,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
             index === stack.activeLayerIndex ? { ...layer, opacity } : layer,
           ),
         }),
-        revision: current.revision + 1,
+        documentRevision: current.documentRevision + 1,
+        viewRevision: current.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -507,7 +534,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       return {
         ...replaceActiveStack(state, { ...stack, background }),
         status: `Background ${PIXEL_VALUE_LABELS[background]}`,
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -539,7 +567,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           ),
         }),
         status: "Layer cleared",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -576,7 +605,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
           ),
         }),
         status: "Layer inverted",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: true,
       };
     });
@@ -592,7 +622,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       ...snapshot,
       projectName: "Untitled Playdate Art",
       currentProjectId: null,
-      savedRevision: state.revision + 1,
+      savedDocumentRevision: state.documentRevision + 1,
       pendingCommand: null,
       undoStack: [],
       redoStack: [],
@@ -600,26 +630,37 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       canRedo: false,
       shapePreview: null,
       status: "New project",
-      revision: state.revision + 1,
+      documentRevision: state.documentRevision + 1,
+      viewRevision: state.viewRevision + 1,
       hasUnsavedChanges: false,
     }));
   },
 
-  renameProject: (projectName) => set({ projectName, hasUnsavedChanges: true }),
+  renameProject: (projectName) =>
+    set((state) =>
+      state.projectName === projectName
+        ? {}
+        : {
+            projectName,
+            documentRevision: state.documentRevision + 1,
+            viewRevision: state.viewRevision + 1,
+            hasUnsavedChanges: true,
+          },
+    ),
 
   saveProject: async () => {
     try {
       const state = get();
       const id = state.currentProjectId ?? crypto.randomUUID();
-      const revisionBeingSaved = state.revision;
+      const documentRevisionBeingSaved = state.documentRevision;
       const document = serializeProject(currentSnapshot(), id, state.projectName);
       const summary = await saveProjectDocument(document);
       set((current) => {
-        const savedRevision = Math.max(current.savedRevision, revisionBeingSaved);
-        const allCurrentChangesSaved = current.revision <= savedRevision;
+        const savedDocumentRevision = Math.max(current.savedDocumentRevision, documentRevisionBeingSaved);
+        const allCurrentChangesSaved = current.documentRevision <= savedDocumentRevision;
         return {
           currentProjectId: id,
-          savedRevision,
+          savedDocumentRevision,
           hasUnsavedChanges: allCurrentChangesSaved ? false : current.hasUnsavedChanges,
           status: allCurrentChangesSaved ? "Project saved locally" : current.status,
           recentProjects: mergeSummary(current.recentProjects, summary),
@@ -642,7 +683,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ...snapshotState(snapshot),
         projectName: document.name,
         currentProjectId: document.id,
-        savedRevision: state.revision + 1,
+        savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         undoStack: [],
         redoStack: [],
@@ -650,7 +691,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Project loaded",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
       }));
     } catch {
@@ -680,7 +722,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ...snapshotState(snapshot),
         projectName: document.name,
         currentProjectId: document.id,
-        savedRevision: state.revision + 1,
+        savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         undoStack: [],
         redoStack: [],
@@ -688,7 +730,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Most recent project loaded",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
         recentProjects,
       }));
@@ -740,7 +783,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         ...snapshotState(snapshot),
         projectName: document.name,
         currentProjectId: document.id,
-        savedRevision: state.revision + 1,
+        savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         undoStack: [],
         redoStack: [],
@@ -748,7 +791,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         shapePreview: null,
         status: "Project imported",
-        revision: state.revision + 1,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
         hasUnsavedChanges: false,
         recentProjects: mergeSummary(state.recentProjects, saved),
       }));

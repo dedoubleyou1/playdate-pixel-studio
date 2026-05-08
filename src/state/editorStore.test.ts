@@ -30,7 +30,7 @@ describe("editor store saveProject", () => {
     useEditorStore.setState({
       hasUnsavedChanges: true,
       projectName: "Before save",
-      revision: 3,
+      documentRevision: 3,
       status: "Ready",
     });
 
@@ -38,7 +38,7 @@ describe("editor store saveProject", () => {
     useEditorStore.setState({
       hasUnsavedChanges: true,
       projectName: "Newer edit",
-      revision: 4,
+      documentRevision: 4,
       status: "Newer edit pending",
     });
 
@@ -48,7 +48,7 @@ describe("editor store saveProject", () => {
     const state = useEditorStore.getState();
     expect(state.hasUnsavedChanges).toBe(true);
     expect(state.projectName).toBe("Newer edit");
-    expect(state.savedRevision).toBe(3);
+    expect(state.savedDocumentRevision).toBe(3);
     expect(state.status).toBe("Newer edit pending");
     expect(state.currentProjectId).not.toBeNull();
   });
@@ -65,7 +65,7 @@ describe("editor store saveProject", () => {
     useEditorStore.setState({
       hasUnsavedChanges: true,
       projectName: "Saved project",
-      revision: 5,
+      documentRevision: 5,
       status: "Dirty",
     });
 
@@ -73,8 +73,64 @@ describe("editor store saveProject", () => {
 
     const state = useEditorStore.getState();
     expect(state.hasUnsavedChanges).toBe(false);
-    expect(state.savedRevision).toBe(5);
+    expect(state.savedDocumentRevision).toBe(5);
     expect(state.status).toBe("Project saved locally");
+  });
+});
+
+describe("editor store revision semantics", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  it("increments document and view revisions for document changes", () => {
+    const state = useEditorStore.getState();
+
+    state.markDocumentChanged();
+
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
+  });
+
+  it("increments only view revision for shape previews", () => {
+    const state = useEditorStore.getState();
+
+    state.setShapePreview({
+      brushSize: 1,
+      end: { x: 4, y: 4 },
+      mirrorX: false,
+      mirrorY: false,
+      start: { x: 2, y: 2 },
+      type: "line",
+    });
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("increments only view revision for grid changes", () => {
+    const state = useEditorStore.getState();
+
+    state.setGridVisible(true);
+    state.setGridSize(8);
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(2);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("does not revise document or view for tool, cursor, and zoom changes", () => {
+    const state = useEditorStore.getState();
+
+    state.setTool("eraser");
+    state.setCursorLabel("x: 1 y: 2");
+    state.setZoom(4);
+
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
   });
 });
 
@@ -129,9 +185,10 @@ function resetStore(): void {
     projectName: "Untitled Playdate Art",
     recentProjects: [],
     redoStack: [],
-    revision: 0,
-    savedRevision: 0,
+    documentRevision: 0,
+    savedDocumentRevision: 0,
     status: "Ready",
     undoStack: [],
+    viewRevision: 0,
   });
 }

@@ -17,7 +17,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const layers = useEditorStore((state) => state.root.layers);
   const background = useEditorStore((state) => state.root.background);
   const objects = useEditorStore((state) => state.objects);
-  const revision = useEditorStore((state) => state.revision);
+  const documentRevision = useEditorStore((state) => state.documentRevision);
   const previewMode = useEditorStore((state) => state.previewMode);
   const [enabled, setEnabled] = useState(false);
   const [bridgeState, setBridgeState] = useState<BridgeState>("checking");
@@ -27,7 +27,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const [connectedDevices, setConnectedDevices] = useState(0);
   const [devices, setDevices] = useState<BridgeDevice[]>([]);
   const [statusText, setStatusText] = useState("Start the bridge, connect the companion, then stream.");
-  const latestFrameRef = useRef({ background, layers, objects, previewMode, revision });
+  const latestFrameRef = useRef({ background, layers, objects, previewMode, documentRevision });
   const lastPostedRevisionRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
   const streamRunIdRef = useRef(0);
@@ -35,8 +35,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
 
   useEffect(() => {
-    latestFrameRef.current = { background, layers, objects, previewMode, revision };
-  }, [background, layers, objects, previewMode, revision]);
+    latestFrameRef.current = { background, layers, objects, previewMode, documentRevision };
+  }, [background, layers, objects, previewMode, documentRevision]);
 
   const refreshSession = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
@@ -89,13 +89,13 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       if (controller.signal.aborted || streamRunIdRef.current !== runId || sendInFlightRef.current) return;
 
       const frame = latestFrameRef.current;
-      if (frame.revision === lastPostedRevisionRef.current) return;
+      if (frame.documentRevision === lastPostedRevisionRef.current) return;
 
       sendInFlightRef.current = true;
       void sendFrameToBridge(
         frame.layers,
         frame.previewMode,
-        frame.revision,
+        frame.documentRevision,
         frame.objects,
         frame.background,
         streamId,
@@ -107,7 +107,9 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           lastPostedRevisionRef.current = result.revision;
           setLastSentRevision(result.revision);
           setRoundTripMs(result.roundTripMs);
-          setStatusText(`Streaming revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`);
+          setStatusText(
+            `Streaming document revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`,
+          );
           void refreshSession();
         })
         .catch((error: unknown) => {

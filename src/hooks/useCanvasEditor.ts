@@ -23,7 +23,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
   const objects = useEditorStore((state) => state.objects);
   const shapePreview = useEditorStore((state) => state.shapePreview);
-  const revision = useEditorStore((state) => state.revision);
+  const viewRevision = useEditorStore((state) => state.viewRevision);
 
   useEffect(() => {
     editorCanvasRef.current = canvas ? new EditorCanvas(canvas, stack.width, stack.height) : null;
@@ -44,7 +44,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
         renderFrameRef.current = null;
       }
     };
-  }, [objects, shapePreview, revision, stack.background, stack.layers]);
+  }, [objects, shapePreview, stack.background, stack.layers, viewRevision]);
 
   const resetGestureRefs = useCallback(() => {
     isDrawingRef.current = false;

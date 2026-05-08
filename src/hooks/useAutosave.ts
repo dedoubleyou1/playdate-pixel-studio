@@ -5,7 +5,7 @@ const AUTOSAVE_DELAY_MS = 1500;
 
 export function useAutosave(): void {
   const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
-  const revision = useEditorStore((state) => state.revision);
+  const documentRevision = useEditorStore((state) => state.documentRevision);
   const saveProject = useEditorStore((state) => state.saveProject);
 
   useEffect(() => {
@@ -15,5 +15,5 @@ export function useAutosave(): void {
     }, AUTOSAVE_DELAY_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [hasUnsavedChanges, revision, saveProject]);
+  }, [hasUnsavedChanges, documentRevision, saveProject]);
 }

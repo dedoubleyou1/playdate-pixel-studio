@@ -35,6 +35,8 @@ Projects are stored locally in IndexedDB using a versioned Playdate project docu
 
 The editor canvas renders through a requestAnimationFrame scheduler. Domain pixel buffers remain 1-bit per pixel layer, and preview/export paths flatten the root artboard into true Playdate-sized 400 x 240 outputs. Object definitions render as linked object instance layers when they are placed on the root artboard. Preview modes are post-processing passes over device image data.
 
+Editor invalidation separates document changes from view-only changes. `documentRevision` advances when saved project data changes and drives autosave plus physical streaming; `viewRevision` advances when the editor display should repaint, including transient previews and grid changes. Per-layer `contentRevision` remains the cache key for thumbnails and other content-derived previews.
+
 ## Physical Preview
 
 Physical preview is intentionally experimental and local-first. The browser packs the visible layer stack into a fixed 12,000-byte, MSB-first, 1-bit Playdate frame using native Playdate bitmap polarity, where set bits are white and cleared bits are black. The bridge keeps only the newest frame in memory, exposes local HTTP health/session/frame/device endpoints, and streams authenticated binary packets to any connected companion apps over LAN TCP. The Playdate app validates packet shape and CRC before a C extension copies payload rows into an `LCDBitmap`.
