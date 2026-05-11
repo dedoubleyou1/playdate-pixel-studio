@@ -1,6 +1,12 @@
 import type { LayerMovePreview } from "../rendering/frameComposer";
 import type { Point, Tool } from "../domain/types";
 
+export interface GestureTransaction {
+  commit: (changed: boolean, status?: string) => void;
+  discard: () => void;
+  label: string;
+}
+
 export type EditorGestureState =
   | { type: "idle" }
   | {
@@ -28,6 +34,7 @@ export type EditorGestureState =
       lastPoint: Point;
       start: Point;
       tool: Tool;
+      transaction: GestureTransaction;
     }
   | {
       type: "drawingAlphaMask";
@@ -35,6 +42,7 @@ export type EditorGestureState =
       lastPoint: Point;
       start: Point;
       tool: Tool;
+      transaction: GestureTransaction;
     };
 
 export interface EditorGestureEvent {

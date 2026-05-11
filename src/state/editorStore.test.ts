@@ -3,6 +3,8 @@ import { createObjectDefinition, createObjectInstanceLayer } from "../domain/lay
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL } from "../domain/types";
+import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMaskGesture } from "../input/alphaMaskGestures";
+import { beginGestureTransaction } from "../input/gestureTransaction";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
 import { currentActiveLayer, currentActivePixelLayer, hasActiveSelection, useEditorStore } from "./editorStore";
 
@@ -528,10 +530,9 @@ describe("editor store selection and alpha masks", () => {
     const state = useEditorStore.getState();
     const startRevision = state.documentRevision;
 
-    state.beginCommand("Erase alpha mask");
-    const result = state.ensureActiveLayerAlphaMask(true);
-    if (result?.created) state.markDocumentChanged();
-    state.commitCommand("Erase alpha mask");
+    const transaction = beginGestureTransaction("Erase alpha mask");
+    const result = ensureDraftActiveLayerAlphaMask(true);
+    transaction.commit(Boolean(result?.created));
 
     expect(result?.created).toBe(true);
     expect(currentActiveLayer()?.alphaMask?.data.every((value) => value === 1)).toBe(true);
@@ -544,16 +545,14 @@ describe("editor store selection and alpha masks", () => {
   });
 
   it("creates one undo command and document revision for changed mask painting", () => {
-    const state = useEditorStore.getState();
-    const startRevision = state.documentRevision;
-
-    state.beginCommand("Erase alpha mask");
-    const result = state.ensureActiveLayerAlphaMask(true);
-    if (result) {
-      result.mask.data[indexFor(0, 0)] = 0;
-      state.markDocumentChanged();
-    }
-    state.commitCommand("Erase alpha mask");
+    useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
+    const startRevision = useEditorStore.getState().documentRevision;
+    const gesture = beginAlphaMaskGesture({ x: 0, y: 0 }, "eraser", { requestCanvasRender: vi.fn() });
+    if (gesture.type !== "drawingAlphaMask") throw new Error("Expected alpha mask gesture");
+    finishAlphaMaskGesture(gesture, {
+      point: { x: 0, y: 0 },
+      shiftKey: false,
+    });
 
     expect(useEditorStore.getState().documentRevision).toBe(startRevision + 1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
@@ -586,7 +585,7 @@ describe("editor store selection and alpha masks", () => {
 
   it("returns to pixel editing when removing the active alpha mask", () => {
     const state = useEditorStore.getState();
-    state.ensureActiveLayerAlphaMask(true);
+    state.addActiveLayerAlphaMask();
     state.setEditTarget("alphaMask");
 
     state.removeActiveLayerAlphaMask();

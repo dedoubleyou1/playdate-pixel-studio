@@ -169,7 +169,6 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setSelectionFromEllipse: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
   clearSelection: () => void;
   addActiveLayerAlphaMask: () => void;
-  ensureActiveLayerAlphaMask: (fillVisible?: boolean) => { mask: BinaryMaskSurface; created: boolean } | null;
   removeActiveLayerAlphaMask: () => void;
   markViewChanged: () => void;
   markDocumentChanged: (status?: string) => void;
@@ -364,29 +363,6 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       };
     });
     pushCurrentCommand(set, label, before);
-  },
-  ensureActiveLayerAlphaMask: (fillVisible = true) => {
-    const state = get();
-    const stack = activeStack(state);
-    const layer = stack.layers[stack.activeLayerIndex];
-    if (!layer) return null;
-    if (layer.alphaMask) return { mask: layer.alphaMask, created: false };
-    const size = layerAlphaMaskSize(layer, state.objects);
-    if (!size) return null;
-    const alphaMask = createBinaryMaskSurface(size.width, size.height, fillVisible);
-    set((current) => {
-      const currentStack = activeStack(current);
-      return {
-        ...replaceActiveStack(current, {
-          ...currentStack,
-          layers: currentStack.layers.map((candidate, index) =>
-            index === currentStack.activeLayerIndex ? { ...candidate, alphaMask } : candidate,
-          ),
-        }),
-      };
-    });
-    const createdMask = activeLayer(get())?.alphaMask;
-    return createdMask ? { mask: createdMask, created: true } : null;
   },
   removeActiveLayerAlphaMask: () => {
     const before = currentSnapshot();
