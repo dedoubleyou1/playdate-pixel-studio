@@ -294,8 +294,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => (state.previewMode === previewMode ? {} : { previewMode, viewRevision: state.viewRevision + 1 })),
   setCanvasToolPreview: (canvasToolPreview) =>
     set((state) => ({ canvasToolPreview, viewRevision: state.viewRevision + 1 })),
-  setSelectionPreview: (selectionPreview) =>
-    set((state) => ({ selectionPreview, viewRevision: state.viewRevision + 1 })),
+  setSelectionPreview: (selectionPreview) => set({ selectionPreview }),
   setEditTarget: (editTarget) =>
     set((state) =>
       state.editTarget === editTarget

@@ -1,4 +1,4 @@
-import { indexFor, inBounds, walkEllipseOutline } from "./pixelGeometry";
+import { indexFor, inBounds, walkFilledEllipseSpans } from "./pixelGeometry";
 import {
   TRANSPARENT_PIXEL,
   type BinaryMaskSurface,
@@ -102,23 +102,13 @@ export function createEllipseMask(width: number, height: number, start: Point, e
     return createRectMask(width, height, start, end);
   }
 
-  const spans = new Map<number, { left: number; right: number }>();
-  walkEllipseOutline({ x: left, y: top }, { x: right, y: bottom }, (point) => {
-    if (!inBounds(point.x, point.y, width, height)) return;
-    const span = spans.get(point.y);
-    if (span) {
-      span.left = Math.min(span.left, point.x);
-      span.right = Math.max(span.right, point.x);
-    } else {
-      spans.set(point.y, { left: point.x, right: point.x });
+  walkFilledEllipseSpans({ x: left, y: top }, { x: right, y: bottom }, (span) => {
+    if (span.y < 0 || span.y >= height) return;
+    for (let x = span.left; x <= span.right; x += 1) {
+      if (x < 0 || x >= width) continue;
+      mask.data[indexFor(x, span.y, width)] = 1;
     }
   });
-
-  for (const [y, span] of spans) {
-    for (let x = span.left; x <= span.right; x += 1) {
-      mask.data[indexFor(x, y, width)] = 1;
-    }
-  }
 
   return mask;
 }

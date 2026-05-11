@@ -127,6 +127,37 @@ export function walkEllipseOutline(start: Point, end: Point, callback: (point: P
   }
 }
 
+export function walkFilledEllipseSpans(
+  start: Point,
+  end: Point,
+  callback: (span: { y: number; left: number; right: number }) => void,
+): void {
+  const left = Math.min(start.x, end.x);
+  const right = Math.max(start.x, end.x);
+  const top = Math.min(start.y, end.y);
+  const bottom = Math.max(start.y, end.y);
+
+  if (right <= left || bottom <= top) {
+    for (let y = top; y <= bottom; y += 1) callback({ y, left, right });
+    return;
+  }
+
+  const spans = new Map<number, { left: number; right: number }>();
+  walkEllipseOutline({ x: left, y: top }, { x: right, y: bottom }, (point) => {
+    const span = spans.get(point.y);
+    if (span) {
+      span.left = Math.min(span.left, point.x);
+      span.right = Math.max(span.right, point.x);
+    } else {
+      spans.set(point.y, { left: point.x, right: point.x });
+    }
+  });
+
+  [...spans.entries()]
+    .sort(([firstY], [secondY]) => firstY - secondY)
+    .forEach(([y, span]) => callback({ y, left: span.left, right: span.right }));
+}
+
 function dedupedEmitter(callback: (point: Point) => void): (x: number, y: number) => void {
   const emitted = new Set<string>();
   return (x, y) => {

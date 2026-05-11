@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "./constants";
-import { indexFor, mirroredPoints, walkEllipseOutline, walkLine, walkRectOutline } from "./pixelGeometry";
+import { indexFor, mirroredPoints, walkEllipseOutline, walkFilledEllipseSpans, walkLine, walkRectOutline } from "./pixelGeometry";
 
 describe("pixel geometry", () => {
   it("maps coordinates into the Playdate screen buffer", () => {
@@ -46,5 +46,16 @@ describe("pixel geometry", () => {
     expect(points.has("5,2")).toBe(true);
     expect(points.has("5,6")).toBe(true);
     expect(points.has("5,4")).toBe(false);
+  });
+
+  it("walks filled ellipse spans from the shared ellipse outline", () => {
+    const spans: string[] = [];
+    walkFilledEllipseSpans({ x: 1, y: 1 }, { x: 5, y: 5 }, (span) =>
+      spans.push(`${span.y}:${span.left}-${span.right}`),
+    );
+
+    expect(spans).toContain("1:2-4");
+    expect(spans).toContain("3:1-5");
+    expect(spans).toContain("5:2-4");
   });
 });
