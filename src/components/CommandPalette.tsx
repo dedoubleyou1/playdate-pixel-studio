@@ -1,5 +1,7 @@
 import {
   Archive,
+  Circle,
+  CircleDashed,
   Download,
   FileDown,
   FilePlus2,
@@ -9,6 +11,7 @@ import {
   RotateCcwSquare,
   Save,
   Square,
+  SquareDashed,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,13 +20,16 @@ import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
 import { BLACK_PIXEL } from "../domain/types";
 import type { Tool } from "../domain/types";
-import { useEditorStore } from "../state/editorStore";
+import { hasActiveSelection, useEditorStore } from "../state/editorStore";
 
 const TOOL_COMMANDS: Array<{ tool: Tool; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { tool: "move", label: "Move", icon: Move },
+  { tool: "marquee", label: "Marquee", icon: SquareDashed },
+  { tool: "ellipseSelect", label: "Ellipse Select", icon: CircleDashed },
   { tool: "pencil", label: "Pencil", icon: Pencil },
   { tool: "fill", label: "Fill", icon: PaintBucket },
   { tool: "rect", label: "Rectangle", icon: Square },
+  { tool: "ellipse", label: "Ellipse", icon: Circle },
 ];
 
 export function CommandPalette({
@@ -40,10 +46,12 @@ export function CommandPalette({
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
   const exportBundle = useEditorStore((state) => state.exportBundle);
+  const clearSelection = useEditorStore((state) => state.clearSelection);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
   const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
+  const hasSelection = useEditorStore(hasActiveSelection);
 
   const run = (action: () => void | Promise<void>) => {
     void action();
@@ -64,6 +72,12 @@ export function CommandPalette({
           <CommandButton icon={FileDown} label="Export project JSON" onClick={() => run(exportProjectFile)} />
           <CommandButton icon={Archive} label="Export project bundle" onClick={() => run(exportBundle)} />
           <CommandButton
+            icon={SquareDashed}
+            label="Clear selection"
+            disabled={!hasSelection}
+            onClick={() => run(clearSelection)}
+          />
+          <CommandButton
             icon={Trash2}
             label="Clear active layer"
             disabled={!drawingEnabled}
@@ -80,7 +94,13 @@ export function CommandPalette({
               key={command.tool}
               icon={command.icon}
               label={`Select ${command.label}`}
-              disabled={command.tool === "move" ? !layerSelected : !drawingEnabled}
+              disabled={
+                command.tool === "move"
+                  ? !layerSelected
+                  : command.tool === "marquee" || command.tool === "ellipseSelect"
+                    ? false
+                    : !drawingEnabled
+              }
               onClick={() => run(() => setTool(command.tool))}
             />
           ))}

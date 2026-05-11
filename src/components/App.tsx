@@ -25,6 +25,7 @@ export function App(): React.JSX.Element {
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
   const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
+  const clearSelection = useEditorStore((state) => state.clearSelection);
 
   useEffect(() => {
     let canceled = false;
@@ -66,6 +67,12 @@ export function App(): React.JSX.Element {
         return;
       }
 
+      if ((event.metaKey || event.ctrlKey) && key === "d") {
+        event.preventDefault();
+        clearSelection();
+        return;
+      }
+
       if ((event.metaKey || event.ctrlKey) && event.shiftKey && key === "n") {
         event.preventDefault();
         newProject();
@@ -81,20 +88,33 @@ export function App(): React.JSX.Element {
 
       const shortcuts = {
         v: "move",
+        m: "marquee",
+        o: "ellipseSelect",
         p: "pencil",
         b: "pencil",
         e: "eraser",
         l: "line",
         r: "rect",
+        c: "ellipse",
         f: "fill",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
-      if (tool && (tool === "move" || isPixelEditableLayer(activeLayer(useEditorStore.getState())))) setTool(tool);
+      const state = useEditorStore.getState();
+      if (
+        tool &&
+        (tool === "move" ||
+          tool === "marquee" ||
+          tool === "ellipseSelect" ||
+          state.editTarget === "alphaMask" ||
+          isPixelEditableLayer(activeLayer(state)))
+      ) {
+        setTool(tool);
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newProject, redo, saveProject, setActivePaletteIndex, setTool, undo]);
+  }, [clearSelection, newProject, redo, saveProject, setActivePaletteIndex, setTool, undo]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;

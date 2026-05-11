@@ -1,4 +1,16 @@
-import { Archive, Download, FileDown, FilePlus2, Redo2, Save, Undo2, Upload } from "lucide-react";
+import {
+  Archive,
+  Download,
+  FileDown,
+  FilePlus2,
+  Redo2,
+  RotateCcwSquare,
+  Save,
+  SquareDashed,
+  Trash2,
+  Undo2,
+  Upload,
+} from "lucide-react";
 import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,13 +30,16 @@ import {
 } from "@/components/ui/menubar";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { EditorHeader, EditorHeaderCenter, EditorHeaderLeft, EditorHeaderRight } from "./layout/editor-layout";
-import { useEditorStore } from "../state/editorStore";
+import { activeLayer, isPixelEditableLayer } from "../domain/layers";
+import { hasActiveSelection, useEditorStore } from "../state/editorStore";
 
 const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
 
 export function Topbar(): React.JSX.Element {
   const canUndo = useEditorStore((state) => state.canUndo);
   const canRedo = useEditorStore((state) => state.canRedo);
+  const activeLayerPixelEditable = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
+  const hasSelection = useEditorStore(hasActiveSelection);
   const projectName = useEditorStore((state) => state.projectName);
   const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
   const recentProjects = useEditorStore((state) => state.recentProjects);
@@ -32,8 +47,13 @@ export function Topbar(): React.JSX.Element {
   const setGridVisible = useEditorStore((state) => state.setGridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const setGridSize = useEditorStore((state) => state.setGridSize);
+  const colorizedPatternsVisible = useEditorStore((state) => state.colorizedPatternsVisible);
+  const setColorizedPatternsVisible = useEditorStore((state) => state.setColorizedPatternsVisible);
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
+  const clearSelection = useEditorStore((state) => state.clearSelection);
+  const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
+  const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
   const newProject = useEditorStore((state) => state.newProject);
   const renameProject = useEditorStore((state) => state.renameProject);
   const saveProject = useEditorStore((state) => state.saveProject);
@@ -103,6 +123,20 @@ export function Topbar(): React.JSX.Element {
                 Redo
                 <MenubarShortcut>⇧⌘Z</MenubarShortcut>
               </MenubarItem>
+              <MenubarItem disabled={!hasSelection} onSelect={clearSelection}>
+                <SquareDashed />
+                Clear Selection
+                <MenubarShortcut>⌘D</MenubarShortcut>
+              </MenubarItem>
+              <MenubarSeparator />
+              <MenubarItem disabled={!activeLayerPixelEditable} onSelect={clearActiveLayer}>
+                <Trash2 />
+                Clear Layer
+              </MenubarItem>
+              <MenubarItem disabled={!activeLayerPixelEditable} onSelect={invertActiveLayer}>
+                <RotateCcwSquare />
+                Invert Layer
+              </MenubarItem>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
@@ -110,6 +144,12 @@ export function Topbar(): React.JSX.Element {
             <MenubarContent>
               <MenubarCheckboxItem checked={gridVisible} onCheckedChange={(checked) => setGridVisible(Boolean(checked))}>
                 Grid
+              </MenubarCheckboxItem>
+              <MenubarCheckboxItem
+                checked={colorizedPatternsVisible}
+                onCheckedChange={(checked) => setColorizedPatternsVisible(Boolean(checked))}
+              >
+                Colorized Patterns
               </MenubarCheckboxItem>
               <MenubarSub>
                 <MenubarSubTrigger>Grid Size</MenubarSubTrigger>
