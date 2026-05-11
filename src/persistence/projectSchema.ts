@@ -1,7 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { normalizeBinaryMaskSurface } from "../domain/masks";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
-import { cloneSnapshot, createSurface } from "../domain/layers";
+import { clampLayerIndex, cloneSnapshot, createSurface } from "../domain/layers";
 import type {
   EditContext,
   EditorSnapshot,
@@ -146,6 +146,7 @@ function serializeObjectDefinition(object: ObjectDefinition): SerializedObjectDe
 }
 
 function deserializeObjectDefinition(object: SerializedObjectDefinition): ObjectDefinition {
+  const layers = object.layers.map(deserializePixelLayer);
   return {
     id: object.id,
     name: object.name,
@@ -153,8 +154,8 @@ function deserializeObjectDefinition(object: SerializedObjectDefinition): Object
     height: object.height,
     background: object.background ?? TRANSPARENT_PIXEL,
     nextLayerId: object.nextLayerId,
-    activeLayerIndex: object.activeLayerIndex,
-    layers: object.layers.map(deserializePixelLayer),
+    activeLayerIndex: clampLayerIndex(object.activeLayerIndex, layers.length),
+    layers,
   };
 }
 
@@ -182,13 +183,14 @@ function serializeLayerStack(stack: LayerStack): SerializedLayerStack {
 }
 
 function deserializeLayerStack(stack: SerializedLayerStack): LayerStack {
+  const layers = stack.layers.map(deserializeLayer);
   return {
     width: stack.width,
     height: stack.height,
     background: stack.background ?? WHITE_PIXEL,
     nextLayerId: stack.nextLayerId,
-    activeLayerIndex: stack.activeLayerIndex,
-    layers: stack.layers.map(deserializeLayer),
+    activeLayerIndex: clampLayerIndex(stack.activeLayerIndex, layers.length),
+    layers,
   };
 }
 

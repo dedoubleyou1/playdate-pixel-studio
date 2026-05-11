@@ -147,7 +147,7 @@ export function activeStack(snapshot: Pick<EditorSnapshot, "root" | "objects" | 
   return snapshot.objects.find((object) => object.id === context.objectId) ?? snapshot.root;
 }
 
-export function activeLayer(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): Layer {
+export function activeLayer(snapshot: Pick<EditorSnapshot, "root" | "objects" | "activeContext">): Layer | undefined {
   const stack = activeStack(snapshot);
   return stack.layers[stack.activeLayerIndex];
 }

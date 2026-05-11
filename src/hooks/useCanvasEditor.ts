@@ -314,7 +314,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       if (state.editTarget === "alphaMask") {
         const settings = maskToolSettings(gestureTool);
-        const mask = currentActiveLayer().alphaMask;
+        const mask = currentActiveLayer()?.alphaMask;
         if (!mask) return;
         const previewPoint = constrainedShapeEndPoint(dragStartRef.current, point, gestureTool, event.shiftKey);
         const localPoint = activeMaskPoint(previewPoint, state);
@@ -389,7 +389,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
       if (state.editTarget === "alphaMask") {
         const settings = maskToolSettings(gestureTool);
-        const mask = currentActiveLayer().alphaMask;
+        const mask = currentActiveLayer()?.alphaMask;
         if (!mask) {
           state.setCanvasToolPreview(null);
           state.discardPendingCommand();
@@ -484,6 +484,7 @@ function currentAlphaMaskForTool(
   value: 0 | 1,
 ): { mask: BinaryMaskSurface; created: boolean } | null {
   const layer = activeLayer(state);
+  if (!layer) return null;
   if (layer.alphaMask) return { mask: layer.alphaMask, created: false };
   if (value === 1) return null;
   return state.ensureActiveLayerAlphaMask(true);

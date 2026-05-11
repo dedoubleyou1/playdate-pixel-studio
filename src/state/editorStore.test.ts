@@ -488,8 +488,8 @@ describe("editor store selection and alpha masks", () => {
     state.addActiveLayerAlphaMask();
 
     const layer = currentActiveLayer();
-    expect(layer.alphaMask?.data[indexFor(2, 2)]).toBe(1);
-    expect(layer.alphaMask?.data[indexFor(1, 1)]).toBe(0);
+    expect(layer?.alphaMask?.data[indexFor(2, 2)]).toBe(1);
+    expect(layer?.alphaMask?.data[indexFor(1, 1)]).toBe(0);
     expect(useEditorStore.getState().undoStack).toHaveLength(2);
   });
 
@@ -498,7 +498,7 @@ describe("editor store selection and alpha masks", () => {
     state.addActiveLayerAlphaMask();
 
     const layer = currentActiveLayer();
-    expect(layer.alphaMask?.data.every((value) => value === 1)).toBe(true);
+    expect(layer?.alphaMask?.data.every((value) => value === 1)).toBe(true);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
   });
@@ -513,13 +513,13 @@ describe("editor store selection and alpha masks", () => {
     state.commitCommand("Erase alpha mask");
 
     expect(result?.created).toBe(true);
-    expect(currentActiveLayer().alphaMask?.data.every((value) => value === 1)).toBe(true);
+    expect(currentActiveLayer()?.alphaMask?.data.every((value) => value === 1)).toBe(true);
     expect(useEditorStore.getState().documentRevision).toBe(startRevision + 1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
 
     useEditorStore.getState().undo();
 
-    expect(currentActiveLayer().alphaMask).toBeUndefined();
+    expect(currentActiveLayer()?.alphaMask).toBeUndefined();
   });
 
   it("creates one undo command and document revision for changed mask painting", () => {
@@ -536,11 +536,31 @@ describe("editor store selection and alpha masks", () => {
 
     expect(useEditorStore.getState().documentRevision).toBe(startRevision + 1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
-    expect(currentActiveLayer().alphaMask?.data[indexFor(0, 0)]).toBe(0);
+    expect(currentActiveLayer()?.alphaMask?.data[indexFor(0, 0)]).toBe(0);
 
     useEditorStore.getState().undo();
 
-    expect(currentActiveLayer().alphaMask).toBeUndefined();
+    expect(currentActiveLayer()?.alphaMask).toBeUndefined();
+  });
+
+  it("handles missing active layers as no-op tool actions", () => {
+    useEditorStore.setState((state) => ({
+      root: {
+        ...state.root,
+        activeLayerIndex: 99,
+      },
+    }));
+
+    const state = useEditorStore.getState();
+    useEditorStore.setState({ activeTool: "pencil" });
+    expect(currentActiveLayer()).toBeUndefined();
+
+    state.setTool("move");
+    expect(useEditorStore.getState().activeTool).toBe("pencil");
+
+    state.clearActiveLayer();
+    expect(useEditorStore.getState().status).toBe("Active layer does not support pixel drawing");
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
 
   it("returns to pixel editing when removing the active alpha mask", () => {
@@ -550,7 +570,7 @@ describe("editor store selection and alpha masks", () => {
 
     state.removeActiveLayerAlphaMask();
 
-    expect(currentActiveLayer().alphaMask).toBeUndefined();
+    expect(currentActiveLayer()?.alphaMask).toBeUndefined();
     expect(useEditorStore.getState().editTarget).toBe("pixels");
   });
 
@@ -572,10 +592,10 @@ describe("editor store selection and alpha masks", () => {
     useEditorStore.getState().addActiveLayerAlphaMask();
 
     const layer = currentActiveLayer();
-    expect(layer.alphaMask?.width).toBe(4);
-    expect(layer.alphaMask?.height).toBe(4);
-    expect(layer.alphaMask?.data[1 * 4 + 1]).toBe(1);
-    expect(layer.alphaMask?.data[0]).toBe(0);
+    expect(layer?.alphaMask?.width).toBe(4);
+    expect(layer?.alphaMask?.height).toBe(4);
+    expect(layer?.alphaMask?.data[1 * 4 + 1]).toBe(1);
+    expect(layer?.alphaMask?.data[0]).toBe(0);
   });
 });
 

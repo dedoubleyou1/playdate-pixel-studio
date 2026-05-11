@@ -74,4 +74,26 @@ describe("project schema", () => {
     expect("opacity" in reserialized.snapshot.root.layers[0]).toBe(false);
     expect("opacity" in reserialized.snapshot.objects[0].layers[0]).toBe(false);
   });
+
+  it("clamps invalid active layer indexes while deserializing", () => {
+    const snapshot: EditorSnapshot = {
+      palette: createDefaultPalette(),
+      root: createRootStack(),
+      objects: [createObjectDefinition("object-1", "Object 1", 16, 16)],
+      activeContext: { type: "root" },
+    };
+    const document = serializeProject(snapshot, "project-1", "Invalid Active Layer") as unknown as {
+      snapshot: {
+        root: { activeLayerIndex: number };
+        objects: Array<{ activeLayerIndex: number }>;
+      };
+    };
+    document.snapshot.root.activeLayerIndex = 99;
+    document.snapshot.objects[0].activeLayerIndex = 99;
+
+    const restored = deserializeProject(document as never);
+
+    expect(restored.root.activeLayerIndex).toBe(0);
+    expect(restored.objects[0].activeLayerIndex).toBe(0);
+  });
 });

@@ -30,6 +30,7 @@ import {
   cloneLayerStack,
   cloneObjectDefinition,
   cloneSnapshot,
+  clampLayerIndex,
   createObjectDefinition,
   createObjectInstanceLayer,
   createRootStack,
@@ -382,7 +383,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         }),
       };
     });
-    const createdMask = activeLayer(get()).alphaMask;
+    const createdMask = activeLayer(get())?.alphaMask;
     return createdMask ? { mask: createdMask, created: true } : null;
   },
   removeActiveLayerAlphaMask: () => {
@@ -900,9 +901,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   setActiveLayer: (activeLayerIndex) =>
     set((state) => {
       const stack = activeStack(state);
-      const layer = stack.layers[activeLayerIndex];
+      const nextActiveLayerIndex = clampLayerIndex(activeLayerIndex, stack.layers.length);
+      const layer = stack.layers[nextActiveLayerIndex];
       return {
-        ...replaceActiveStack(state, { ...stack, activeLayerIndex }),
+        ...replaceActiveStack(state, { ...stack, activeLayerIndex: nextActiveLayerIndex }),
         status: layer?.type === "object" ? "Object instances are linked; edit the source object." : state.status,
       };
     }),
@@ -1248,7 +1250,7 @@ export function currentActiveStack(): LayerStack {
   return activeStack(useEditorStore.getState());
 }
 
-export function currentActiveLayer(): Layer {
+export function currentActiveLayer(): Layer | undefined {
   return activeLayer(useEditorStore.getState());
 }
 
