@@ -60,7 +60,16 @@ export interface BinaryMaskSurface {
 export type LayerAlphaMask = BinaryMaskSurface;
 export type EditTarget = "pixels" | "alphaMask";
 
+export interface SelectionBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 export interface SelectionState {
+  bounds: SelectionBounds | null;
+  isEmpty: boolean;
   mask: BinaryMaskSurface;
 }
 

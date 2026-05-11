@@ -1,4 +1,5 @@
 import { cloneSnapshot } from "./layers";
+import { cloneSelectionState } from "./masks";
 import type {
   EditContext,
   EditorSnapshot,
@@ -191,17 +192,6 @@ function pixelLayersEqual(left: PixelLayer, right: PixelLayer): boolean {
 function editContextsEqual(left: EditContext, right: EditContext): boolean {
   if (left.type !== right.type) return false;
   return left.type === "root" || left.objectId === (right as { objectId: string }).objectId;
-}
-
-function cloneSelectionState(selection: SelectionState | null): SelectionState | null {
-  if (!selection) return null;
-  return {
-    mask: {
-      width: selection.mask.width,
-      height: selection.mask.height,
-      data: new Uint8Array(selection.mask.data),
-    },
-  };
 }
 
 function selectionStatesEqual(left: SelectionState | null, right: SelectionState | null): boolean {

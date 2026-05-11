@@ -41,9 +41,11 @@ import {
 import {
   canvasSelectionToLayerMask,
   cloneBinaryMaskSurface,
+  cloneSelectionState,
   createBinaryMaskSurface,
   createEllipseMask,
   createRectMask,
+  createSelectionStateFromMask,
   liftSelectedPixels,
   maskIsEmpty,
   pasteFloatingPixels,
@@ -459,7 +461,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       const originalLayer = cloneLayer(layer) as PixelLayer;
       const implicitFullLayer = !selection || maskIsEmpty(selection.mask);
       const moveSelection = implicitFullLayer
-        ? { mask: createBinaryMaskSurface(layer.surface.width, layer.surface.height, true) }
+        ? createSelectionStateFromMask(createBinaryMaskSurface(layer.surface.width, layer.surface.height, true))
         : selection;
       const lifted = liftSelectedPixels(originalLayer, moveSelection.mask);
       set({
@@ -479,7 +481,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
             surface: lifted.floating,
           },
           implicitFullLayer,
-          selection: { mask: cloneBinaryMaskSurface(moveSelection.mask) },
+          selection: createSelectionStateFromMask(cloneBinaryMaskSurface(moveSelection.mask)),
           sourceLayer: lifted.source,
         },
         pendingMove: null,
@@ -540,7 +542,9 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
               alphaMask: translateBinaryMaskSurface(pendingSelectionMove.sourceLayer.alphaMask, dx, dy),
             };
           }
-          const movedSelection = { mask: translateBinaryMaskSurface(pendingSelectionMove.selection.mask, dx, dy) };
+          const movedSelection = createSelectionStateFromMask(
+            translateBinaryMaskSurface(pendingSelectionMove.selection.mask, dx, dy),
+          );
           return {
             ...replaceActiveStack(state, {
               ...stack,
@@ -1267,7 +1271,7 @@ export function selectActiveSelection(state: SelectionStateHost): SelectionState
 }
 
 export function hasActiveSelection(state: SelectionStateHost): boolean {
-  return !maskIsEmpty(activeSelection(state)?.mask);
+  return activeSelection(state)?.isEmpty === false;
 }
 
 function createInitialSnapshot(): EditorSnapshot {
@@ -1321,7 +1325,7 @@ function setSelectionFromMask(
   const beforeSelection = currentSelectionSnapshot();
   set((state) => {
     const stack = activeStack(state);
-    const selection = { mask: createMask(stack.width, stack.height) };
+    const selection = createSelectionStateFromMask(createMask(stack.width, stack.height));
     return setActiveSelectionState(state, selection, status);
   });
   pushCommand(
@@ -1377,13 +1381,6 @@ function commandSelectionState(
   return {
     objectSelection: cloned.objectSelection,
     rootSelection: cloned.rootSelection,
-  };
-}
-
-function cloneSelectionState(selection: SelectionState | null): SelectionState | null {
-  if (!selection) return null;
-  return {
-    mask: cloneBinaryMaskSurface(selection.mask),
   };
 }
 

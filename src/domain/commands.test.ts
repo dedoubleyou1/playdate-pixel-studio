@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEditorCommand, editorCommandHasChanges, snapshotsEqual, type CommandSelectionSnapshot } from "./commands";
 import { createDefaultPalette, createRootStack } from "./layers";
+import { createSelectionStateFromMask } from "./masks";
 import { indexFor } from "./pixelGeometry";
 import type { EditorSnapshot } from "./types";
 
@@ -44,13 +45,11 @@ describe("editor commands", () => {
     const after = makeSnapshot();
     const beforeSelection = emptySelection();
     const afterSelection = emptySelection();
-    afterSelection.rootSelection = {
-      mask: {
-        width: 2,
-        height: 2,
-        data: new Uint8Array([1, 0, 0, 0]),
-      },
-    };
+    afterSelection.rootSelection = createSelectionStateFromMask({
+      width: 2,
+      height: 2,
+      data: new Uint8Array([1, 0, 0, 0]),
+    });
 
     const command = createEditorCommand("Set selection", before, after, { afterSelection, beforeSelection });
 

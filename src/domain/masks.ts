@@ -1,12 +1,15 @@
 import { indexFor, inBounds, walkEllipseOutline } from "./pixelGeometry";
-import { TRANSPARENT_PIXEL, type BinaryMaskSurface, type PixelLayer, type PixelSurface, type Point } from "./types";
+import {
+  TRANSPARENT_PIXEL,
+  type BinaryMaskSurface,
+  type PixelLayer,
+  type PixelSurface,
+  type Point,
+  type SelectionBounds,
+  type SelectionState,
+} from "./types";
 
-export interface MaskBounds {
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-}
+export type MaskBounds = SelectionBounds;
 
 export function createBinaryMaskSurface(width: number, height: number, fill = false): BinaryMaskSurface {
   const data = new Uint8Array(width * height);
@@ -141,6 +144,20 @@ export function maskBounds(mask: BinaryMaskSurface): MaskBounds | null {
   }
 
   return right >= left && bottom >= top ? { left, top, right, bottom } : null;
+}
+
+export function createSelectionStateFromMask(mask: BinaryMaskSurface): SelectionState {
+  const bounds = maskBounds(mask);
+  return {
+    bounds,
+    isEmpty: bounds === null,
+    mask,
+  };
+}
+
+export function cloneSelectionState(selection: SelectionState | null): SelectionState | null {
+  if (!selection) return null;
+  return createSelectionStateFromMask(cloneBinaryMaskSurface(selection.mask));
 }
 
 export function maskContains(mask: BinaryMaskSurface | null | undefined, x: number, y: number): boolean {

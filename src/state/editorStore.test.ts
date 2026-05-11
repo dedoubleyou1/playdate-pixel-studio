@@ -4,7 +4,7 @@ import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
-import { currentActiveLayer, currentActivePixelLayer, useEditorStore } from "./editorStore";
+import { currentActiveLayer, currentActivePixelLayer, hasActiveSelection, useEditorStore } from "./editorStore";
 
 const projectDbMock = vi.hoisted(() => ({
   deleteProjectDocument: vi.fn(),
@@ -382,6 +382,7 @@ describe("editor store layer move gestures", () => {
     expect(movedLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
     expect(movedLayer?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 3, top: 1, right: 3, bottom: 1 });
     expect(useEditorStore.getState().undoStack).toHaveLength(2);
   });
 
@@ -405,6 +406,7 @@ describe("editor store layer move gestures", () => {
     expect(currentActivePixelLayer()?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 3, top: 1, right: 3, bottom: 1 });
   });
 });
 
@@ -418,6 +420,8 @@ describe("editor store selection and alpha masks", () => {
 
     state.setSelectionFromRect({ x: 1, y: 1 }, { x: 2, y: 2 });
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.isEmpty).toBe(false);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 1, top: 1, right: 2, bottom: 2 });
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
 
@@ -428,8 +432,25 @@ describe("editor store selection and alpha masks", () => {
 
     useEditorStore.getState().redo();
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(2, 2)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 1, top: 1, right: 2, bottom: 2 });
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("reads active-selection presence from cached metadata", () => {
+    const mask = createBinaryMaskSurface(2, 2);
+
+    expect(
+      hasActiveSelection({
+        activeContext: { type: "root" },
+        objectSelection: null,
+        rootSelection: {
+          bounds: { left: 0, top: 0, right: 0, bottom: 0 },
+          isEmpty: false,
+          mask,
+        },
+      }),
+    ).toBe(true);
   });
 
   it("undoes and redoes selection clearing", () => {

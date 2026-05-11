@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createBinaryMaskSurface } from "../domain/masks";
+import { createBinaryMaskSurface, createSelectionStateFromMask } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { selectionOverlaySource } from "./selectionOverlaySource";
 
@@ -11,7 +11,7 @@ describe("selectionOverlaySource", () => {
     pending.data[indexFor(3, 3, 5)] = 1;
 
     const source = selectionOverlaySource({
-      activeSelection: { mask: committed },
+      activeSelection: createSelectionStateFromMask(committed),
       height: 5,
       pendingSelectionMove: { dx: 2, dy: 1, floating: { mask: pending } },
       selectionPreview: {
@@ -60,7 +60,7 @@ describe("selectionOverlaySource", () => {
     pending.data[indexFor(3, 3, 5)] = 1;
 
     const source = selectionOverlaySource({
-      activeSelection: { mask: committed },
+      activeSelection: createSelectionStateFromMask(committed),
       height: 5,
       pendingSelectionMove: { dx: 2, dy: 1, floating: { mask: pending } },
       selectionPreview: null,
@@ -77,7 +77,7 @@ describe("selectionOverlaySource", () => {
 
     expect(
       selectionOverlaySource({
-        activeSelection: { mask: committed },
+        activeSelection: createSelectionStateFromMask(committed),
         height: 5,
         pendingSelectionMove: null,
         selectionPreview: null,
