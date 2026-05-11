@@ -11,15 +11,19 @@ export function SelectionOverlay({
   height,
   model,
   width,
+  zoom,
 }: {
   height: number;
   model: SelectionOverlaySource;
   width: number;
+  zoom: number;
 }): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { dx, dy, mask } = model;
   const [phase, setPhase] = useState<0 | 1>(0);
   const edges = useMemo(() => (mask ? exposedSelectionEdges(mask) : []), [mask]);
+  const browserWidth = width * zoom;
+  const browserHeight = height * zoom;
 
   useEffect(() => {
     if (!mask) return;
@@ -34,52 +38,45 @@ export function SelectionOverlay({
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (canvas.width !== browserWidth) canvas.width = browserWidth;
+    if (canvas.height !== browserHeight) canvas.height = browserHeight;
 
-    const observer = new ResizeObserver(() => render());
+    const context = canvas.getContext("2d");
+    if (!context) return;
 
-    const render = () => {
-      const rect = canvas.getBoundingClientRect();
-      const browserWidth = Math.round(rect.width);
-      const browserHeight = Math.round(rect.height);
-      if (canvas.width !== browserWidth) canvas.width = browserWidth;
-      if (canvas.height !== browserHeight) canvas.height = browserHeight;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, browserWidth, browserHeight);
 
-      const context = canvas.getContext("2d");
-      if (!context) return;
+    if (!mask || browserWidth <= 0 || browserHeight <= 0) return;
 
-      context.setTransform(1, 0, 0, 1, 0, 0);
-      context.clearRect(0, 0, browserWidth, browserHeight);
+    renderSelectionEdges(context, edges, {
+      cellSize: zoom,
+      checkerCellSize: CHECKER_CELL_CSS_PX,
+      dx,
+      dy,
+      phase,
+      thickness: 1,
+    });
+  }, [browserHeight, browserWidth, dx, dy, edges, mask, phase, zoom]);
 
-      if (!mask || browserWidth <= 0 || browserHeight <= 0) return;
-
-      renderSelectionEdges(context, edges, {
-        cellHeight: browserHeight / height,
-        cellWidth: browserWidth / width,
-        checkerCellSize: CHECKER_CELL_CSS_PX,
-        dx,
-        dy,
-        phase,
-        thickness: 1,
-      });
-    };
-
-    render();
-    observer.observe(canvas);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [dx, dy, edges, height, mask, phase, width]);
-
-  return <canvas ref={canvasRef} className="selection-overlay-canvas" aria-hidden="true" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      className="selection-overlay-canvas"
+      style={{
+        height: `${browserHeight}px`,
+        width: `${browserWidth}px`,
+      }}
+      aria-hidden="true"
+    />
+  );
 }
 
 function renderSelectionEdges(
   context: CanvasRenderingContext2D,
   edges: SelectionEdge[],
   options: {
-    cellHeight: number;
-    cellWidth: number;
+    cellSize: number;
     checkerCellSize: number;
     dx: number;
     dy: number;
@@ -90,10 +87,10 @@ function renderSelectionEdges(
   for (const edge of edges) {
     const cellX = edge.x + options.dx;
     const cellY = edge.y + options.dy;
-    let left = Math.round(cellX * options.cellWidth);
-    let top = Math.round(cellY * options.cellHeight);
-    let right = Math.round((cellX + 1) * options.cellWidth);
-    let bottom = Math.round((cellY + 1) * options.cellHeight);
+    let left = cellX * options.cellSize;
+    let top = cellY * options.cellSize;
+    let right = (cellX + 1) * options.cellSize;
+    let bottom = (cellY + 1) * options.cellSize;
 
     if (edge.side === "top") {
       bottom = top + options.thickness;

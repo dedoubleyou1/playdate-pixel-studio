@@ -229,6 +229,7 @@ export function CanvasStage(): React.JSX.Element {
             height={stack.height}
             model={selectionOverlay}
             width={stack.width}
+            zoom={zoom}
           />
           {previewObject && objectDropPreview ? (
             <ObjectPreviewCanvas
