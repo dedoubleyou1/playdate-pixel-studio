@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createDocumentCommand, snapshotsEqual } from "./commands";
+import { createEditorCommand, editorCommandHasChanges, snapshotsEqual, type CommandSelectionSnapshot } from "./commands";
 import { createDefaultPalette, createRootStack } from "./layers";
-import { indexFor } from "./pixelOps";
+import { indexFor } from "./pixelGeometry";
 import type { EditorSnapshot } from "./types";
 
-describe("document commands", () => {
+describe("editor commands", () => {
   it("captures immutable before and after snapshots", () => {
     const before = makeSnapshot();
     const after = makeSnapshot();
@@ -12,7 +12,10 @@ describe("document commands", () => {
     if (afterLayer.type !== "pixel") throw new Error("Expected a pixel layer");
     afterLayer.surface.data[indexFor(3, 3)] = 1;
 
-    const command = createDocumentCommand("Draw stroke", before, after);
+    const command = createEditorCommand("Draw stroke", before, after, {
+      afterSelection: emptySelection(),
+      beforeSelection: emptySelection(),
+    });
     afterLayer.surface.data[indexFor(3, 3)] = 0;
     const beforeLayer = command.before.root.layers[0];
     const commandAfterLayer = command.after.root.layers[0];
@@ -35,6 +38,25 @@ describe("document commands", () => {
     layer.surface.data[indexFor(5, 5)] = 1;
     expect(snapshotsEqual(first, second)).toBe(false);
   });
+
+  it("detects selection-only editor command changes", () => {
+    const before = makeSnapshot();
+    const after = makeSnapshot();
+    const beforeSelection = emptySelection();
+    const afterSelection = emptySelection();
+    afterSelection.rootSelection = {
+      mask: {
+        width: 2,
+        height: 2,
+        data: new Uint8Array([1, 0, 0, 0]),
+      },
+    };
+
+    const command = createEditorCommand("Set selection", before, after, { afterSelection, beforeSelection });
+
+    expect(snapshotsEqual(command.before, command.after)).toBe(true);
+    expect(editorCommandHasChanges(command)).toBe(true);
+  });
 });
 
 function makeSnapshot(): EditorSnapshot {
@@ -43,5 +65,12 @@ function makeSnapshot(): EditorSnapshot {
     root: createRootStack(),
     objects: [],
     activeContext: { type: "root" },
+  };
+}
+
+function emptySelection(): CommandSelectionSnapshot {
+  return {
+    objectSelection: null,
+    rootSelection: null,
   };
 }

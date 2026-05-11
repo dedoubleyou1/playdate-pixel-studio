@@ -10,10 +10,13 @@ import { compileLucideCursor } from "./lucideCursorCompiler";
 
 const TOOL_CURSORS: Record<Tool, string> = {
   move: `url("${moveCursor}") 12 12, move`,
+  marquee: "crosshair",
+  ellipseSelect: "crosshair",
   pencil: `url("${pencilCursor}") 1 22, crosshair`,
   eraser: `url("${eraserCursor}") 1 22, crosshair`,
   line: `url("${penToolCursor}") 0 0, crosshair`,
   rect: `url("${crosshairCursor}") 11 11, crosshair`,
+  ellipse: `url("${crosshairCursor}") 11 11, crosshair`,
   fill: compileLucideCursor(
     [
       { svg: ArrowUpLeft, preserveStrokeWidth: true, scale: 0.4 },

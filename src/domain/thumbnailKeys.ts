@@ -1,4 +1,4 @@
-import type { Layer, ObjectDefinition, PixelLayer } from "./types";
+import type { BinaryMaskSurface, Layer, ObjectDefinition, PixelLayer } from "./types";
 
 export function layerThumbnailKey(layer: Layer, objects: ObjectDefinition[]): string {
   if (layer.type === "pixel") {
@@ -6,7 +6,7 @@ export function layerThumbnailKey(layer: Layer, objects: ObjectDefinition[]): st
   }
 
   const object = objects.find((candidate) => candidate.id === layer.objectId);
-  return `object-layer:${layer.objectId}:${object ? objectThumbnailKey(object) : "missing"}`;
+  return `object-layer:${layer.objectId}:${object ? objectThumbnailKey(object) : "missing"}:${maskThumbnailKey(layer.alphaMask)}`;
 }
 
 export function objectThumbnailKey(object: ObjectDefinition): string {
@@ -21,7 +21,14 @@ export function objectThumbnailKey(object: ObjectDefinition): string {
 }
 
 function pixelLayerContentKey(layer: PixelLayer): string {
-  return ["pixel", layer.id, layer.surface.width, layer.surface.height, layer.contentRevision].join(":");
+  return [
+    "pixel",
+    layer.id,
+    layer.surface.width,
+    layer.surface.height,
+    layer.contentRevision,
+    maskThumbnailKey(layer.alphaMask),
+  ].join(":");
 }
 
 function pixelLayerCompositeKey(layer: PixelLayer): string {
@@ -31,7 +38,17 @@ function pixelLayerCompositeKey(layer: PixelLayer): string {
     layer.surface.width,
     layer.surface.height,
     layer.visible ? "visible" : "hidden",
-    layer.opacity,
     layer.contentRevision,
+    maskThumbnailKey(layer.alphaMask),
   ].join(":");
+}
+
+export function maskThumbnailKey(mask: BinaryMaskSurface | null | undefined): string {
+  if (!mask) return "mask:none";
+  let hash = 2166136261;
+  for (let index = 0; index < mask.data.length; index += 1) {
+    hash ^= mask.data[index];
+    hash = Math.imul(hash, 16777619);
+  }
+  return `mask:${mask.width}x${mask.height}:${hash >>> 0}`;
 }

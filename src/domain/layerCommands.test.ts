@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { indexFor } from "./pixelOps";
+import { indexFor } from "./pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import {
   addPixelLayer,
@@ -9,6 +9,7 @@ import {
   hasLayerStackMutation,
   invertActivePixelLayer,
   moveActiveLayer,
+  reorderLayer,
   setLayerVisibility,
   setStackBackgroundColor,
   translateActiveLayerFrom,
@@ -57,6 +58,18 @@ describe("layer commands", () => {
       expect(result.stack.activeLayerIndex).toBe(0);
       expect(result.stack.layers.map((layer) => layer.id)).toEqual([2, 1]);
     }
+  });
+
+  it("reorders layers while keeping the same active layer selected", () => {
+    const stack = addPixelLayer(addPixelLayer(createRootStack()).stack).stack;
+    const activeLayerId = stack.layers[stack.activeLayerIndex].id;
+
+    const result = reorderLayer(stack, 0, 2);
+
+    expect(hasLayerStackMutation(result)).toBe(true);
+    if (!hasLayerStackMutation(result)) throw new Error("Expected layer reorder");
+    expect(result.stack.layers.map((layer) => layer.id)).toEqual([2, 3, 1]);
+    expect(result.stack.layers[result.stack.activeLayerIndex].id).toBe(activeLayerId);
   });
 
   it("updates visibility and background", () => {

@@ -187,7 +187,8 @@ body {
 }
 
 #artCanvas,
-.grid-overlay-canvas {
+.grid-overlay-canvas,
+.selection-overlay-canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -201,7 +202,8 @@ body {
   touch-action: none;
 }
 
-.grid-overlay-canvas {
+.grid-overlay-canvas,
+.selection-overlay-canvas {
   pointer-events: none;
 }
 

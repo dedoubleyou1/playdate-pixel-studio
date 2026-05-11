@@ -1,34 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { PLAYDATE_WIDTH } from "./constants";
 import { createLayer } from "./layers";
+import { indexFor } from "./pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
-import {
-  drawBrushAt,
-  drawInterpolatedStroke,
-  drawLine,
-  drawRect,
-  floodFill,
-  indexFor,
-  mirroredPoints,
-} from "./pixelOps";
+import { drawBrushAt, drawEllipse, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "./pixelOps";
 
 describe("pixel operations", () => {
   const pencilOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: BLACK_PIXEL };
   const eraserOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: TRANSPARENT_PIXEL };
-
-  it("maps coordinates into the Playdate screen buffer", () => {
-    expect(indexFor(0, 0)).toBe(0);
-    expect(indexFor(2, 1)).toBe(PLAYDATE_WIDTH + 2);
-  });
-
-  it("deduplicates mirrored points at mirror intersections", () => {
-    expect(mirroredPoints(0, 0, true, true)).toEqual([
-      { x: 0, y: 0 },
-      { x: 399, y: 0 },
-      { x: 0, y: 239 },
-      { x: 399, y: 239 },
-    ]);
-  });
 
   it("draws pencil, eraser, and palette-index brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
@@ -71,7 +49,7 @@ describe("pixel operations", () => {
     expect(layer.surface.data[indexFor(10, 10)]).toBe(WHITE_PIXEL);
   });
 
-  it("draws lines and rectangle outlines", () => {
+  it("draws lines, rectangle outlines, and ellipse outlines", () => {
     const layer = createLayer(1, "Layer 1");
 
     drawLine(layer, { x: 2, y: 3 }, { x: 5, y: 3 }, pencilOptions);
@@ -82,6 +60,12 @@ describe("pixel operations", () => {
     expect(layer.surface.data[indexFor(8, 8)]).toBe(1);
     expect(layer.surface.data[indexFor(9, 9)]).toBe(0);
     expect(layer.surface.data[indexFor(10, 10)]).toBe(1);
+
+    drawEllipse(layer, { x: 20, y: 20 }, { x: 24, y: 22 }, pencilOptions);
+    expect(layer.surface.data[indexFor(20, 21)]).toBe(1);
+    expect(layer.surface.data[indexFor(22, 20)]).toBe(1);
+    expect(layer.surface.data[indexFor(22, 21)]).toBe(0);
+    expect(layer.surface.data[indexFor(24, 21)]).toBe(1);
   });
 
   it("interpolates brush strokes between sampled pointer positions", () => {

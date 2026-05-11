@@ -6,6 +6,7 @@ import { EditorListItem } from "./layout/editor-layout";
 type EditorAssetItemProps = Omit<React.ComponentProps<typeof EditorListItem>, "children" | "className"> & {
   actions?: React.ReactNode;
   className?: string;
+  dragHandle?: React.ReactNode;
   fallbackName: string;
   leadingIcon?: React.ReactNode;
   name: string;
@@ -15,20 +16,16 @@ type EditorAssetItemProps = Omit<React.ComponentProps<typeof EditorListItem>, "c
 };
 
 export const EditorAssetItem = React.forwardRef<HTMLDivElement, EditorAssetItemProps>(function EditorAssetItem(
-  { actions, className, fallbackName, leadingIcon, name, nameLabel, onRename, thumbnail, ...props },
+  { actions, className, dragHandle, fallbackName, leadingIcon, name, nameLabel, onRename, thumbnail, ...props },
   ref,
 ): React.JSX.Element {
   return (
     <EditorListItem
       ref={ref}
-      className={cn(
-        leadingIcon
-          ? "grid-cols-[auto_auto_minmax(0,1fr)_auto]"
-          : "grid-cols-[auto_minmax(0,1fr)_auto]",
-        className,
-      )}
+      className={cn(assetItemGridColumns(Boolean(dragHandle), Boolean(leadingIcon)), className)}
       {...props}
     >
+      {dragHandle}
       <div className="asset-thumb-frame">{thumbnail}</div>
       {leadingIcon}
       <Input
@@ -42,3 +39,9 @@ export const EditorAssetItem = React.forwardRef<HTMLDivElement, EditorAssetItemP
     </EditorListItem>
   );
 });
+
+function assetItemGridColumns(hasDragHandle: boolean, hasLeadingIcon: boolean): string {
+  if (hasDragHandle && hasLeadingIcon) return "grid-cols-[auto_auto_auto_minmax(0,1fr)_auto]";
+  if (hasDragHandle || hasLeadingIcon) return "grid-cols-[auto_auto_minmax(0,1fr)_auto]";
+  return "grid-cols-[auto_minmax(0,1fr)_auto]";
+}

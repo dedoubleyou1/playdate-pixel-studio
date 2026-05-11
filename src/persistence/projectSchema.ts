@@ -1,4 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { normalizeBinaryMaskSurface } from "../domain/masks";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { cloneSnapshot, createSurface } from "../domain/layers";
 import type {
@@ -15,7 +16,8 @@ import type {
   ProjectPalette,
 } from "../domain/types";
 
-export const PROJECT_SCHEMA_VERSION = 6;
+export const PROJECT_SCHEMA_VERSION = 8;
+const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, PROJECT_SCHEMA_VERSION]);
 
 export interface SerializedSurface {
   width: number;
@@ -29,7 +31,7 @@ export interface SerializedBaseLayer {
   visible: boolean;
   pixelEditable: boolean;
   contentRevision: number;
-  opacity: number;
+  alphaMask?: SerializedSurface;
 }
 
 export interface SerializedPixelLayer extends SerializedBaseLayer {
@@ -68,7 +70,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 6;
+  schemaVersion: 6 | 7 | 8;
   id: string;
   name: string;
   width: number;
@@ -106,7 +108,7 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
 }
 
 export function deserializeProject(document: PlaydateProjectDocument): EditorSnapshot {
-  if (document.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+  if (!SUPPORTED_PROJECT_SCHEMA_VERSIONS.has(document.schemaVersion)) {
     throw new Error("Unsupported project schema version.");
   }
 
@@ -128,7 +130,7 @@ export function exportProjectJson(document: PlaydateProjectDocument): string {
 
 export function parseProjectJson(json: string): PlaydateProjectDocument {
   const parsed = JSON.parse(json) as PlaydateProjectDocument;
-  if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== PROJECT_SCHEMA_VERSION) {
+  if (!parsed || typeof parsed !== "object" || !SUPPORTED_PROJECT_SCHEMA_VERSIONS.has(parsed.schemaVersion)) {
     throw new Error("The selected file is not a Playdate Pixel Studio project.");
   }
   return parsed;
@@ -208,7 +210,7 @@ function serializePixelLayer(layer: PixelLayer): SerializedPixelLayer {
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    opacity: layer.opacity,
+    alphaMask: layer.alphaMask ? serializeSurface(layer.alphaMask) : undefined,
     surface: serializeSurface(layer.surface),
   };
 }
@@ -221,7 +223,9 @@ function deserializePixelLayer(layer: SerializedPixelLayer): PixelLayer {
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    opacity: layer.opacity,
+    alphaMask: layer.alphaMask
+      ? normalizeBinaryMaskSurface(layer.alphaMask.width, layer.alphaMask.height, base64ToUint8(layer.alphaMask.data))
+      : undefined,
     surface: deserializeSurface(layer.surface),
   };
 }
@@ -234,7 +238,7 @@ function serializeObjectInstanceLayer(layer: ObjectInstanceLayer): SerializedObj
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    opacity: layer.opacity,
+    alphaMask: layer.alphaMask ? serializeSurface(layer.alphaMask) : undefined,
     objectId: layer.objectId,
     x: layer.x,
     y: layer.y,
@@ -249,7 +253,9 @@ function deserializeObjectInstanceLayer(layer: SerializedObjectInstanceLayer): O
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    opacity: layer.opacity,
+    alphaMask: layer.alphaMask
+      ? normalizeBinaryMaskSurface(layer.alphaMask.width, layer.alphaMask.height, base64ToUint8(layer.alphaMask.data))
+      : undefined,
     objectId: layer.objectId,
     x: layer.x,
     y: layer.y,

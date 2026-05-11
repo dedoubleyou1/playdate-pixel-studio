@@ -1,9 +1,9 @@
-import { inBounds, mirroredPoints, walkLine } from "../domain/pixelOps";
+import { inBounds, mirroredPoints, walkEllipseOutline, walkLine, walkRectOutline } from "../domain/pixelGeometry";
 import { defaultProjectPalette } from "../domain/palette";
-import type { Layer, ObjectDefinition, ProjectPalette, ShapePreview } from "../domain/types";
+import type { CanvasToolPreview, EditTarget, Layer, ObjectDefinition, ProjectPalette } from "../domain/types";
 import type { PixelValue } from "../domain/types";
 import { composeImageData, TRANSPARENT_PREVIEW_SHADE } from "./compositor";
-import type { LayerMovePreview } from "./frameComposer";
+import type { LayerMovePreview, SelectionMovePreview } from "./frameComposer";
 
 export class EditorCanvas {
   private readonly context: CanvasRenderingContext2D;
@@ -20,14 +20,24 @@ export class EditorCanvas {
     this.context = context;
   }
 
-  render(
-    layers: Layer[],
-    preview: ShapePreview | null,
-    objects: ObjectDefinition[],
-    background: PixelValue,
-    palette: ProjectPalette = defaultProjectPalette(),
-    movePreview?: LayerMovePreview | null,
-  ): void {
+  render({
+    activeLayerIndex = 0,
+    background,
+    colorizedPatterns = false,
+    editTarget = "pixels",
+    layers,
+    movePreview,
+    objects,
+    palette = defaultProjectPalette(),
+    preview,
+    selectionMovePreview,
+  }: EditorCanvasRenderOptions): void {
+    if (editTarget === "alphaMask") {
+      this.renderAlphaMask(layers[activeLayerIndex], objects);
+      if (preview) this.renderCanvasToolPreview(preview);
+      return;
+    }
+
     this.context.putImageData(
       composeImageData(layers, (width, height) => this.context.createImageData(width, height), {
         width: this.width,
@@ -37,13 +47,15 @@ export class EditorCanvas {
         movePreview: movePreview ?? undefined,
         objects,
         palette,
+        colorizedPatterns,
+        selectionMovePreview: selectionMovePreview ?? undefined,
       }),
       0,
       0,
     );
 
     if (preview) {
-      this.renderShapePreview(preview);
+      this.renderCanvasToolPreview(preview);
     }
   }
 
@@ -63,33 +75,63 @@ export class EditorCanvas {
     this.canvas.addEventListener(event, listener);
   }
 
-  private renderShapePreview(preview: ShapePreview): void {
+  private renderCanvasToolPreview(preview: CanvasToolPreview): void {
     this.context.save();
     this.context.fillStyle = "rgba(40, 87, 184, 0.78)";
+
     const plot = (x: number, y: number) => this.plotBrushPreview(x, y, preview);
 
     if (preview.type === "line") {
       walkLine(preview.start, preview.end, (point) => plot(point.x, point.y));
+    } else if (preview.type === "rect") {
+      walkRectOutline(preview.start, preview.end, (point) => plot(point.x, point.y));
     } else {
-      const left = Math.min(preview.start.x, preview.end.x);
-      const right = Math.max(preview.start.x, preview.end.x);
-      const top = Math.min(preview.start.y, preview.end.y);
-      const bottom = Math.max(preview.start.y, preview.end.y);
-
-      for (let x = left; x <= right; x += 1) {
-        plot(x, top);
-        plot(x, bottom);
-      }
-      for (let y = top; y <= bottom; y += 1) {
-        plot(left, y);
-        plot(right, y);
-      }
+      walkEllipseOutline(preview.start, preview.end, (point) => plot(point.x, point.y));
     }
 
     this.context.restore();
   }
 
-  private plotBrushPreview(x: number, y: number, preview: ShapePreview): void {
+  private renderAlphaMask(layer: Layer | undefined, objects: ObjectDefinition[]): void {
+    const image = this.context.createImageData(this.width, this.height);
+    for (let offset = 0; offset < image.data.length; offset += 4) {
+      image.data[offset] = 255;
+      image.data[offset + 1] = 255;
+      image.data[offset + 2] = 255;
+      image.data[offset + 3] = 255;
+    }
+
+    if (!layer) {
+      this.context.putImageData(image, 0, 0);
+      return;
+    }
+
+    const object = layer.type === "object" ? objects.find((candidate) => candidate.id === layer.objectId) : null;
+    const mask = layer.alphaMask;
+    const offsetX = layer.type === "object" ? layer.x : 0;
+    const offsetY = layer.type === "object" ? layer.y : 0;
+    const maskWidth = mask?.width ?? (layer.type === "pixel" ? layer.surface.width : (object?.width ?? 0));
+    const maskHeight = mask?.height ?? (layer.type === "pixel" ? layer.surface.height : (object?.height ?? 0));
+
+    for (let y = 0; y < maskHeight; y += 1) {
+      const targetY = offsetY + y;
+      if (targetY < 0 || targetY >= this.height) continue;
+      for (let x = 0; x < maskWidth; x += 1) {
+        const targetX = offsetX + x;
+        if (targetX < 0 || targetX >= this.width) continue;
+        const visible = mask ? mask.data[y * mask.width + x] === 1 : true;
+        const value = visible ? 255 : 0;
+        const pixelOffset = (targetY * this.width + targetX) * 4;
+        image.data[pixelOffset] = value;
+        image.data[pixelOffset + 1] = value;
+        image.data[pixelOffset + 2] = value;
+      }
+    }
+
+    this.context.putImageData(image, 0, 0);
+  }
+
+  private plotBrushPreview(x: number, y: number, preview: CanvasToolPreview): void {
     const half = Math.floor(preview.brushSize / 2);
     for (const point of mirroredPoints(x, y, preview.mirrorX, preview.mirrorY, this.width, this.height)) {
       for (let yy = 0; yy < preview.brushSize; yy += 1) {
@@ -103,4 +145,17 @@ export class EditorCanvas {
       }
     }
   }
+}
+
+export interface EditorCanvasRenderOptions {
+  activeLayerIndex?: number;
+  background: PixelValue;
+  colorizedPatterns?: boolean;
+  editTarget?: EditTarget;
+  layers: Layer[];
+  movePreview?: LayerMovePreview | null;
+  objects: ObjectDefinition[];
+  palette?: ProjectPalette;
+  preview: CanvasToolPreview | null;
+  selectionMovePreview?: SelectionMovePreview | null;
 }

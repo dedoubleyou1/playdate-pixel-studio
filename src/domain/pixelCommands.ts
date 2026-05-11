@@ -1,18 +1,20 @@
 import {
   TRANSPARENT_PIXEL,
+  type BinaryMaskSurface,
+  type CanvasToolPreview,
   type PaletteIndex,
   type PixelLayer,
   type Point,
-  type ShapePreview,
   type Tool,
 } from "./types";
-import { drawBrushAt, drawInterpolatedStroke, drawLine, drawRect, floodFill, type BrushOptions } from "./pixelOps";
+import { drawBrushAt, drawEllipse, drawInterpolatedStroke, drawLine, drawRect, floodFill, type BrushOptions } from "./pixelOps";
 
 export interface PixelToolSettings {
   brushSize: number;
   mirrorX: boolean;
   mirrorY: boolean;
   paletteIndex: PaletteIndex;
+  selectionMask?: BinaryMaskSurface | null;
 }
 
 export interface PixelOperationResult {
@@ -23,6 +25,7 @@ export function pixelCommandLabel(tool: Tool): string {
   if (tool === "eraser") return "Erase stroke";
   if (tool === "line") return "Draw line";
   if (tool === "rect") return "Draw rectangle";
+  if (tool === "ellipse") return "Draw ellipse";
   if (tool === "fill") return "Fill area";
   return "Draw stroke";
 }
@@ -32,22 +35,22 @@ export function isBrushTool(tool: Tool): boolean {
 }
 
 export function isShapeTool(tool: Tool): boolean {
-  return tool === "line" || tool === "rect";
+  return tool === "line" || tool === "rect" || tool === "ellipse";
 }
 
 export function isFillTool(tool: Tool): boolean {
   return tool === "fill";
 }
 
-export function createShapePreview(
+export function createCanvasToolPreview(
   start: Point,
   end: Point,
   tool: Tool,
   settings: PixelToolSettings,
-): ShapePreview | null {
+): CanvasToolPreview | null {
   if (!isShapeTool(tool)) return null;
   return {
-    type: tool === "rect" ? "rect" : "line",
+    type: tool === "rect" || tool === "ellipse" ? tool : "line",
     start,
     end,
     brushSize: settings.brushSize,
@@ -67,7 +70,7 @@ export function applyPixelToolStart(
   }
 
   if (isFillTool(tool)) {
-    return { changed: floodFill(layer, point, paletteIndexForTool(tool, settings)) };
+    return { changed: floodFill(layer, point, paletteIndexForTool(tool, settings), settings.selectionMask) };
   }
 
   return { changed: false };
@@ -99,6 +102,10 @@ export function applyPixelToolFinish(
     return { changed: drawRect(layer, start, end, brushOptions(tool, settings)) };
   }
 
+  if (tool === "ellipse") {
+    return { changed: drawEllipse(layer, start, end, brushOptions(tool, settings)) };
+  }
+
   return { changed: false };
 }
 
@@ -108,6 +115,7 @@ function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
     paletteIndex: paletteIndexForTool(tool, settings),
+    selectionMask: settings.selectionMask,
   };
 }
 

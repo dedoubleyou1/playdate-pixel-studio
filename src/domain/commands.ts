@@ -7,23 +7,45 @@ import type {
   ObjectDefinition,
   PaletteEntry,
   PixelLayer,
+  SelectionState,
 } from "./types";
 
-export interface DocumentCommand {
+export interface CommandSelectionSnapshot {
+  objectSelection: SelectionState | null;
+  rootSelection: SelectionState | null;
+}
+
+export interface EditorCommand {
   id: string;
   label: string;
   before: EditorSnapshot;
   after: EditorSnapshot;
+  beforeSelection: CommandSelectionSnapshot;
+  afterSelection: CommandSelectionSnapshot;
   createdAt: number;
 }
 
-export function createDocumentCommand(label: string, before: EditorSnapshot, after: EditorSnapshot): DocumentCommand {
+export function createEditorCommand(
+  label: string,
+  before: EditorSnapshot,
+  after: EditorSnapshot,
+  selection: { afterSelection: CommandSelectionSnapshot; beforeSelection: CommandSelectionSnapshot },
+): EditorCommand {
   return {
     id: crypto.randomUUID(),
     label,
     before: cloneSnapshot(before),
     after: cloneSnapshot(after),
+    beforeSelection: cloneCommandSelectionSnapshot(selection.beforeSelection),
+    afterSelection: cloneCommandSelectionSnapshot(selection.afterSelection),
     createdAt: Date.now(),
+  };
+}
+
+export function cloneCommandSelectionSnapshot(selection: CommandSelectionSnapshot): CommandSelectionSnapshot {
+  return {
+    objectSelection: cloneSelectionState(selection.objectSelection),
+    rootSelection: cloneSelectionState(selection.rootSelection),
   };
 }
 
@@ -38,6 +60,21 @@ export function snapshotsEqual(left: EditorSnapshot, right: EditorSnapshot): boo
     if (!other) return false;
     return objectDefinitionsEqual(object, other);
   });
+}
+
+export function commandSelectionSnapshotsEqual(
+  left: CommandSelectionSnapshot,
+  right: CommandSelectionSnapshot,
+): boolean {
+  return selectionStatesEqual(left.rootSelection, right.rootSelection) && selectionStatesEqual(left.objectSelection, right.objectSelection);
+}
+
+export function editorCommandChangesDocument(command: Pick<EditorCommand, "after" | "before">): boolean {
+  return !snapshotsEqual(command.before, command.after);
+}
+
+export function editorCommandHasChanges(command: EditorCommand): boolean {
+  return editorCommandChangesDocument(command) || !commandSelectionSnapshotsEqual(command.beforeSelection, command.afterSelection);
 }
 
 function palettesEqual(left: { entries: PaletteEntry[] }, right: { entries: PaletteEntry[] }): boolean {
@@ -100,21 +137,37 @@ function layersEqual(left: Layer, right: Layer): boolean {
     left.id !== right.id ||
     left.name !== right.name ||
     left.visible !== right.visible ||
-    left.pixelEditable !== right.pixelEditable ||
-    left.opacity !== right.opacity
+    left.pixelEditable !== right.pixelEditable
   ) {
     return false;
   }
 
   if (left.type === "object" && right.type === "object") {
-    return left.objectId === right.objectId && left.x === right.x && left.y === right.y;
+    return left.objectId === right.objectId && left.x === right.x && left.y === right.y && masksEqual(left, right);
   }
 
   if (left.type === "pixel" && right.type === "pixel") {
-    return pixelLayersEqual(left, right);
+    return pixelLayersEqual(left, right) && masksEqual(left, right);
   }
 
   return false;
+}
+
+function masksEqual(left: Layer, right: Layer): boolean {
+  if (!left.alphaMask && !right.alphaMask) return true;
+  if (!left.alphaMask || !right.alphaMask) return false;
+  if (
+    left.alphaMask.width !== right.alphaMask.width ||
+    left.alphaMask.height !== right.alphaMask.height ||
+    left.alphaMask.data.length !== right.alphaMask.data.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < left.alphaMask.data.length; index += 1) {
+    if (left.alphaMask.data[index] !== right.alphaMask.data[index]) return false;
+  }
+  return true;
 }
 
 function pixelLayersEqual(left: PixelLayer, right: PixelLayer): boolean {
@@ -138,4 +191,32 @@ function pixelLayersEqual(left: PixelLayer, right: PixelLayer): boolean {
 function editContextsEqual(left: EditContext, right: EditContext): boolean {
   if (left.type !== right.type) return false;
   return left.type === "root" || left.objectId === (right as { objectId: string }).objectId;
+}
+
+function cloneSelectionState(selection: SelectionState | null): SelectionState | null {
+  if (!selection) return null;
+  return {
+    mask: {
+      width: selection.mask.width,
+      height: selection.mask.height,
+      data: new Uint8Array(selection.mask.data),
+    },
+  };
+}
+
+function selectionStatesEqual(left: SelectionState | null, right: SelectionState | null): boolean {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  if (
+    left.mask.width !== right.mask.width ||
+    left.mask.height !== right.mask.height ||
+    left.mask.data.length !== right.mask.data.length
+  ) {
+    return false;
+  }
+
+  for (let index = 0; index < left.mask.data.length; index += 1) {
+    if (left.mask.data[index] !== right.mask.data[index]) return false;
+  }
+  return true;
 }

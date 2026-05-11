@@ -1,4 +1,5 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
+import { cloneBinaryMaskSurface } from "./masks";
 import { defaultProjectPalette } from "./palette";
 import { MAX_PALETTE_INDEX, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type {
@@ -46,7 +47,6 @@ export function createLayer(id: number, name: string, width = PLAYDATE_WIDTH, he
     visible: true,
     pixelEditable: true,
     contentRevision: 0,
-    opacity: 100,
     surface: createSurface(width, height),
   };
 }
@@ -59,7 +59,6 @@ export function createObjectInstanceLayer(id: number, name: string, objectId: st
     visible: true,
     pixelEditable: false,
     contentRevision: 0,
-    opacity: 100,
     objectId,
     x: 0,
     y: 0,
@@ -99,12 +98,14 @@ export function cloneSurface(surface: PixelSurface): PixelSurface {
 }
 
 export function cloneLayer(layer: Layer): Layer {
+  const alphaMask = layer.alphaMask ? cloneBinaryMaskSurface(layer.alphaMask) : undefined;
   if (layer.type === "object") {
-    return { ...layer };
+    return { ...layer, alphaMask };
   }
 
   return {
     ...layer,
+    alphaMask,
     surface: cloneSurface(layer.surface),
   };
 }

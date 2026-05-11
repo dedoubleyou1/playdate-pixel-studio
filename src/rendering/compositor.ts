@@ -1,10 +1,11 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
+import { alphaMaskAllows } from "../domain/masks";
 import { defaultProjectPalette, resolvePaletteEntry } from "../domain/palette";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
+import type { BinaryMaskSurface, Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
 import type { ProjectPalette } from "../domain/types";
-import { composeFrame } from "./frameComposer";
-import type { ComposedFrame, LayerMovePreview } from "./frameComposer";
+import { composeColorFrame, composeFrame } from "./frameComposer";
+import type { ComposedFrame, LayerMovePreview, SelectionMovePreview } from "./frameComposer";
 
 export const TRANSPARENT_PREVIEW_SHADE = 192;
 
@@ -13,10 +14,12 @@ export interface ComposeOptions {
   background?: PixelValue;
   device?: boolean;
   movePreview?: LayerMovePreview;
+  selectionMovePreview?: SelectionMovePreview;
   width?: number;
   height?: number;
   objects?: ObjectDefinition[];
   palette?: ProjectPalette;
+  colorizedPatterns?: boolean;
 }
 
 export function composeImageData(
@@ -27,10 +30,35 @@ export function composeImageData(
   const width = options.width ?? PLAYDATE_WIDTH;
   const height = options.height ?? PLAYDATE_HEIGHT;
   const palette = options.palette ?? defaultProjectPalette();
+  if (options.colorizedPatterns) {
+    const frame = composeColorFrame(layers, width, height, {
+      baseShade: options.baseShade,
+      background: options.background,
+      colorizedPatterns: true,
+      movePreview: options.movePreview,
+      selectionMovePreview: options.selectionMovePreview,
+      objects: options.objects ?? [],
+      palette,
+    });
+    const image = createImageData(width, height);
+    const pixels = image.data;
+
+    for (let i = 0; i < frame.red.length; i += 1) {
+      const pixelOffset = i * 4;
+      pixels[pixelOffset] = frame.red[i];
+      pixels[pixelOffset + 1] = frame.green[i];
+      pixels[pixelOffset + 2] = frame.blue[i];
+      pixels[pixelOffset + 3] = 255;
+    }
+
+    return image;
+  }
+
   const shades = composeFrame(layers, width, height, {
     baseShade: options.baseShade,
     background: options.background,
     movePreview: options.movePreview,
+    selectionMovePreview: options.selectionMovePreview,
     objects: options.objects ?? [],
     palette,
   }).shades;
@@ -62,7 +90,7 @@ export function renderLayerThumbnail(
   const pixels = image.data;
 
   if (layer.type === "pixel") {
-    drawPixelSurfaceThumbnail(layer.surface, pixels, width, height, palette);
+    drawPixelSurfaceThumbnail(layer.surface, pixels, width, height, palette, layer.alphaMask);
   } else {
     drawObjectLayerThumbnail(layer, objects, pixels, width, height, palette);
   }
@@ -93,13 +121,41 @@ export function drawPixelSurfaceThumbnail(
   width: number,
   height: number,
   palette: ProjectPalette = defaultProjectPalette(),
+  alphaMask?: Layer["alphaMask"],
 ): void {
   drawThumbnail(
     {
       height: surface.height,
       shadeAt: (x, y) =>
-        pixelToThumbnailShade(resolvePaletteEntry(palette, surface.data[y * surface.width + x], { x, y })),
+        alphaMaskAllows(alphaMask, x, y)
+          ? pixelToThumbnailShade(resolvePaletteEntry(palette, surface.data[y * surface.width + x], { x, y }))
+          : TRANSPARENT_PREVIEW_SHADE,
       width: surface.width,
+    },
+    pixels,
+    width,
+    height,
+  );
+}
+
+export function renderMaskThumbnail(canvas: HTMLCanvasElement, mask: BinaryMaskSurface): void {
+  const context = requireCanvasContext(canvas);
+  const image = context.createImageData(canvas.width, canvas.height);
+  drawMaskThumbnail(mask, image.data, canvas.width, canvas.height);
+  context.putImageData(image, 0, 0);
+}
+
+export function drawMaskThumbnail(
+  mask: BinaryMaskSurface,
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number,
+): void {
+  drawThumbnail(
+    {
+      height: mask.height,
+      shadeAt: (x, y) => (mask.data[y * mask.width + x] === 1 ? 255 : 0),
+      width: mask.width,
     },
     pixels,
     width,
@@ -129,7 +185,7 @@ function drawObjectLayerThumbnail(
     objects,
     palette,
   });
-  drawFrameThumbnail(frame, object.width, object.height, pixels, width, height);
+  drawFrameThumbnail(frame, object.width, object.height, pixels, width, height, layer.alphaMask);
 }
 
 function drawFrameThumbnail(
@@ -139,13 +195,14 @@ function drawFrameThumbnail(
   pixels: Uint8ClampedArray,
   width: number,
   height: number,
+  alphaMask?: Layer["alphaMask"],
 ): void {
   drawThumbnail(
     {
       height: sourceHeight,
       shadeAt: (x, y) => {
         const index = y * sourceWidth + x;
-        return frame.coverage[index] ? frame.shades[index] : TRANSPARENT_PREVIEW_SHADE;
+        return frame.coverage[index] && alphaMaskAllows(alphaMask, x, y) ? frame.shades[index] : TRANSPARENT_PREVIEW_SHADE;
       },
       width: sourceWidth,
     },

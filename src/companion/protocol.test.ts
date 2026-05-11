@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLayer } from "../domain/layers";
-import { indexFor } from "../domain/pixelOps";
+import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL } from "../domain/types";
 import {
   crc32,

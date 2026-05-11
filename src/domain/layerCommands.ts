@@ -1,4 +1,5 @@
 import { clampLayerIndex, cloneLayer, createLayer, isPixelEditableLayer } from "./layers";
+import { translateBinaryMaskSurface } from "./masks";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type { Layer, LayerStack, PixelLayer, PixelValue } from "./types";
 
@@ -80,6 +81,26 @@ export function moveActiveLayer(stack: LayerStack, direction: -1 | 1): LayerStac
   };
 }
 
+export function reorderLayer(stack: LayerStack, fromIndex: number, toIndex: number): LayerStackMutationResult {
+  if (fromIndex === toIndex) return {};
+  if (fromIndex < 0 || fromIndex >= stack.layers.length) return {};
+  if (toIndex < 0 || toIndex >= stack.layers.length) return {};
+
+  const activeLayer = stack.layers[stack.activeLayerIndex];
+  const layers = [...stack.layers];
+  const [layer] = layers.splice(fromIndex, 1);
+  layers.splice(toIndex, 0, layer);
+
+  return {
+    stack: {
+      ...stack,
+      activeLayerIndex: layers.findIndex((candidate) => candidate.id === activeLayer.id),
+      layers,
+    },
+    status: "Layer reordered",
+  };
+}
+
 export function translateLayer(layer: Layer, dx: number, dy: number): Layer {
   if (layer.type === "object") {
     return { ...layer, x: layer.x + dx, y: layer.y + dy };
@@ -120,15 +141,6 @@ export function setLayerVisibility(stack: LayerStack, index: number, visible: bo
     stack: {
       ...stack,
       layers: stack.layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, visible } : layer)),
-    },
-  };
-}
-
-export function setActiveLayerOpacity(stack: LayerStack, opacity: number): LayerStackMutation {
-  return {
-    stack: {
-      ...stack,
-      layers: stack.layers.map((layer, index) => (index === stack.activeLayerIndex ? { ...layer, opacity } : layer)),
     },
   };
 }
@@ -228,6 +240,7 @@ function translatePixelLayer(layer: PixelLayer, dx: number, dy: number): PixelLa
 
   return {
     ...layer,
+    alphaMask: layer.alphaMask ? translateBinaryMaskSurface(layer.alphaMask, dx, dy) : undefined,
     surface: {
       ...layer.surface,
       data,

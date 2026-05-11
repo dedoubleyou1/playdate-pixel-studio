@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createObjectDefinition, createObjectInstanceLayer } from "../domain/layers";
-import { indexFor } from "../domain/pixelOps";
+import { createBinaryMaskSurface } from "../domain/masks";
+import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL } from "../domain/types";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
 import { currentActiveLayer, currentActivePixelLayer, useEditorStore } from "./editorStore";
@@ -95,10 +96,10 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
   });
 
-  it("increments only view revision for shape previews", () => {
+  it("increments only view revision for canvas tool previews", () => {
     const state = useEditorStore.getState();
 
-    state.setShapePreview({
+    state.setCanvasToolPreview({
       brushSize: 1,
       end: { x: 4, y: 4 },
       mirrorX: false,
@@ -121,6 +122,37 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().viewRevision).toBe(2);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("increments only view revision for colorized pattern visualization", () => {
+    const state = useEditorStore.getState();
+
+    state.setColorizedPatternsVisible(true);
+
+    expect(useEditorStore.getState().colorizedPatternsVisible).toBe(true);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("increments only view revision when switching edit contexts", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 8, 8);
+    useEditorStore.setState({ objects: [object], viewRevision: 4 });
+
+    useEditorStore.getState().switchToObject(object.id);
+    expect(useEditorStore.getState().activeContext).toEqual({ type: "object", objectId: object.id });
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(5);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+
+    useEditorStore.getState().switchToRoot();
+    expect(useEditorStore.getState().activeContext).toEqual({ type: "root" });
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(6);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+
+    useEditorStore.getState().switchToRoot();
+    expect(useEditorStore.getState().viewRevision).toBe(6);
   });
 
   it("does not revise document or view for tool, cursor, and zoom changes", () => {
@@ -237,6 +269,8 @@ describe("editor store layer move gestures", () => {
     layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
 
     expect(state.beginMoveLayer()).toBe(true);
+    expect(useEditorStore.getState().pendingSelectionMove).toMatchObject({ implicitFullLayer: true });
+    expect(useEditorStore.getState().pendingMove).toBeNull();
 
     const pendingLayer = currentActivePixelLayer();
     expect(pendingLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
@@ -249,10 +283,28 @@ describe("editor store layer move gestures", () => {
 
     const movedLayer = currentActivePixelLayer();
     expect(movedLayer?.surface.data[indexFor(3, 2, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection).toBeNull();
 
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().viewRevision).toBe(1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("translates alpha masks with implicit full pixel layer moves", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    layer.alphaMask = createBinaryMaskSurface(layer.surface.width, layer.surface.height);
+    layer.alphaMask.data[indexFor(1, 1, layer.surface.width)] = 1;
+
+    expect(state.beginMoveLayer()).toBe(true);
+    expect(state.commitMoveLayer(2, 0)).toBe(true);
+
+    const movedLayer = currentActivePixelLayer();
+    expect(movedLayer?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(movedLayer?.alphaMask?.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
+    expect(movedLayer?.alphaMask?.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
   });
 
   it("keeps no-op selected layer moves out of document revisions and undo history", () => {
@@ -279,6 +331,7 @@ describe("editor store layer move gestures", () => {
     const restoredLayer = currentActivePixelLayer();
     expect(restoredLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(restoredLayer?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(0);
+    expect(useEditorStore.getState().rootSelection).toBeNull();
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
@@ -313,6 +366,177 @@ describe("editor store layer move gestures", () => {
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
   });
+
+  it("lifts and moves selected pixels while moving the selection mask", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+
+    expect(state.beginMoveLayer()).toBe(true);
+    expect(useEditorStore.getState().pendingSelectionMove).not.toBeNull();
+    expect(state.commitMoveLayer(2, 0)).toBe(true);
+
+    const movedLayer = currentActivePixelLayer();
+    expect(movedLayer?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
+    expect(movedLayer?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(2);
+  });
+
+  it("restores selected-pixel move selections on undo and redo", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+
+    state.beginMoveLayer();
+    state.commitMoveLayer(2, 0);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
+
+    useEditorStore.getState().undo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1, layer.surface.width)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(0);
+
+    useEditorStore.getState().redo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(3, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 1, layer.surface.width)]).toBe(1);
+  });
+});
+
+describe("editor store selection and alpha masks", () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  it("undoes and redoes selection creation without dirtying the document", () => {
+    const state = useEditorStore.getState();
+
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 2, y: 2 });
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(2, 2)]).toBe(1);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("undoes and redoes selection clearing", () => {
+    const state = useEditorStore.getState();
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+    state.clearSelection();
+
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+    expect(useEditorStore.getState().undoStack).toHaveLength(2);
+
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+  });
+
+  it("keeps newer selection edits when undoing an older document edit", () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+
+    state.beginCommand("Draw stroke");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.markDocumentChanged();
+    state.commitCommand("Draw stroke");
+
+    state.setSelectionFromRect({ x: 3, y: 3 }, { x: 3, y: 3 });
+
+    useEditorStore.getState().undo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+
+    useEditorStore.getState().undo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(0);
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+  });
+
+  it("creates root selections and clears object selections when leaving object editing", () => {
+    const state = useEditorStore.getState();
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 2, y: 2 });
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+
+    state.addObject();
+    useEditorStore.getState().setSelectionFromRect({ x: 0, y: 0 }, { x: 0, y: 0 });
+    expect(useEditorStore.getState().objectSelection).not.toBeNull();
+
+    useEditorStore.getState().switchToRoot();
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+    expect(useEditorStore.getState().objectSelection).toBeNull();
+  });
+
+  it("creates a new alpha mask from the active selection", () => {
+    const state = useEditorStore.getState();
+    state.setSelectionFromRect({ x: 2, y: 2 }, { x: 3, y: 3 });
+    state.addActiveLayerAlphaMask();
+
+    const layer = currentActiveLayer();
+    expect(layer.alphaMask?.data[indexFor(2, 2)]).toBe(1);
+    expect(layer.alphaMask?.data[indexFor(1, 1)]).toBe(0);
+    expect(useEditorStore.getState().undoStack).toHaveLength(2);
+  });
+
+  it("creates a fully visible alpha mask when no selection exists", () => {
+    const state = useEditorStore.getState();
+    state.addActiveLayerAlphaMask();
+
+    const layer = currentActiveLayer();
+    expect(layer.alphaMask?.data.every((value) => value === 1)).toBe(true);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
+  });
+
+  it("returns to pixel editing when removing the active alpha mask", () => {
+    const state = useEditorStore.getState();
+    state.ensureActiveLayerAlphaMask(true);
+    state.setEditTarget("alphaMask");
+
+    state.removeActiveLayerAlphaMask();
+
+    expect(currentActiveLayer().alphaMask).toBeUndefined();
+    expect(useEditorStore.getState().editTarget).toBe("pixels");
+  });
+
+  it("converts canvas-space selections to object-local alpha masks", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 4, 4);
+    const instance = createObjectInstanceLayer(2, "Object 1", object.id);
+    instance.x = 10;
+    instance.y = 20;
+    useEditorStore.setState((state) => ({
+      objects: [object],
+      root: {
+        ...state.root,
+        activeLayerIndex: 1,
+        layers: [state.root.layers[0], instance],
+      },
+    }));
+
+    useEditorStore.getState().setSelectionFromRect({ x: 11, y: 21 }, { x: 12, y: 22 });
+    useEditorStore.getState().addActiveLayerAlphaMask();
+
+    const layer = currentActiveLayer();
+    expect(layer.alphaMask?.width).toBe(4);
+    expect(layer.alphaMask?.height).toBe(4);
+    expect(layer.alphaMask?.data[1 * 4 + 1]).toBe(1);
+    expect(layer.alphaMask?.data[0]).toBe(0);
+  });
 });
 
 function resetStore(): void {
@@ -320,15 +544,20 @@ function resetStore(): void {
   useEditorStore.setState({
     canRedo: false,
     canUndo: false,
+    colorizedPatternsVisible: false,
     currentProjectId: null,
     hasUnsavedChanges: false,
     pendingCommand: null,
     pendingMove: null,
+    pendingSelectionMove: null,
     projectName: "Untitled Playdate Art",
     recentProjects: [],
     redoStack: [],
     documentRevision: 0,
     activePaletteIndex: BLACK_PIXEL,
+    editTarget: "pixels",
+    objectSelection: null,
+    rootSelection: null,
     savedDocumentRevision: 0,
     status: "Ready",
     undoStack: [],

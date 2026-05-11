@@ -9,7 +9,9 @@ import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { GridOverlay } from "./GridOverlay";
 import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
 import { ObjectContextBar } from "./ObjectContextBar";
-import { useEditorStore } from "../state/editorStore";
+import { SelectionOverlay } from "./SelectionOverlay";
+import { selectionOverlaySource } from "../rendering/selectionOverlaySource";
+import { selectActiveSelection, useEditorStore } from "../state/editorStore";
 import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
@@ -38,14 +40,27 @@ export function CanvasStage(): React.JSX.Element {
   const objects = useEditorStore((state) => state.objects);
   const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
+  const activeSelection = useEditorStore(selectActiveSelection);
+  const pendingSelectionMove = useEditorStore((state) => state.pendingSelectionMove);
+  const selectionPreview = useEditorStore((state) => state.selectionPreview);
+  const selectionOverlay = selectionOverlaySource({
+    activeSelection,
+    height: stack.height,
+    pendingSelectionMove,
+    selectionPreview,
+    width: stack.width,
+  });
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const moveEnabled = useEditorStore((state) => Boolean(activeLayer(state)));
+  const maskEditingEnabled = useEditorStore((state) => state.editTarget === "alphaMask" && Boolean(activeLayer(state)));
   const canvasCursor =
-    activeTool === "move"
+    activeTool === "marquee" || activeTool === "ellipseSelect"
+      ? toolCursor(activeTool)
+      : activeTool === "move"
       ? moveEnabled
         ? toolCursor(activeTool)
         : "not-allowed"
-      : drawingEnabled
+      : drawingEnabled || maskEditingEnabled
         ? toolCursor(activeTool)
         : "not-allowed";
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
@@ -56,6 +71,8 @@ export function CanvasStage(): React.JSX.Element {
   const objectDropsEnabled = activeContext.type === "root";
   const { isDropTarget, ref: droppableRef } = useDroppable({
     id: CANVAS_DROP_ID,
+    accept: "object",
+    type: "canvas",
     data: { kind: "canvas" },
     disabled: !objectDropsEnabled,
   });
@@ -207,6 +224,11 @@ export function CanvasStage(): React.JSX.Element {
             gridSize={gridSize}
             width={stack.width}
             height={stack.height}
+          />
+          <SelectionOverlay
+            height={stack.height}
+            model={selectionOverlay}
+            width={stack.width}
           />
           {previewObject && objectDropPreview ? (
             <ObjectPreviewCanvas

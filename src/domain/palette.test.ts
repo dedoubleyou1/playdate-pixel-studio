@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { defaultProjectPalette, paletteEntryLabel, resolvePaletteEntry, solidPaletteValueToIndex } from "./palette";
+import {
+  defaultProjectPalette,
+  paletteEntryLabel,
+  resolvePaletteEntry,
+  resolvePaletteEntryPreviewColor,
+  solidPaletteValueToIndex,
+} from "./palette";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type { ProjectPalette } from "./types";
 
@@ -27,7 +33,7 @@ describe("palette resolver", () => {
   it("resolves foreground and background references recursively", () => {
     const palette: ProjectPalette = {
       entries: [
-        { id: "alpha", index: 0, name: "Alpha", type: "solid", value: "alpha" },
+        { id: "alpha", index: 0, name: "Transparent", type: "solid", value: "alpha" },
         { id: "black", index: 1, name: "Black", type: "solid", value: "black" },
         { id: "white", index: 2, name: "White", type: "solid", value: "white" },
         {
@@ -59,7 +65,35 @@ describe("palette resolver", () => {
     const palette = defaultProjectPalette();
 
     expect(resolvePaletteEntry(palette, 99, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
-    expect(paletteEntryLabel(palette, 99)).toBe("Alpha");
+    expect(paletteEntryLabel(palette, 99)).toBe("Transparent");
     expect(solidPaletteValueToIndex("white")).toBe(WHITE_PIXEL);
+  });
+
+  it("resolves colorized dither previews from pattern hue and mask cells", () => {
+    const palette = defaultProjectPalette();
+
+    expect(resolvePaletteEntryPreviewColor(palette, 3, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+      r: 0,
+      g: 64,
+      b: 128,
+    });
+    expect(resolvePaletteEntryPreviewColor(palette, 3, { x: 1, y: 0 }, { colorizedPatterns: true })).toEqual({
+      r: 191,
+      g: 223,
+      b: 255,
+    });
+    expect(resolvePaletteEntryPreviewColor(palette, BLACK_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+      r: 0,
+      g: 0,
+      b: 0,
+    });
+    expect(resolvePaletteEntryPreviewColor(palette, WHITE_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+      r: 255,
+      g: 255,
+      b: 255,
+    });
+    expect(
+      resolvePaletteEntryPreviewColor(palette, TRANSPARENT_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true }),
+    ).toBeNull();
   });
 });

@@ -1,5 +1,13 @@
 import { create } from "zustand";
-import { createDocumentCommand, snapshotsEqual, type DocumentCommand } from "../domain/commands";
+import {
+  cloneCommandSelectionSnapshot,
+  createEditorCommand,
+  editorCommandChangesDocument,
+  editorCommandHasChanges,
+  snapshotsEqual,
+  type CommandSelectionSnapshot,
+  type EditorCommand,
+} from "../domain/commands";
 import {
   addPixelLayer,
   clearActivePixelLayer,
@@ -8,8 +16,8 @@ import {
   hasLayerStackMutation,
   invertActivePixelLayer,
   moveActiveLayer,
+  reorderLayer,
   setActiveLayerName,
-  setActiveLayerOpacity,
   setLayerVisibility,
   setStackBackgroundColor,
   translateActiveLayerFrom,
@@ -29,18 +37,35 @@ import {
   isPixelEditableLayer,
   createDefaultPalette,
 } from "../domain/layers";
+import {
+  canvasSelectionToLayerMask,
+  cloneBinaryMaskSurface,
+  createBinaryMaskSurface,
+  createEllipseMask,
+  createRectMask,
+  liftSelectedPixels,
+  maskIsEmpty,
+  pasteFloatingPixels,
+  resizeBinaryMaskSurface,
+  translateBinaryMaskSurface,
+} from "../domain/masks";
 import { paletteEntryLabel } from "../domain/palette";
 import { BLACK_PIXEL } from "../domain/types";
 import type {
+  BinaryMaskSurface,
+  CanvasToolPreview,
+  EditTarget,
   EditContext,
   EditorSnapshot,
+  FloatingSelection,
   Layer,
   LayerStack,
   ObjectDefinition,
   PaletteIndex,
   PixelValue,
   PixelLayer,
-  ShapePreview,
+  SelectionPreview,
+  SelectionState,
   Tool,
 } from "../domain/types";
 import { createProjectBundle, createPlaydatePngCanvas, downloadBlob, type PreviewMode } from "../export/playdateExport";
@@ -61,6 +86,7 @@ import {
 interface PendingCommand {
   label: string;
   before: EditorSnapshot;
+  beforeSelection: CommandSelectionSnapshot;
 }
 
 interface PendingMove {
@@ -70,6 +96,17 @@ interface PendingMove {
   dy: number;
   layer: Layer;
   layerIndex: number;
+}
+
+interface PendingSelectionMove {
+  before: EditorSnapshot;
+  context: EditContext;
+  dx: number;
+  dy: number;
+  floating: FloatingSelection;
+  implicitFullLayer: boolean;
+  selection: SelectionState;
+  sourceLayer: PixelLayer;
 }
 
 export type EditorDocument = EditorSnapshot;
@@ -82,12 +119,17 @@ export interface EditorSessionState {
   mirrorY: boolean;
   gridVisible: boolean;
   gridSize: number;
+  colorizedPatternsVisible: boolean;
   zoom: number;
   status: string;
   cursorLabel: string;
   previewOpen: boolean;
   previewMode: PreviewMode;
-  shapePreview: ShapePreview | null;
+  canvasToolPreview: CanvasToolPreview | null;
+  selectionPreview: SelectionPreview | null;
+  editTarget: EditTarget;
+  rootSelection: SelectionState | null;
+  objectSelection: SelectionState | null;
 }
 
 interface EditorStoreState extends EditorDocument, EditorSessionState {
@@ -99,8 +141,9 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   recentProjects: ProjectSummary[];
   pendingCommand: PendingCommand | null;
   pendingMove: PendingMove | null;
-  undoStack: DocumentCommand[];
-  redoStack: DocumentCommand[];
+  pendingSelectionMove: PendingSelectionMove | null;
+  undoStack: EditorCommand[];
+  redoStack: EditorCommand[];
   canUndo: boolean;
   canRedo: boolean;
   hasUnsavedChanges: boolean;
@@ -111,17 +154,27 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setMirrorY: (enabled: boolean) => void;
   setGridVisible: (visible: boolean) => void;
   setGridSize: (size: number) => void;
+  setColorizedPatternsVisible: (visible: boolean) => void;
   setZoom: (zoom: number) => void;
   setStatus: (status: string) => void;
   setCursorLabel: (label: string) => void;
-  setShapePreview: (preview: ShapePreview | null) => void;
+  setCanvasToolPreview: (preview: CanvasToolPreview | null) => void;
+  setSelectionPreview: (preview: SelectionPreview | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
+  setEditTarget: (target: EditTarget) => void;
+  setSelectionFromRect: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
+  setSelectionFromEllipse: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
+  clearSelection: () => void;
+  addActiveLayerAlphaMask: () => void;
+  ensureActiveLayerAlphaMask: (fillVisible?: boolean) => BinaryMaskSurface | null;
+  removeActiveLayerAlphaMask: () => void;
   markViewChanged: () => void;
   markDocumentChanged: (status?: string) => void;
   beginCommand: (label: string) => void;
   commitCommand: (label?: string) => void;
   discardPendingCommand: () => void;
   beginMoveLayer: () => boolean;
+  previewSelectionMove: (dx: number, dy: number) => void;
   commitMoveLayer: (dx: number, dy: number) => boolean;
   cancelMoveLayer: () => void;
   undo: () => void;
@@ -136,12 +189,11 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   duplicateLayer: () => void;
   deleteLayer: () => void;
   moveLayer: (direction: -1 | 1) => void;
+  reorderLayer: (fromIndex: number, toIndex: number) => void;
   setActiveLayer: (index: number) => void;
   renameLayer: (index: number, name: string) => void;
   setLayerVisible: (index: number, visible: boolean) => void;
-  setLayerOpacity: (opacity: number) => void;
   setStackBackground: (background: PixelValue) => void;
-  commitLayerOpacity: () => void;
   clearActiveLayer: () => void;
   invertActiveLayer: () => void;
   openPreview: () => void;
@@ -170,12 +222,17 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   mirrorY: false,
   gridVisible: false,
   gridSize: 1,
+  colorizedPatternsVisible: false,
   zoom: 2,
   status: "Pencil ready",
   cursorLabel: "x: -- y: --",
   previewOpen: false,
   previewMode: "normal",
-  shapePreview: null,
+  canvasToolPreview: null,
+  selectionPreview: null,
+  editTarget: "pixels",
+  rootSelection: null,
+  objectSelection: null,
   documentRevision: 0,
   savedDocumentRevision: 0,
   viewRevision: 0,
@@ -184,6 +241,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   recentProjects: [],
   pendingCommand: null,
   pendingMove: null,
+  pendingSelectionMove: null,
   undoStack: [],
   redoStack: [],
   canUndo: false,
@@ -192,7 +250,15 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   setTool: (tool) =>
     set((state) => {
-      if (tool !== "move" && !isPixelEditableLayer(activeLayer(state))) {
+      const layer = activeLayer(state);
+      const toolAllowed =
+        tool === "marquee" ||
+        tool === "ellipseSelect" ||
+        (tool === "move" && Boolean(layer)) ||
+        (state.editTarget === "alphaMask" && Boolean(layer)) ||
+        isPixelEditableLayer(layer);
+
+      if (!toolAllowed) {
         return { status: "Active layer does not support pixel drawing" };
       }
 
@@ -213,13 +279,133 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => (state.gridVisible === gridVisible ? {} : { gridVisible, viewRevision: state.viewRevision + 1 })),
   setGridSize: (gridSize) =>
     set((state) => (state.gridSize === gridSize ? {} : { gridSize, viewRevision: state.viewRevision + 1 })),
+  setColorizedPatternsVisible: (colorizedPatternsVisible) =>
+    set((state) =>
+      state.colorizedPatternsVisible === colorizedPatternsVisible
+        ? {}
+        : { colorizedPatternsVisible, viewRevision: state.viewRevision + 1 },
+    ),
   setZoom: (zoom) => set({ zoom }),
   setStatus: (status) => set({ status }),
   setCursorLabel: (cursorLabel) => set({ cursorLabel }),
   setPreviewMode: (previewMode) =>
     set((state) => (state.previewMode === previewMode ? {} : { previewMode, viewRevision: state.viewRevision + 1 })),
-  setShapePreview: (shapePreview) => set((state) => ({ shapePreview, viewRevision: state.viewRevision + 1 })),
+  setCanvasToolPreview: (canvasToolPreview) =>
+    set((state) => ({ canvasToolPreview, viewRevision: state.viewRevision + 1 })),
+  setSelectionPreview: (selectionPreview) =>
+    set((state) => ({ selectionPreview, viewRevision: state.viewRevision + 1 })),
+  setEditTarget: (editTarget) =>
+    set((state) =>
+      state.editTarget === editTarget
+        ? {}
+        : {
+            editTarget,
+            activeTool: editTarget === "alphaMask" && state.activeTool === "move" ? "pencil" : state.activeTool,
+            status: editTarget === "alphaMask" ? "Editing alpha mask" : "Editing pixels",
+            viewRevision: state.viewRevision + 1,
+          },
+    ),
+  setSelectionFromRect: (start, end) => {
+    setSelectionFromMask(set, "Set selection", "Selection created", (width, height) =>
+      createRectMask(width, height, start, end),
+    );
+  },
+  setSelectionFromEllipse: (start, end) => {
+    setSelectionFromMask(set, "Set ellipse selection", "Ellipse selection created", (width, height) =>
+      createEllipseMask(width, height, start, end),
+    );
+  },
+  clearSelection: () => {
+    const before = currentSnapshot();
+    const beforeSelection = currentSelectionSnapshot();
+    set((state) => (activeSelection(state) ? setActiveSelectionState(state, null, "Selection cleared") : {}));
+    pushCommand(
+      set,
+      createEditorCommand("Clear selection", before, currentSnapshot(), {
+        afterSelection: currentSelectionSnapshot(),
+        beforeSelection,
+      }),
+    );
+  },
+  addActiveLayerAlphaMask: () => {
+    const before = currentSnapshot();
+    let label = "Add alpha mask";
+    set((current) => {
+      const stack = activeStack(current);
+      const layer = stack.layers[stack.activeLayerIndex];
+      if (!layer) return { status: "Select a layer first" };
+      if (layer.alphaMask) return { status: "Layer already has an alpha mask" };
+      const size = layerAlphaMaskSize(layer, current.objects);
+      if (!size) return { status: "Layer cannot be masked" };
 
+      const selection = activeSelection(current);
+      const hasSelection = Boolean(selection && !maskIsEmpty(selection.mask));
+      const offset = layer.type === "object" ? { x: layer.x, y: layer.y } : { x: 0, y: 0 };
+      const alphaMask =
+        selection && hasSelection
+          ? canvasSelectionToLayerMask(selection.mask, size.width, size.height, offset)
+          : createBinaryMaskSurface(size.width, size.height, true);
+      label = hasSelection ? "Selection to alpha mask" : "Add alpha mask";
+
+      return {
+        ...replaceActiveStack(current, {
+          ...stack,
+          layers: stack.layers.map((candidate, index) =>
+            index === stack.activeLayerIndex ? { ...candidate, alphaMask } : candidate,
+          ),
+        }),
+        status: hasSelection ? "Selection applied to alpha mask" : "Alpha mask added",
+        documentRevision: current.documentRevision + 1,
+        viewRevision: current.viewRevision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, label, before);
+  },
+  ensureActiveLayerAlphaMask: (fillVisible = true) => {
+    const state = get();
+    const stack = activeStack(state);
+    const layer = stack.layers[stack.activeLayerIndex];
+    if (!layer) return null;
+    if (layer.alphaMask) return layer.alphaMask;
+    const size = layerAlphaMaskSize(layer, state.objects);
+    if (!size) return null;
+    const alphaMask = createBinaryMaskSurface(size.width, size.height, fillVisible);
+    set((current) => {
+      const currentStack = activeStack(current);
+      return {
+        ...replaceActiveStack(current, {
+          ...currentStack,
+          layers: currentStack.layers.map((candidate, index) =>
+            index === currentStack.activeLayerIndex ? { ...candidate, alphaMask } : candidate,
+          ),
+        }),
+      };
+    });
+    return activeLayer(get()).alphaMask ?? null;
+  },
+  removeActiveLayerAlphaMask: () => {
+    const before = currentSnapshot();
+    set((state) => {
+      const stack = activeStack(state);
+      const layer = stack.layers[stack.activeLayerIndex];
+      if (!layer?.alphaMask) return { status: "Layer has no alpha mask" };
+      return {
+        ...replaceActiveStack(state, {
+          ...stack,
+          layers: stack.layers.map((candidate, index) =>
+            index === stack.activeLayerIndex ? { ...candidate, alphaMask: undefined } : candidate,
+          ),
+        }),
+        status: "Alpha mask removed",
+        editTarget: state.editTarget === "alphaMask" ? "pixels" : state.editTarget,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, "Remove alpha mask", before);
+  },
   markViewChanged: () => set((state) => ({ viewRevision: state.viewRevision + 1 })),
 
   markDocumentChanged: (status) =>
@@ -233,7 +419,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
 
   beginCommand: (label) => {
     const before = currentSnapshot();
-    set({ pendingCommand: { label, before } });
+    set({ pendingCommand: { label, before, beforeSelection: currentSelectionSnapshot() } });
   },
 
   commitCommand: (label) => {
@@ -245,7 +431,13 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       set({ pendingCommand: null });
       return;
     }
-    pushCommand(set, createDocumentCommand(label ?? pending.label, pending.before, after));
+    pushCommand(
+      set,
+      createEditorCommand(label ?? pending.label, pending.before, after, {
+        beforeSelection: pending.beforeSelection,
+        afterSelection: currentSelectionSnapshot(),
+      }),
+    );
   },
 
   discardPendingCommand: () => set({ pendingCommand: null }),
@@ -259,9 +451,44 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       return false;
     }
 
+    const selection = activeSelection(state);
+    if (state.editTarget === "pixels" && layer.type === "pixel") {
+      const before = currentSnapshot();
+      const originalLayer = cloneLayer(layer) as PixelLayer;
+      const implicitFullLayer = !selection || maskIsEmpty(selection.mask);
+      const moveSelection = implicitFullLayer
+        ? { mask: createBinaryMaskSurface(layer.surface.width, layer.surface.height, true) }
+        : selection;
+      const lifted = liftSelectedPixels(originalLayer, moveSelection.mask);
+      set({
+        pendingCommand: {
+          label: implicitFullLayer ? "Move layer" : "Move selected pixels",
+          before,
+          beforeSelection: currentSelectionSnapshot(),
+        },
+        pendingSelectionMove: {
+          before,
+          context: state.activeContext,
+          dx: 0,
+          dy: 0,
+          floating: {
+            layerIndex: stack.activeLayerIndex,
+            mask: cloneBinaryMaskSurface(moveSelection.mask),
+            surface: lifted.floating,
+          },
+          implicitFullLayer,
+          selection: { mask: cloneBinaryMaskSurface(moveSelection.mask) },
+          sourceLayer: lifted.source,
+        },
+        pendingMove: null,
+        status: implicitFullLayer ? "Moving layer" : "Moving selected pixels",
+      });
+      return true;
+    }
+
     const before = currentSnapshot();
     set({
-      pendingCommand: { label: "Move layer", before },
+      pendingCommand: { label: "Move layer", before, beforeSelection: currentSelectionSnapshot() },
       pendingMove: {
         before,
         context: state.activeContext,
@@ -275,7 +502,65 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     return true;
   },
 
+  previewSelectionMove: (dx, dy) =>
+    set((state) => {
+      const pendingSelectionMove = state.pendingSelectionMove;
+      if (!pendingSelectionMove || (pendingSelectionMove.dx === dx && pendingSelectionMove.dy === dy)) return {};
+      return {
+        pendingSelectionMove: {
+          ...pendingSelectionMove,
+          dx,
+          dy,
+        },
+      };
+    }),
+
   commitMoveLayer: (dx, dy) => {
+    const pendingSelectionMove = get().pendingSelectionMove;
+    if (pendingSelectionMove) {
+      const current = get();
+      if (!editContextsEqual(current.activeContext, pendingSelectionMove.context)) {
+        set({
+          pendingCommand: null,
+          pendingSelectionMove: null,
+          status: "Move cancelled",
+        });
+        return false;
+      }
+
+      if (dx !== 0 || dy !== 0) {
+        set((state) => {
+          const stack = activeStack(state);
+          let movedLayer = pasteFloatingPixels(pendingSelectionMove.sourceLayer, pendingSelectionMove.floating.surface, dx, dy);
+          if (pendingSelectionMove.implicitFullLayer && pendingSelectionMove.sourceLayer.alphaMask) {
+            movedLayer = {
+              ...movedLayer,
+              alphaMask: translateBinaryMaskSurface(pendingSelectionMove.sourceLayer.alphaMask, dx, dy),
+            };
+          }
+          const movedSelection = { mask: translateBinaryMaskSurface(pendingSelectionMove.selection.mask, dx, dy) };
+          return {
+            ...replaceActiveStack(state, {
+              ...stack,
+              layers: stack.layers.map((layer, index) =>
+                index === pendingSelectionMove.floating.layerIndex ? movedLayer : layer,
+              ),
+            }),
+            ...(pendingSelectionMove.implicitFullLayer ? {} : setActiveSelectionStateFields(state, movedSelection)),
+            status: pendingSelectionMove.implicitFullLayer ? `Layer moved ${dx}, ${dy}` : `Selected pixels moved ${dx}, ${dy}`,
+          };
+        });
+      }
+
+      const changed = !snapshotsEqual(pendingSelectionMove.before, currentSnapshot());
+      set({ pendingSelectionMove: null });
+      if (changed) {
+        get().markDocumentChanged(pendingSelectionMove.implicitFullLayer ? "Layer moved" : "Selected pixels moved");
+      }
+      get().commitCommand(pendingSelectionMove.implicitFullLayer ? "Move layer" : "Move selected pixels");
+      return changed;
+    }
+
     const pending = get().pendingMove;
     if (!pending) return false;
     const current = get();
@@ -312,13 +597,24 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   },
 
   cancelMoveLayer: () => {
+    if (get().pendingSelectionMove) {
+      set({
+        pendingCommand: null,
+        pendingSelectionMove: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
+        status: "Move cancelled",
+      });
+      return;
+    }
     const pending = get().pendingMove;
     if (!pending) return;
     set({
       ...snapshotState(pending.before),
       pendingCommand: null,
       pendingMove: null,
-      shapePreview: null,
+      canvasToolPreview: null,
+      selectionPreview: null,
       status: "Move cancelled",
     });
   },
@@ -329,19 +625,23 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!command) return {};
       const undoStack = state.undoStack.slice(0, -1);
       const redoStack = [...state.redoStack, command];
+      const changesDocument = editorCommandChangesDocument(command);
       return {
         ...snapshotState(command.before),
+        ...commandSelectionState(command.beforeSelection),
         undoStack,
         redoStack,
         canUndo: undoStack.length > 0,
         canRedo: true,
         pendingCommand: null,
         pendingMove: null,
-        shapePreview: null,
+        pendingSelectionMove: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
         status: `Undo ${command.label}`,
-        documentRevision: state.documentRevision + 1,
+        documentRevision: changesDocument ? state.documentRevision + 1 : state.documentRevision,
         viewRevision: state.viewRevision + 1,
-        hasUnsavedChanges: true,
+        hasUnsavedChanges: changesDocument ? true : state.hasUnsavedChanges,
       };
     }),
 
@@ -351,30 +651,51 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!command) return {};
       const redoStack = state.redoStack.slice(0, -1);
       const undoStack = [...state.undoStack, command];
+      const changesDocument = editorCommandChangesDocument(command);
       return {
         ...snapshotState(command.after),
+        ...commandSelectionState(command.afterSelection),
         undoStack,
         redoStack,
         canUndo: true,
         canRedo: redoStack.length > 0,
         pendingCommand: null,
         pendingMove: null,
-        shapePreview: null,
+        pendingSelectionMove: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
         status: `Redo ${command.label}`,
-        documentRevision: state.documentRevision + 1,
+        documentRevision: changesDocument ? state.documentRevision + 1 : state.documentRevision,
         viewRevision: state.viewRevision + 1,
-        hasUnsavedChanges: true,
+        hasUnsavedChanges: changesDocument ? true : state.hasUnsavedChanges,
       };
     }),
 
   switchToRoot: () =>
-    set((state) => ({
-      activeContext: { type: "root" },
-      shapePreview: null,
-      pendingMove: null,
-      cursorLabel: "x: -- y: --",
-      status: state.activeContext.type === "root" ? state.status : "Editing root canvas",
-    })),
+    set((state) => {
+      if (state.activeContext.type === "root") {
+        return {
+          canvasToolPreview: null,
+          selectionPreview: null,
+          pendingMove: null,
+          pendingSelectionMove: null,
+          cursorLabel: "x: -- y: --",
+          objectSelection: null,
+        };
+      }
+
+      return {
+        activeContext: { type: "root" },
+        canvasToolPreview: null,
+        selectionPreview: null,
+        pendingMove: null,
+        pendingSelectionMove: null,
+        cursorLabel: "x: -- y: --",
+        objectSelection: null,
+        status: "Editing root canvas",
+        viewRevision: state.viewRevision + 1,
+      };
+    }),
 
   switchToObject: (objectId) =>
     set((state) => {
@@ -382,10 +703,17 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       if (!object) return { status: "Object was not found" };
       return {
         activeContext: { type: "object", objectId },
-        shapePreview: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
         pendingMove: null,
+        pendingSelectionMove: null,
+        objectSelection: null,
         cursorLabel: "x: -- y: --",
         status: `Editing ${object.name}`,
+        viewRevision:
+          state.activeContext.type === "object" && state.activeContext.objectId === objectId
+            ? state.viewRevision
+            : state.viewRevision + 1,
       };
     }),
 
@@ -395,7 +723,10 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     set((state) => ({
       objects: [...state.objects, object],
       activeContext: { type: "object", objectId: object.id },
-      shapePreview: null,
+      canvasToolPreview: null,
+      selectionPreview: null,
+      editTarget: "pixels",
+      objectSelection: null,
       status: `Created ${object.name}`,
       documentRevision: state.documentRevision + 1,
       viewRevision: state.viewRevision + 1,
@@ -438,6 +769,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
               layers: object.layers.map((layer) => ({
                 ...layer,
                 contentRevision: layer.contentRevision + 1,
+                alphaMask: layer.alphaMask ? resizeBinaryMaskSurface(layer.alphaMask, nextWidth, nextHeight) : undefined,
                 surface: resizeSurface(layer.surface, nextWidth, nextHeight),
               })),
             }
@@ -547,6 +879,23 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     pushCurrentCommand(set, direction > 0 ? "Move layer up" : "Move layer down", before);
   },
 
+  reorderLayer: (fromIndex, toIndex) => {
+    const before = currentSnapshot();
+    set((state) => {
+      const stack = activeStack(state);
+      const result = reorderLayer(stack, fromIndex, toIndex);
+      if (!hasLayerStackMutation(result)) return {};
+      return {
+        ...replaceActiveStack(state, result.stack),
+        status: result.status,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, "Reorder layer", before);
+  },
+
   setActiveLayer: (activeLayerIndex) =>
     set((state) => {
       const stack = activeStack(state);
@@ -586,23 +935,6 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     });
     pushCurrentCommand(set, visible ? "Show layer" : "Hide layer", before);
   },
-
-  setLayerOpacity: (opacity) => {
-    const state = get();
-    if (!state.pendingCommand) get().beginCommand("Set layer opacity");
-    set((current) => {
-      const stack = activeStack(current);
-      const result = setActiveLayerOpacity(stack, opacity);
-      return {
-        ...replaceActiveStack(current, result.stack),
-        documentRevision: current.documentRevision + 1,
-        viewRevision: current.viewRevision + 1,
-        hasUnsavedChanges: true,
-      };
-    });
-  },
-
-  commitLayerOpacity: () => get().commitCommand("Set layer opacity"),
 
   setStackBackground: (background) => {
     const before = currentSnapshot();
@@ -667,11 +999,16 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       savedDocumentRevision: state.documentRevision + 1,
       pendingCommand: null,
       pendingMove: null,
+      pendingSelectionMove: null,
       undoStack: [],
       redoStack: [],
       canUndo: false,
       canRedo: false,
-      shapePreview: null,
+      canvasToolPreview: null,
+      selectionPreview: null,
+      editTarget: "pixels",
+      rootSelection: null,
+      objectSelection: null,
       status: "New project",
       activePaletteIndex: BLACK_PIXEL,
       documentRevision: state.documentRevision + 1,
@@ -730,11 +1067,16 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         pendingMove: null,
+        pendingSelectionMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
         canRedo: false,
-        shapePreview: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
+        editTarget: "pixels",
+        rootSelection: null,
+        objectSelection: null,
         status: "Project loaded",
         activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
@@ -771,11 +1113,16 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         pendingMove: null,
+        pendingSelectionMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
         canRedo: false,
-        shapePreview: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
+        editTarget: "pixels",
+        rootSelection: null,
+        objectSelection: null,
         status: "Most recent project loaded",
         activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
@@ -834,11 +1181,16 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
         pendingMove: null,
+        pendingSelectionMove: null,
         undoStack: [],
         redoStack: [],
         canUndo: false,
         canRedo: false,
-        shapePreview: null,
+        canvasToolPreview: null,
+        selectionPreview: null,
+        editTarget: "pixels",
+        rootSelection: null,
+        objectSelection: null,
         status: "Project imported",
         activePaletteIndex: BLACK_PIXEL,
         documentRevision: state.documentRevision + 1,
@@ -903,6 +1255,18 @@ export function currentActivePixelLayer(): PixelLayer | null {
   return activePixelLayer(useEditorStore.getState());
 }
 
+export function currentSelection(): SelectionState | null {
+  return activeSelection(useEditorStore.getState());
+}
+
+export function selectActiveSelection(state: SelectionStateHost): SelectionState | null {
+  return activeSelection(state);
+}
+
+export function hasActiveSelection(state: SelectionStateHost): boolean {
+  return !maskIsEmpty(activeSelection(state)?.mask);
+}
+
 function createInitialSnapshot(): EditorSnapshot {
   return {
     palette: createDefaultPalette(),
@@ -915,23 +1279,115 @@ function createInitialSnapshot(): EditorSnapshot {
 function pushCurrentCommand(set: typeof useEditorStore.setState, label: string, before: EditorSnapshot): void {
   const after = currentSnapshot();
   if (snapshotsEqual(before, after)) return;
-  pushCommand(set, createDocumentCommand(label, before, after));
+  const selection = currentSelectionSnapshot();
+  pushCommand(
+    set,
+    createEditorCommand(label, before, after, {
+      beforeSelection: selection,
+      afterSelection: selection,
+    }),
+  );
 }
 
-function pushCommand(set: typeof useEditorStore.setState, command: DocumentCommand): void {
+function pushCommand(set: typeof useEditorStore.setState, command: EditorCommand): void {
+  if (!editorCommandHasChanges(command)) return;
   set((state) => {
     const undoStack = [...state.undoStack, command].slice(-80);
+    const changesDocument = editorCommandChangesDocument(command);
     return {
       undoStack,
       redoStack: [],
       pendingCommand: null,
       pendingMove: null,
+      pendingSelectionMove: null,
       canUndo: undoStack.length > 0,
       canRedo: false,
-      hasUnsavedChanges: true,
+      hasUnsavedChanges: changesDocument ? true : state.hasUnsavedChanges,
       status: command.label,
     };
   });
+}
+
+function setSelectionFromMask(
+  set: typeof useEditorStore.setState,
+  label: string,
+  status: string,
+  createMask: (width: number, height: number) => BinaryMaskSurface,
+): void {
+  const before = currentSnapshot();
+  const beforeSelection = currentSelectionSnapshot();
+  set((state) => {
+    const stack = activeStack(state);
+    const selection = { mask: createMask(stack.width, stack.height) };
+    return setActiveSelectionState(state, selection, status);
+  });
+  pushCommand(
+    set,
+    createEditorCommand(label, before, currentSnapshot(), {
+      afterSelection: currentSelectionSnapshot(),
+      beforeSelection,
+    }),
+  );
+}
+
+type SelectionStateHost = {
+  activeContext: EditContext;
+  objectSelection: SelectionState | null;
+  rootSelection: SelectionState | null;
+};
+
+function activeSelection(state: SelectionStateHost): SelectionState | null {
+  return state.activeContext.type === "root" ? state.rootSelection : state.objectSelection;
+}
+
+function setActiveSelectionState(
+  state: Pick<EditorStoreState, "activeContext" | "viewRevision">,
+  selection: SelectionState | null,
+  status: string,
+): Partial<EditorStoreState> {
+  return {
+    ...setActiveSelectionStateFields(state, selection),
+    status,
+    viewRevision: state.viewRevision + 1,
+  };
+}
+
+function setActiveSelectionStateFields(
+  state: Pick<EditorStoreState, "activeContext">,
+  selection: SelectionState | null,
+): Pick<EditorStoreState, "rootSelection"> | Pick<EditorStoreState, "objectSelection"> {
+  return state.activeContext.type === "root" ? { rootSelection: selection } : { objectSelection: selection };
+}
+
+function currentSelectionSnapshot(): CommandSelectionSnapshot {
+  return {
+    objectSelection: cloneSelectionState(useEditorStore.getState().objectSelection),
+    rootSelection: cloneSelectionState(useEditorStore.getState().rootSelection),
+  };
+}
+
+function commandSelectionState(
+  selection: CommandSelectionSnapshot | undefined,
+): Pick<EditorStoreState, "objectSelection" | "rootSelection"> | Record<string, never> {
+  if (!selection) return {};
+  const cloned = cloneCommandSelectionSnapshot(selection);
+  return {
+    objectSelection: cloned.objectSelection,
+    rootSelection: cloned.rootSelection,
+  };
+}
+
+function cloneSelectionState(selection: SelectionState | null): SelectionState | null {
+  if (!selection) return null;
+  return {
+    mask: cloneBinaryMaskSurface(selection.mask),
+  };
+}
+
+function layerAlphaMaskSize(layer: Layer, objects: ObjectDefinition[]): { width: number; height: number } | null {
+  if (layer.type === "pixel") return { width: layer.surface.width, height: layer.surface.height };
+  const object = objects.find((candidate) => candidate.id === layer.objectId);
+  return object ? { width: object.width, height: object.height } : null;
 }
 
 function snapshotFrom(
@@ -1023,9 +1479,12 @@ export function contextLabel(context: EditContext, objects: ObjectDefinition[]):
 
 const TOOL_LABELS: Record<Tool, string> = {
   move: "Move",
+  marquee: "Marquee",
+  ellipseSelect: "Ellipse Select",
   pencil: "Pencil",
   eraser: "Eraser",
   line: "Line",
   rect: "Rectangle",
+  ellipse: "Ellipse",
   fill: "Fill",
 };

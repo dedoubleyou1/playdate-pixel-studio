@@ -1,4 +1,13 @@
-export type Tool = "move" | "pencil" | "eraser" | "line" | "rect" | "fill";
+export type Tool =
+  | "move"
+  | "marquee"
+  | "ellipseSelect"
+  | "pencil"
+  | "eraser"
+  | "line"
+  | "rect"
+  | "ellipse"
+  | "fill";
 export const TRANSPARENT_PIXEL = 0;
 export const BLACK_PIXEL = 1;
 export const WHITE_PIXEL = 2;
@@ -42,13 +51,32 @@ export interface PixelSurface {
   data: Uint8Array;
 }
 
+export interface BinaryMaskSurface {
+  width: number;
+  height: number;
+  data: Uint8Array;
+}
+
+export type LayerAlphaMask = BinaryMaskSurface;
+export type EditTarget = "pixels" | "alphaMask";
+
+export interface SelectionState {
+  mask: BinaryMaskSurface;
+}
+
+export interface FloatingSelection {
+  layerIndex: number;
+  mask: BinaryMaskSurface;
+  surface: PixelSurface;
+}
+
 export interface BaseLayer {
   id: number;
   name: string;
   visible: boolean;
   pixelEditable: boolean;
   contentRevision: number;
-  opacity: number;
+  alphaMask?: LayerAlphaMask;
 }
 
 export interface PixelLayer extends BaseLayer {
@@ -100,11 +128,18 @@ export interface EditorState {
   status: string;
 }
 
-export interface ShapePreview {
-  type: "line" | "rect";
+interface BaseToolPreview {
   start: Point;
   end: Point;
   brushSize: number;
   mirrorX: boolean;
   mirrorY: boolean;
+}
+
+export interface CanvasToolPreview extends BaseToolPreview {
+  type: "line" | "rect" | "ellipse";
+}
+
+export interface SelectionPreview extends BaseToolPreview {
+  type: "rect" | "ellipse";
 }
