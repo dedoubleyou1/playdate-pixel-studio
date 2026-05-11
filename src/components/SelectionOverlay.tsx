@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { checkerSelectionColorIndex, exposedSelectionEdges } from "../rendering/selectionEdges";
-import type { SelectionEdge } from "../rendering/selectionEdges";
+import { checkerSelectionColorIndex, createSelectionHaloMask } from "../rendering/selectionEdges";
+import type { SelectionHaloMask } from "../rendering/selectionEdges";
 import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 
 const CHECKER_CELL_CSS_PX = 4;
@@ -21,9 +21,10 @@ export function SelectionOverlay({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { dx, dy, mask } = model;
   const [phase, setPhase] = useState<0 | 1>(0);
-  const edges = useMemo(() => (mask ? exposedSelectionEdges(mask) : []), [mask]);
-  const browserWidth = width * zoom;
-  const browserHeight = height * zoom;
+  const cellSize = Math.max(1, Math.round(zoom));
+  const haloMask = useMemo(() => (mask ? createSelectionHaloMask(mask, cellSize) : null), [cellSize, mask]);
+  const browserWidth = width * cellSize + 2;
+  const browserHeight = height * cellSize + 2;
 
   useEffect(() => {
     if (!mask) return;
@@ -47,17 +48,15 @@ export function SelectionOverlay({
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, browserWidth, browserHeight);
 
-    if (!mask || browserWidth <= 0 || browserHeight <= 0) return;
+    if (!haloMask || browserWidth <= 0 || browserHeight <= 0) return;
 
-    renderSelectionEdges(context, edges, {
-      cellSize: zoom,
+    renderSelectionHalo(context, haloMask, {
       checkerCellSize: CHECKER_CELL_CSS_PX,
-      dx,
-      dy,
+      offsetX: dx * cellSize,
+      offsetY: dy * cellSize,
       phase,
-      thickness: 1,
     });
-  }, [browserHeight, browserWidth, dx, dy, edges, mask, phase, zoom]);
+  }, [browserHeight, browserWidth, cellSize, dx, dy, haloMask, phase]);
 
   return (
     <canvas
@@ -65,6 +64,10 @@ export function SelectionOverlay({
       className="selection-overlay-canvas"
       style={{
         height: `${browserHeight}px`,
+        left: "-1px",
+        right: "auto",
+        bottom: "auto",
+        top: "-1px",
         width: `${browserWidth}px`,
       }}
       aria-hidden="true"
@@ -72,63 +75,30 @@ export function SelectionOverlay({
   );
 }
 
-function renderSelectionEdges(
+function renderSelectionHalo(
   context: CanvasRenderingContext2D,
-  edges: SelectionEdge[],
+  haloMask: SelectionHaloMask,
   options: {
-    cellSize: number;
     checkerCellSize: number;
-    dx: number;
-    dy: number;
+    offsetX: number;
+    offsetY: number;
     phase: 0 | 1;
-    thickness: number;
   },
 ): void {
-  for (const edge of edges) {
-    const cellX = edge.x + options.dx;
-    const cellY = edge.y + options.dy;
-    let left = cellX * options.cellSize;
-    let top = cellY * options.cellSize;
-    let right = (cellX + 1) * options.cellSize;
-    let bottom = (cellY + 1) * options.cellSize;
+  const canvasWidth = context.canvas.width;
+  const canvasHeight = context.canvas.height;
 
-    if (edge.side === "top") {
-      bottom = top + options.thickness;
-    } else if (edge.side === "right") {
-      left = right - options.thickness;
-    } else if (edge.side === "bottom") {
-      top = bottom - options.thickness;
-    } else {
-      right = left + options.thickness;
-    }
+  for (let y = 0; y < haloMask.height; y += 1) {
+    for (let x = 0; x < haloMask.width; x += 1) {
+      if (!haloMask.data[y * haloMask.width + x]) continue;
 
-    fillCheckerRect(context, left, top, right - left, bottom - top, options.checkerCellSize, options.phase);
-  }
-}
+      const screenX = x + options.offsetX;
+      const screenY = y + options.offsetY;
+      if (screenX < 0 || screenY < 0 || screenX >= canvasWidth || screenY >= canvasHeight) continue;
 
-function fillCheckerRect(
-  context: CanvasRenderingContext2D,
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  checkerCellSize: number,
-  phase: 0 | 1,
-): void {
-  const right = left + width;
-  const bottom = top + height;
-  const startX = Math.floor(left / checkerCellSize) * checkerCellSize;
-  const startY = Math.floor(top / checkerCellSize) * checkerCellSize;
-
-  for (let y = startY; y < bottom; y += checkerCellSize) {
-    for (let x = startX; x < right; x += checkerCellSize) {
-      const fillLeft = Math.max(left, x);
-      const fillTop = Math.max(top, y);
-      const fillRight = Math.min(right, x + checkerCellSize);
-      const fillBottom = Math.min(bottom, y + checkerCellSize);
-      if (fillRight <= fillLeft || fillBottom <= fillTop) continue;
-      context.fillStyle = SELECTION_COLORS[checkerSelectionColorIndex(x, y, checkerCellSize, phase)];
-      context.fillRect(fillLeft, fillTop, fillRight - fillLeft, fillBottom - fillTop);
+      context.fillStyle =
+        SELECTION_COLORS[checkerSelectionColorIndex(screenX, screenY, options.checkerCellSize, options.phase)];
+      context.fillRect(screenX, screenY, 1, 1);
     }
   }
 }

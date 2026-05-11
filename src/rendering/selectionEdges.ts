@@ -8,6 +8,12 @@ export interface SelectionEdge {
   y: number;
 }
 
+export interface SelectionHaloMask {
+  width: number;
+  height: number;
+  data: Uint8Array;
+}
+
 export function exposedSelectionEdges(mask: BinaryMaskSurface): SelectionEdge[] {
   const edges: SelectionEdge[] = [];
 
@@ -22,6 +28,52 @@ export function exposedSelectionEdges(mask: BinaryMaskSurface): SelectionEdge[] 
   }
 
   return edges;
+}
+
+export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): SelectionHaloMask {
+  const cellSize = Math.max(1, Math.round(zoom));
+  const width = mask.width * cellSize + 2;
+  const height = mask.height * cellSize + 2;
+  const data = new Uint8Array(width * height);
+
+  const markPixel = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    data[y * width + x] = 1;
+  };
+
+  for (let cellY = 0; cellY < mask.height; cellY += 1) {
+    for (let cellX = 0; cellX < mask.width; cellX += 1) {
+      if (!maskCell(mask, cellX, cellY)) continue;
+
+      const left = 1 + cellX * cellSize;
+      const top = 1 + cellY * cellSize;
+      const right = left + cellSize;
+      const bottom = top + cellSize;
+
+      if (!maskCell(mask, cellX, cellY - 1)) {
+        for (let x = left; x < right; x += 1) markPixel(x, top - 1);
+      }
+
+      if (!maskCell(mask, cellX + 1, cellY)) {
+        for (let y = top; y < bottom; y += 1) markPixel(right, y);
+      }
+
+      if (!maskCell(mask, cellX, cellY + 1)) {
+        for (let x = left; x < right; x += 1) markPixel(x, bottom);
+      }
+
+      if (!maskCell(mask, cellX - 1, cellY)) {
+        for (let y = top; y < bottom; y += 1) markPixel(left - 1, y);
+      }
+
+      if (!maskCell(mask, cellX - 1, cellY - 1)) markPixel(left - 1, top - 1);
+      if (!maskCell(mask, cellX + 1, cellY - 1)) markPixel(right, top - 1);
+      if (!maskCell(mask, cellX + 1, cellY + 1)) markPixel(right, bottom);
+      if (!maskCell(mask, cellX - 1, cellY + 1)) markPixel(left - 1, bottom);
+    }
+  }
+
+  return { width, height, data };
 }
 
 export function checkerSelectionColorIndex(screenX: number, screenY: number, cellSize: number, phase: 0 | 1): 0 | 1 {
