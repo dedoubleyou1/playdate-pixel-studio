@@ -19,7 +19,7 @@ import {
   pixelCommandLabel,
   type PixelToolSettings,
 } from "../domain/pixelCommands";
-import type { EditorSnapshot, Point, Tool } from "../domain/types";
+import type { BinaryMaskSurface, EditorSnapshot, Point, Tool } from "../domain/types";
 import { EditorCanvas } from "../rendering/editorCanvas";
 import type { LayerMovePreview } from "../rendering/frameComposer";
 import { currentActiveLayer, currentActivePixelLayer, currentSelection, useEditorStore } from "../state/editorStore";
@@ -197,8 +197,9 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
         if (isBrushTool(tool) || isFillTool(tool)) {
           state.beginCommand(maskCommandLabel(tool));
-          const mask = currentAlphaMaskForTool(state, settings.value);
-          actionChangedRef.current = mask ? applyMaskToolStart(mask, localPoint, tool, settings) : false;
+          const maskResult = currentAlphaMaskForTool(state, settings.value);
+          const startChanged = maskResult ? applyMaskToolStart(maskResult.mask, localPoint, tool, settings) : false;
+          actionChangedRef.current = Boolean(maskResult?.created) || startChanged;
           if (actionChangedRef.current) requestCanvasRender();
         }
 
@@ -214,7 +215,8 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 
         if (isShapeTool(tool)) {
           state.beginCommand(maskCommandLabel(tool));
-          if (settings.value === 0) state.ensureActiveLayerAlphaMask(true);
+          const maskResult = settings.value === 0 ? state.ensureActiveLayerAlphaMask(true) : null;
+          actionChangedRef.current = Boolean(maskResult?.created);
           state.setCanvasToolPreview(createMaskCanvasToolPreview(point, point, tool, settings));
         }
         return;
@@ -399,8 +401,9 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
           const localStart = activeMaskPoint(dragStart, state);
           const constrainedPoint = constrainedShapeEndPoint(dragStart, point, gestureTool, event.shiftKey);
           const localEnd = activeMaskPoint(constrainedPoint, state);
-          actionChangedRef.current =
+          const shapeChanged =
             localStart && localEnd ? applyMaskToolFinish(mask, localStart, localEnd, gestureTool, settings) : false;
+          actionChangedRef.current = shapeChanged || actionChangedRef.current;
         }
 
         state.setCanvasToolPreview(null);
@@ -479,9 +482,9 @@ function selectionPreviewType(tool: Tool): "ellipse" | "rect" {
 function currentAlphaMaskForTool(
   state: ReturnType<typeof useEditorStore.getState>,
   value: 0 | 1,
-) {
+): { mask: BinaryMaskSurface; created: boolean } | null {
   const layer = activeLayer(state);
-  if (layer.alphaMask) return layer.alphaMask;
+  if (layer.alphaMask) return { mask: layer.alphaMask, created: false };
   if (value === 1) return null;
   return state.ensureActiveLayerAlphaMask(true);
 }

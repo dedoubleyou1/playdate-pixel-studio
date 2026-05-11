@@ -166,7 +166,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setSelectionFromEllipse: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
   clearSelection: () => void;
   addActiveLayerAlphaMask: () => void;
-  ensureActiveLayerAlphaMask: (fillVisible?: boolean) => BinaryMaskSurface | null;
+  ensureActiveLayerAlphaMask: (fillVisible?: boolean) => { mask: BinaryMaskSurface; created: boolean } | null;
   removeActiveLayerAlphaMask: () => void;
   markViewChanged: () => void;
   markDocumentChanged: (status?: string) => void;
@@ -367,7 +367,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     const stack = activeStack(state);
     const layer = stack.layers[stack.activeLayerIndex];
     if (!layer) return null;
-    if (layer.alphaMask) return layer.alphaMask;
+    if (layer.alphaMask) return { mask: layer.alphaMask, created: false };
     const size = layerAlphaMaskSize(layer, state.objects);
     if (!size) return null;
     const alphaMask = createBinaryMaskSurface(size.width, size.height, fillVisible);
@@ -382,7 +382,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         }),
       };
     });
-    return activeLayer(get()).alphaMask ?? null;
+    const createdMask = activeLayer(get()).alphaMask;
+    return createdMask ? { mask: createdMask, created: true } : null;
   },
   removeActiveLayerAlphaMask: () => {
     const before = currentSnapshot();

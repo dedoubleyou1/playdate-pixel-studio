@@ -503,6 +503,46 @@ describe("editor store selection and alpha masks", () => {
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
   });
 
+  it("tracks alpha mask creation as an undoable no-op gesture change", () => {
+    const state = useEditorStore.getState();
+    const startRevision = state.documentRevision;
+
+    state.beginCommand("Erase alpha mask");
+    const result = state.ensureActiveLayerAlphaMask(true);
+    if (result?.created) state.markDocumentChanged();
+    state.commitCommand("Erase alpha mask");
+
+    expect(result?.created).toBe(true);
+    expect(currentActiveLayer().alphaMask?.data.every((value) => value === 1)).toBe(true);
+    expect(useEditorStore.getState().documentRevision).toBe(startRevision + 1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+
+    useEditorStore.getState().undo();
+
+    expect(currentActiveLayer().alphaMask).toBeUndefined();
+  });
+
+  it("creates one undo command and document revision for changed mask painting", () => {
+    const state = useEditorStore.getState();
+    const startRevision = state.documentRevision;
+
+    state.beginCommand("Erase alpha mask");
+    const result = state.ensureActiveLayerAlphaMask(true);
+    if (result) {
+      result.mask.data[indexFor(0, 0)] = 0;
+      state.markDocumentChanged();
+    }
+    state.commitCommand("Erase alpha mask");
+
+    expect(useEditorStore.getState().documentRevision).toBe(startRevision + 1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(currentActiveLayer().alphaMask?.data[indexFor(0, 0)]).toBe(0);
+
+    useEditorStore.getState().undo();
+
+    expect(currentActiveLayer().alphaMask).toBeUndefined();
+  });
+
   it("returns to pixel editing when removing the active alpha mask", () => {
     const state = useEditorStore.getState();
     state.ensureActiveLayerAlphaMask(true);
