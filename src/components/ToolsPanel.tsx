@@ -6,7 +6,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import type { EditTarget, PaletteEntry, ProjectPalette, Tool } from "../domain/types";
+import { toolUsesSizeAndMirror } from "../domain/toolProperties";
+import type { EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
@@ -69,6 +70,7 @@ export function ToolsPanel(): React.JSX.Element {
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const editTarget = useEditorStore((state) => state.editTarget);
   const paletteEnabled = drawingEnabled && editTarget === "pixels";
+  const propertiesEnabled = (drawingEnabled || editTarget === "alphaMask") && toolUsesSizeAndMirror(activeTool);
   const paletteGroups = [
     {
       id: "solid",
@@ -108,46 +110,122 @@ export function ToolsPanel(): React.JSX.Element {
         </div>
       </EditorPane>
 
-      <EditorPane disabled={!drawingEnabled && editTarget !== "alphaMask"}>
-        <EditorPaneTitle className="mb-3">Brush</EditorPaneTitle>
-        <div className="mb-3.5 space-y-3">
-          {paletteGroups.map((group, groupIndex) => (
-            <div key={group.id} className="space-y-3">
-              {groupIndex > 0 ? <Separator /> : null}
-              <div className={ICON_GRID_CLASS} aria-label={group.label}>
-                {group.entries.map((entry) => (
-                  <PaletteButton
-                    key={entry.id}
-                    active={activePaletteIndex === entry.index}
-                    colorizedPatterns={colorizedPatternsVisible}
-                    disabled={!paletteEnabled}
-                    entry={entry}
-                    onSelect={setActivePaletteIndex}
-                    palette={palette}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <EditorControlRow>
-          <Label>Size</Label>
-          <Slider
-            disabled={!drawingEnabled}
-            min={1}
-            max={8}
-            step={1}
-            value={[brushSize]}
-            onValueChange={([value]) => setBrushSize(value ?? 1)}
-          />
-          <strong className="text-right text-foreground">{brushSize}</strong>
-        </EditorControlRow>
-        <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!drawingEnabled} onCheckedChange={setMirrorX} />
-        <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!drawingEnabled} onCheckedChange={setMirrorY} />
-      </EditorPane>
+      <SwatchesPane
+        activePaletteIndex={activePaletteIndex}
+        colorizedPatternsVisible={colorizedPatternsVisible}
+        palette={palette}
+        paletteEnabled={paletteEnabled}
+        paletteGroups={paletteGroups}
+        setActivePaletteIndex={setActivePaletteIndex}
+      />
+
+      <ToolPropertiesPane
+        activeTool={activeTool}
+        brushSize={brushSize}
+        mirrorX={mirrorX}
+        mirrorY={mirrorY}
+        propertiesEnabled={propertiesEnabled}
+        setBrushSize={setBrushSize}
+        setMirrorX={setMirrorX}
+        setMirrorY={setMirrorY}
+      />
       <ObjectLibrary />
     </EditorPanel>
   );
+}
+
+function SwatchesPane({
+  activePaletteIndex,
+  colorizedPatternsVisible,
+  palette,
+  paletteEnabled,
+  paletteGroups,
+  setActivePaletteIndex,
+}: {
+  activePaletteIndex: PaletteIndex;
+  colorizedPatternsVisible: boolean;
+  palette: ProjectPalette;
+  paletteEnabled: boolean;
+  paletteGroups: Array<{ id: string; label: string; entries: PaletteEntry[] }>;
+  setActivePaletteIndex: (index: PaletteEntry["index"]) => void;
+}): React.JSX.Element {
+  return (
+    <EditorPane disabled={!paletteEnabled}>
+      <EditorPaneTitle className="mb-3">Swatches</EditorPaneTitle>
+      <div className="space-y-3">
+        {paletteGroups.map((group, groupIndex) => (
+          <div key={group.id} className="space-y-3">
+            {groupIndex > 0 ? <Separator /> : null}
+            <div className={ICON_GRID_CLASS} aria-label={group.label}>
+              {group.entries.map((entry) => (
+                <PaletteButton
+                  key={entry.id}
+                  active={activePaletteIndex === entry.index}
+                  colorizedPatterns={colorizedPatternsVisible}
+                  disabled={!paletteEnabled}
+                  entry={entry}
+                  onSelect={setActivePaletteIndex}
+                  palette={palette}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </EditorPane>
+  );
+}
+
+function ToolPropertiesPane({
+  activeTool,
+  brushSize,
+  mirrorX,
+  mirrorY,
+  propertiesEnabled,
+  setBrushSize,
+  setMirrorX,
+  setMirrorY,
+}: {
+  activeTool: Tool;
+  brushSize: number;
+  mirrorX: boolean;
+  mirrorY: boolean;
+  propertiesEnabled: boolean;
+  setBrushSize: (size: number) => void;
+  setMirrorX: (checked: boolean) => void;
+  setMirrorY: (checked: boolean) => void;
+}): React.JSX.Element {
+  const hasSizeAndMirror = toolUsesSizeAndMirror(activeTool);
+
+  return (
+    <EditorPane disabled={!propertiesEnabled}>
+      <EditorPaneTitle className="mb-3">{toolLabel(activeTool)} Properties</EditorPaneTitle>
+      {hasSizeAndMirror ? (
+        <>
+          <EditorControlRow>
+            <Label>Size</Label>
+            <Slider
+              disabled={!propertiesEnabled}
+              min={1}
+              max={8}
+              step={1}
+              value={[brushSize]}
+              onValueChange={([value]) => setBrushSize(value ?? 1)}
+            />
+            <strong className="text-right text-foreground">{brushSize}</strong>
+          </EditorControlRow>
+          <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!propertiesEnabled} onCheckedChange={setMirrorX} />
+          <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!propertiesEnabled} onCheckedChange={setMirrorY} />
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">No properties</p>
+      )}
+    </EditorPane>
+  );
+}
+
+function toolLabel(tool: Tool): string {
+  return TOOL_GROUPS.flatMap((group) => group.tools).find((config) => config.tool === tool)?.label ?? "Tool";
 }
 
 function PaletteButton({
