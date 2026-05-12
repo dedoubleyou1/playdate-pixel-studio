@@ -35,6 +35,7 @@ export function CanvasStage(): React.JSX.Element {
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const activeTool = useEditorStore((state) => state.activeTool);
+  const activeSelectionCombineMode = useEditorStore((state) => state.activeSelectionCombineMode);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
@@ -55,7 +56,7 @@ export function CanvasStage(): React.JSX.Element {
   const maskEditingEnabled = useEditorStore((state) => state.editTarget === "alphaMask" && Boolean(activeLayer(state)));
   const canvasCursor =
     activeTool === "marquee" || activeTool === "ellipseSelect"
-      ? toolCursor(activeTool)
+      ? toolCursor(activeTool, activeSelectionCombineMode)
       : activeTool === "move"
       ? moveEnabled
         ? toolCursor(activeTool)

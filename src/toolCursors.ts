@@ -4,7 +4,7 @@ import penToolCursor from "lucide-static/icons/pen-tool.svg?url";
 import pencilCursor from "lucide-static/icons/pencil.svg?url";
 import ArrowUpLeft from "lucide-static/dist/esm/icons/arrow-up-left.mjs";
 import PaintBucket from "lucide-static/dist/esm/icons/paint-bucket.mjs";
-import type { Tool } from "./domain/types";
+import type { SelectionCombineMode, Tool } from "./domain/types";
 import { compileLucideCursor } from "./lucideCursorCompiler";
 
 const CROSSHAIR_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -14,10 +14,24 @@ const CROSSHAIR_CURSOR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24"
   <path d="M16 12 L21 12" />
   <path d="M3 12 L8 12" />
 </svg>`;
+const CROSSHAIR_ADD_CURSOR_SVG = crosshairSvgWithBadge(`<path d="M17 19 L21 19" /><path d="M19 17 L19 21" />`);
+const CROSSHAIR_SUBTRACT_CURSOR_SVG = crosshairSvgWithBadge(`<path d="M17 19 L21 19" />`);
 
 const crosshairCursor = compileLucideCursor([{ svg: CROSSHAIR_CURSOR_SVG }], {
   hotspot: { x: 12, y: 12 },
 });
+const crosshairAddCursor = compileLucideCursor([{ svg: CROSSHAIR_ADD_CURSOR_SVG }], {
+  hotspot: { x: 12, y: 12 },
+});
+const crosshairSubtractCursor = compileLucideCursor([{ svg: CROSSHAIR_SUBTRACT_CURSOR_SVG }], {
+  hotspot: { x: 12, y: 12 },
+});
+
+const SELECTION_COMBINE_CURSORS: Record<SelectionCombineMode, string> = {
+  add: crosshairAddCursor,
+  replace: crosshairCursor,
+  subtract: crosshairSubtractCursor,
+};
 
 const TOOL_CURSORS: Record<Tool, string> = {
   move: `url("${moveCursor}") 12 12, move`,
@@ -39,6 +53,15 @@ const TOOL_CURSORS: Record<Tool, string> = {
   ),
 };
 
-export function toolCursor(tool: Tool): string {
+export function toolCursor(tool: Tool): string;
+export function toolCursor(tool: Tool, selectionCombineMode: SelectionCombineMode | null): string;
+export function toolCursor(tool: Tool, selectionCombineMode?: SelectionCombineMode | null): string {
+  if ((tool === "marquee" || tool === "ellipseSelect") && selectionCombineMode) {
+    return SELECTION_COMBINE_CURSORS[selectionCombineMode];
+  }
   return TOOL_CURSORS[tool];
+}
+
+function crosshairSvgWithBadge(badgePaths: string): string {
+  return CROSSHAIR_CURSOR_SVG.replace("</svg>", `${badgePaths}</svg>`);
 }

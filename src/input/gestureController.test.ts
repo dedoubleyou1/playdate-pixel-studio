@@ -73,13 +73,28 @@ describe("editor gesture controller", () => {
   it("commits selection gestures without dirtying the document", () => {
     useEditorStore.setState({ activeTool: "marquee" });
     let gesture: EditorGestureState = beginEditorGesture({ point: { x: 1, y: 1 }, shiftKey: false }, bridge);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBe("replace");
 
     gesture = updateEditorGesture(gesture, { point: { x: 2, y: 2 }, shiftKey: false }, bridge);
     gesture = finishEditorGesture(gesture, { point: { x: 2, y: 2 }, shiftKey: false }, bridge);
 
     expect(gesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBeNull();
     expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 1, top: 1, right: 2, bottom: 2 });
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("tracks active selection combine cursor mode while dragging", () => {
+    useEditorStore.setState({ activeTool: "marquee" });
+    const addGesture = beginEditorGesture({ point: { x: 1, y: 1 }, shiftKey: true }, bridge);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBe("add");
+    cancelEditorGesture(addGesture, bridge);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBeNull();
+
+    const subtractGesture = beginEditorGesture({ altKey: true, point: { x: 1, y: 1 }, shiftKey: true }, bridge);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBe("subtract");
+    cancelEditorGesture(subtractGesture, bridge);
+    expect(useEditorStore.getState().activeSelectionCombineMode).toBeNull();
   });
 });

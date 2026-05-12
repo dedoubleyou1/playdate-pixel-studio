@@ -132,6 +132,7 @@ export interface EditorSessionState {
   previewMode: PreviewMode;
   canvasToolPreview: CanvasToolPreview | null;
   selectionPreview: SelectionPreview | null;
+  activeSelectionCombineMode: SelectionCombineMode | null;
   editTarget: EditTarget;
   rootSelection: SelectionState | null;
   objectSelection: SelectionState | null;
@@ -165,6 +166,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setCursorLabel: (label: string) => void;
   setCanvasToolPreview: (preview: CanvasToolPreview | null) => void;
   setSelectionPreview: (preview: SelectionPreview | null) => void;
+  setActiveSelectionCombineMode: (mode: SelectionCombineMode | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
   setEditTarget: (target: EditTarget) => void;
   setSelectionFromRect: (start: { x: number; y: number }, end: { x: number; y: number }, mode?: SelectionCombineMode) => void;
@@ -238,6 +240,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   previewMode: "normal",
   canvasToolPreview: null,
   selectionPreview: null,
+  activeSelectionCombineMode: null,
   editTarget: "pixels",
   rootSelection: null,
   objectSelection: null,
@@ -301,6 +304,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   setCanvasToolPreview: (canvasToolPreview) =>
     set((state) => ({ canvasToolPreview, viewRevision: state.viewRevision + 1 })),
   setSelectionPreview: (selectionPreview) => set({ selectionPreview }),
+  setActiveSelectionCombineMode: (activeSelectionCombineMode) => set({ activeSelectionCombineMode }),
   setEditTarget: (editTarget) =>
     set((state) =>
       state.editTarget === editTarget
@@ -590,6 +594,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         pendingSelectionMove: null,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         status: "Move cancelled",
       });
       return;
@@ -602,6 +607,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       pendingMove: null,
       canvasToolPreview: null,
       selectionPreview: null,
+      activeSelectionCombineMode: null,
       status: "Move cancelled",
     });
   },
@@ -625,6 +631,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         pendingSelectionMove: null,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         status: `Undo ${command.label}`,
         documentRevision: changesDocument ? state.documentRevision + 1 : state.documentRevision,
         viewRevision: state.viewRevision + 1,
@@ -651,6 +658,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         pendingSelectionMove: null,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         status: `Redo ${command.label}`,
         documentRevision: changesDocument ? state.documentRevision + 1 : state.documentRevision,
         viewRevision: state.viewRevision + 1,
@@ -664,6 +672,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         return {
           canvasToolPreview: null,
           selectionPreview: null,
+          activeSelectionCombineMode: null,
           pendingMove: null,
           pendingSelectionMove: null,
           cursorLabel: "x: -- y: --",
@@ -675,6 +684,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         activeContext: { type: "root" },
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         pendingMove: null,
         pendingSelectionMove: null,
         cursorLabel: "x: -- y: --",
@@ -692,6 +702,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         activeContext: { type: "object", objectId },
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         pendingMove: null,
         pendingSelectionMove: null,
         objectSelection: null,
@@ -712,6 +723,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       activeContext: { type: "object", objectId: object.id },
       canvasToolPreview: null,
       selectionPreview: null,
+      activeSelectionCombineMode: null,
       editTarget: "pixels",
       objectSelection: null,
       status: `Created ${object.name}`,
@@ -994,6 +1006,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       canRedo: false,
       canvasToolPreview: null,
       selectionPreview: null,
+      activeSelectionCombineMode: null,
       editTarget: "pixels",
       rootSelection: null,
       objectSelection: null,
@@ -1062,6 +1075,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         editTarget: "pixels",
         rootSelection: null,
         objectSelection: null,
@@ -1108,6 +1122,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         editTarget: "pixels",
         rootSelection: null,
         objectSelection: null,
@@ -1176,6 +1191,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         canRedo: false,
         canvasToolPreview: null,
         selectionPreview: null,
+        activeSelectionCombineMode: null,
         editTarget: "pixels",
         rootSelection: null,
         objectSelection: null,

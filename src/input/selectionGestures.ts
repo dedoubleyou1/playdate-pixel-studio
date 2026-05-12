@@ -3,7 +3,9 @@ import { constrainedShapeEndPoint, idleGestureState, selectionPreviewType, type 
 import type { Point, SelectionCombineMode, Tool } from "../domain/types";
 
 export function beginSelectionGesture(point: Point, tool: Tool, combineMode: SelectionCombineMode): EditorGestureState {
-  useEditorStore.getState().setSelectionPreview({
+  const state = useEditorStore.getState();
+  state.setActiveSelectionCombineMode(combineMode);
+  state.setSelectionPreview({
     combineMode,
     type: selectionPreviewType(tool),
     start: point,
@@ -44,10 +46,13 @@ export function finishSelectionGesture(
     state.setSelectionFromRect(gesture.start, constrainedPoint, gesture.combineMode);
   }
   state.setSelectionPreview(null);
+  state.setActiveSelectionCombineMode(null);
   return idleGestureState;
 }
 
 export function cancelSelectionGesture(): EditorGestureState {
-  useEditorStore.getState().setSelectionPreview(null);
+  const state = useEditorStore.getState();
+  state.setSelectionPreview(null);
+  state.setActiveSelectionCombineMode(null);
   return idleGestureState;
 }
