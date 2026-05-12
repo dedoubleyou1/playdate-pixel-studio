@@ -7,6 +7,7 @@ import { beginSelectionGesture, cancelSelectionGesture, finishSelectionGesture, 
 import {
   idleGestureState,
   isSelectionTool,
+  selectionCombineModeForModifiers,
   type EditorGestureEvent,
   type EditorGestureState,
   type GestureRenderBridge,
@@ -22,7 +23,7 @@ export function beginEditorGesture(
   const point = event.point;
 
   if (isSelectionTool(tool)) {
-    return beginSelectionGesture(point, tool, selectionCombineMode(event));
+    return beginSelectionGesture(point, tool, selectionCombineModeForModifiers(event));
   }
 
   if (tool === "move") {
@@ -95,10 +96,4 @@ export function cancelEditorGesture(gesture: EditorGestureState, bridge: Gesture
 
 export function activeLayerStackSelector(state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">) {
   return activeStack(state);
-}
-
-function selectionCombineMode(event: EditorGestureEvent) {
-  if (event.altKey) return "subtract";
-  if (event.shiftKey) return "add";
-  return "replace";
 }

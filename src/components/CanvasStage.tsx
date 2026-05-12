@@ -4,8 +4,10 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
+import type { SelectionCombineMode } from "../domain/types";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { selectionCombineModeForModifiers } from "../input/gestureTypes";
 import { GridOverlay } from "./GridOverlay";
 import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
 import { ObjectContextBar } from "./ObjectContextBar";
@@ -30,6 +32,7 @@ export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const [canvasWrap, setCanvasWrap] = useState<HTMLDivElement | null>(null);
   const [objectDropPreview, setObjectDropPreview] = useState<ObjectDropPreview | null>(null);
+  const [hoverSelectionCombineMode, setHoverSelectionCombineMode] = useState<SelectionCombineMode | null>(null);
   const zoom = useEditorStore((state) => state.zoom);
   const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
@@ -54,9 +57,10 @@ export function CanvasStage(): React.JSX.Element {
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const moveEnabled = useEditorStore((state) => Boolean(activeLayer(state)));
   const maskEditingEnabled = useEditorStore((state) => state.editTarget === "alphaMask" && Boolean(activeLayer(state)));
+  const selectionCursorCombineMode = activeSelectionCombineMode ?? hoverSelectionCombineMode;
   const canvasCursor =
     activeTool === "marquee" || activeTool === "ellipseSelect"
-      ? toolCursor(activeTool, activeSelectionCombineMode)
+      ? toolCursor(activeTool, selectionCursorCombineMode)
       : activeTool === "move"
       ? moveEnabled
         ? toolCursor(activeTool)
@@ -83,6 +87,23 @@ export function CanvasStage(): React.JSX.Element {
     wrapRef.current?.style.setProperty("--canvas-width", String(stack.width));
     wrapRef.current?.style.setProperty("--canvas-height", String(stack.height));
   }, [stack.height, stack.width, zoom]);
+
+  useEffect(() => {
+    const updateModifierCursor = (event: KeyboardEvent) => {
+      setHoverSelectionCombineMode(selectionCursorModeFromModifiers(event));
+    };
+    const clearModifierCursor = () => setHoverSelectionCombineMode(null);
+
+    window.addEventListener("keydown", updateModifierCursor);
+    window.addEventListener("keyup", updateModifierCursor);
+    window.addEventListener("blur", clearModifierCursor);
+
+    return () => {
+      window.removeEventListener("keydown", updateModifierCursor);
+      window.removeEventListener("keyup", updateModifierCursor);
+      window.removeEventListener("blur", clearModifierCursor);
+    };
+  }, []);
 
   const setCanvasWrapRef = useCallback(
     (element: HTMLDivElement | null) => {
@@ -192,6 +213,14 @@ export function CanvasStage(): React.JSX.Element {
     },
   });
 
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      setHoverSelectionCombineMode(selectionCursorModeFromModifiers(event));
+      handlers.onPointerMove(event);
+    },
+    [handlers],
+  );
+
   return (
     <section className="canvas-stage" aria-label="Pixel art canvas">
       {activeContext.type === "object" ? <ObjectContextBar /> : null}
@@ -199,12 +228,14 @@ export function CanvasStage(): React.JSX.Element {
         <div
           ref={setCanvasWrapRef}
           className={`canvas-wrap${isDropTarget ? " is-drop-target" : ""}`}
-          onPointerEnter={() => {
+          onPointerEnter={(event) => {
             pointerInsideCanvasRef.current = true;
+            setHoverSelectionCombineMode(selectionCursorModeFromModifiers(event));
           }}
           onPointerLeave={() => {
             pointerInsideCanvasRef.current = false;
             wheelZoomDeltaRef.current = 0;
+            setHoverSelectionCombineMode(null);
           }}
         >
           <canvas
@@ -214,7 +245,7 @@ export function CanvasStage(): React.JSX.Element {
             width={stack.width}
             height={stack.height}
             onPointerDown={handlers.onPointerDown}
-            onPointerMove={handlers.onPointerMove}
+            onPointerMove={handlePointerMove}
             onPointerUp={handlers.onPointerUp}
             onPointerCancel={handlers.onPointerCancel}
             onPointerLeave={handlers.onPointerLeave}
@@ -287,6 +318,11 @@ function getCanvasPixelFromClient(
 
 function clampZoom(zoom: number): number {
   return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
+}
+
+function selectionCursorModeFromModifiers(modifiers: { altKey?: boolean; shiftKey: boolean }): SelectionCombineMode | null {
+  const mode = selectionCombineModeForModifiers(modifiers);
+  return mode === "replace" ? null : mode;
 }
 
 function previewsEqual(left: ObjectDropPreview | null, right: ObjectDropPreview | null): boolean {

@@ -3,7 +3,12 @@ import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL } from "../domain/types";
 import { currentActiveLayer, currentActivePixelLayer, useEditorStore } from "../state/editorStore";
 import { beginEditorGesture, cancelEditorGesture, finishEditorGesture, updateEditorGesture } from "./gestureController";
-import { idleGestureState, type EditorGestureState, type GestureRenderBridge } from "./gestureTypes";
+import {
+  idleGestureState,
+  selectionCombineModeForModifiers,
+  type EditorGestureState,
+  type GestureRenderBridge,
+} from "./gestureTypes";
 
 describe("editor gesture controller", () => {
   let bridge: GestureRenderBridge;
@@ -96,5 +101,11 @@ describe("editor gesture controller", () => {
     expect(useEditorStore.getState().activeSelectionCombineMode).toBe("subtract");
     cancelEditorGesture(subtractGesture, bridge);
     expect(useEditorStore.getState().activeSelectionCombineMode).toBeNull();
+  });
+
+  it("resolves selection combine modifiers with alt taking precedence", () => {
+    expect(selectionCombineModeForModifiers({ shiftKey: false })).toBe("replace");
+    expect(selectionCombineModeForModifiers({ shiftKey: true })).toBe("add");
+    expect(selectionCombineModeForModifiers({ altKey: true, shiftKey: true })).toBe("subtract");
   });
 });

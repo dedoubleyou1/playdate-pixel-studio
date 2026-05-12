@@ -52,6 +52,15 @@ export interface EditorGestureEvent {
   shiftKey: boolean;
 }
 
+export function selectionCombineModeForModifiers({
+  altKey,
+  shiftKey,
+}: Pick<EditorGestureEvent, "altKey" | "shiftKey">): SelectionCombineMode {
+  if (altKey) return "subtract";
+  if (shiftKey) return "add";
+  return "replace";
+}
+
 export interface GestureRenderBridge {
   requestCanvasRender: (movePreview?: LayerMovePreview | null) => void;
 }
