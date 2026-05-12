@@ -153,9 +153,10 @@ body {
   position: relative;
   width: calc(1px * var(--canvas-width, 400) * var(--zoom));
   height: calc(1px * var(--canvas-height, 240) * var(--zoom));
-  border: 1px solid #171719;
   background: white;
-  box-shadow: var(--shadow);
+  box-shadow:
+    0 0 0 1px #171719,
+    var(--shadow);
 }
 
 .canvas-wrap.is-drop-target {
