@@ -45,6 +45,8 @@ export interface Point {
   y: number;
 }
 
+export type BrushShape = "square" | "circle";
+
 export interface PixelSurface {
   width: number;
   height: number;
@@ -134,6 +136,7 @@ export interface EditorState {
   activeContext: EditContext;
   activeTool: Tool;
   brushSize: number;
+  brushShape: BrushShape;
   mirrorX: boolean;
   mirrorY: boolean;
   status: string;
@@ -148,6 +151,7 @@ interface BaseToolPreview {
 }
 
 export interface CanvasToolPreview extends BaseToolPreview {
+  brushShape: BrushShape;
   type: "line" | "rect" | "ellipse";
 }
 

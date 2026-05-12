@@ -14,6 +14,7 @@ import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 
 const defaultSettings: PixelToolSettings = {
   brushSize: 1,
+  brushShape: "square",
   mirrorX: false,
   mirrorY: false,
   paletteIndex: BLACK_PIXEL,
@@ -84,7 +85,7 @@ describe("pixel command helpers", () => {
     const layer = createLayer(1, "Layer 1");
     const preview = createCanvasToolPreview({ x: 1, y: 1 }, { x: 3, y: 1 }, "line", defaultSettings);
 
-    expect(preview).toMatchObject({ type: "line", brushSize: 1, mirrorX: false, mirrorY: false });
+    expect(preview).toMatchObject({ type: "line", brushSize: 1, brushShape: "square", mirrorX: false, mirrorY: false });
     expect(createCanvasToolPreview({ x: 1, y: 1 }, { x: 3, y: 3 }, "ellipse", defaultSettings)).toMatchObject({
       type: "ellipse",
     });

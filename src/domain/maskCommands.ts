@@ -1,8 +1,10 @@
+import { brushShapeContains } from "./brushes";
 import { indexFor, inBounds, mirroredPoints, walkEllipseOutline, walkLine, walkRectOutline } from "./pixelGeometry";
-import type { BinaryMaskSurface, CanvasToolPreview, Point, Tool } from "./types";
+import type { BinaryMaskSurface, BrushShape, CanvasToolPreview, Point, Tool } from "./types";
 
 export interface MaskToolSettings {
   brushSize: number;
+  brushShape: BrushShape;
   mirrorX: boolean;
   mirrorY: boolean;
   value: 0 | 1;
@@ -29,6 +31,7 @@ export function createMaskCanvasToolPreview(
     start,
     end,
     brushSize: settings.brushSize,
+    brushShape: settings.brushShape,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
   };
@@ -101,6 +104,7 @@ function drawMaskBrushAt(mask: BinaryMaskSurface, point: Point, settings: MaskTo
   for (const mirroredPoint of mirroredPoints(point.x, point.y, settings.mirrorX, settings.mirrorY, mask.width, mask.height)) {
     for (let yy = 0; yy < settings.brushSize; yy += 1) {
       for (let xx = 0; xx < settings.brushSize; xx += 1) {
+        if (!brushShapeContains(settings.brushShape, settings.brushSize, xx, yy)) continue;
         const x = mirroredPoint.x + xx - half;
         const y = mirroredPoint.y + yy - half;
         changed = setMaskValue(mask, x, y, settings.value) || changed;

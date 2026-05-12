@@ -7,6 +7,7 @@ export function pixelToolSettings(): PixelToolSettings {
   const state = useEditorStore.getState();
   return {
     brushSize: state.brushSize,
+    brushShape: state.brushShape,
     mirrorX: state.mirrorX,
     mirrorY: state.mirrorY,
     paletteIndex: state.activePaletteIndex,
@@ -18,6 +19,7 @@ export function maskToolSettings(tool: Tool): MaskToolSettings {
   const state = useEditorStore.getState();
   return {
     brushSize: state.brushSize,
+    brushShape: state.brushShape,
     mirrorX: state.mirrorX,
     mirrorY: state.mirrorY,
     value: tool === "eraser" ? 0 : 1,

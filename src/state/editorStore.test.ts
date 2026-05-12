@@ -103,6 +103,7 @@ describe("editor store revision semantics", () => {
 
     state.setCanvasToolPreview({
       brushSize: 1,
+      brushShape: "square",
       end: { x: 4, y: 4 },
       mirrorX: false,
       mirrorY: false,

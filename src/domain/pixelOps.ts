@@ -1,6 +1,7 @@
 import { maskContains } from "./masks";
+import { brushShapeContains } from "./brushes";
 import { indexFor, inBounds, mirroredPoints, walkEllipseOutline, walkLine, walkRectOutline } from "./pixelGeometry";
-import type { BinaryMaskSurface, PaletteIndex, PixelLayer, PixelSurface, PixelValue, Point } from "./types";
+import type { BinaryMaskSurface, BrushShape, PaletteIndex, PixelLayer, PixelSurface, PixelValue, Point } from "./types";
 
 export function setPixel(layer: PixelLayer, x: number, y: number, value: PixelValue): boolean {
   return setSurfacePixel(layer.surface, x, y, value);
@@ -16,6 +17,7 @@ export function setSurfacePixel(surface: PixelSurface, x: number, y: number, val
 
 export interface BrushOptions {
   paletteIndex: PaletteIndex;
+  shape: BrushShape;
   size: number;
   mirrorX: boolean;
   mirrorY: boolean;
@@ -36,6 +38,7 @@ export function drawBrushAt(layer: PixelLayer, point: Point, options: BrushOptio
   )) {
     for (let yy = 0; yy < options.size; yy += 1) {
       for (let xx = 0; xx < options.size; xx += 1) {
+        if (!brushShapeContains(options.shape, options.size, xx, yy)) continue;
         const x = mirroredPoint.x + xx - half;
         const y = mirroredPoint.y + yy - half;
         if (!maskContains(options.selectionMask, x, y)) continue;

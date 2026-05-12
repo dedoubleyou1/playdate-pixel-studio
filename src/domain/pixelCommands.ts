@@ -1,6 +1,7 @@
 import {
   TRANSPARENT_PIXEL,
   type BinaryMaskSurface,
+  type BrushShape,
   type CanvasToolPreview,
   type PaletteIndex,
   type PixelLayer,
@@ -11,6 +12,7 @@ import { drawBrushAt, drawEllipse, drawInterpolatedStroke, drawLine, drawRect, f
 
 export interface PixelToolSettings {
   brushSize: number;
+  brushShape: BrushShape;
   mirrorX: boolean;
   mirrorY: boolean;
   paletteIndex: PaletteIndex;
@@ -54,6 +56,7 @@ export function createCanvasToolPreview(
     start,
     end,
     brushSize: settings.brushSize,
+    brushShape: settings.brushShape,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
   };
@@ -111,6 +114,7 @@ export function applyPixelToolFinish(
 
 function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
   return {
+    shape: settings.brushShape,
     size: settings.brushSize,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,

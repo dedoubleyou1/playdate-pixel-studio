@@ -5,8 +5,8 @@ import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import { drawBrushAt, drawEllipse, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "./pixelOps";
 
 describe("pixel operations", () => {
-  const pencilOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: BLACK_PIXEL };
-  const eraserOptions = { size: 1, mirrorX: false, mirrorY: false, paletteIndex: TRANSPARENT_PIXEL };
+  const pencilOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, paletteIndex: BLACK_PIXEL };
+  const eraserOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, paletteIndex: TRANSPARENT_PIXEL };
 
   it("draws pencil, eraser, and palette-index brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
@@ -22,6 +22,7 @@ describe("pixel operations", () => {
       { x: 12, y: 12 },
       {
         size: 2,
+        shape: "square",
         mirrorX: false,
         mirrorY: false,
         paletteIndex: 3,
@@ -40,6 +41,7 @@ describe("pixel operations", () => {
         { x: 10, y: 10 },
         {
           size: 1,
+          shape: "square",
           mirrorX: false,
           mirrorY: false,
           paletteIndex: WHITE_PIXEL,
@@ -78,6 +80,18 @@ describe("pixel operations", () => {
     expect(layer.surface.data[indexFor(4, 4)]).toBe(1);
     expect(layer.surface.data[indexFor(5, 4)]).toBe(1);
     expect(layer.surface.data[indexFor(6, 4)]).toBe(1);
+  });
+
+  it("supports circle brush footprints", () => {
+    const layer = createLayer(1, "Layer 1", 7, 7);
+
+    drawBrushAt(layer, { x: 3, y: 3 }, { ...pencilOptions, shape: "circle", size: 3 });
+
+    expect(layer.surface.data[indexFor(3, 3, 7)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(3, 2, 7)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(2, 3, 7)]).toBe(BLACK_PIXEL);
+    expect(layer.surface.data[indexFor(2, 2, 7)]).toBe(TRANSPARENT_PIXEL);
+    expect(layer.surface.data[indexFor(4, 4, 7)]).toBe(TRANSPARENT_PIXEL);
   });
 
   it("flood fills enclosed regions", () => {

@@ -1,4 +1,5 @@
 import { inBounds, mirroredPoints, walkEllipseOutline, walkLine, walkRectOutline } from "../domain/pixelGeometry";
+import { brushShapeContains } from "../domain/brushes";
 import { defaultProjectPalette } from "../domain/palette";
 import type { CanvasToolPreview, EditTarget, Layer, ObjectDefinition, ProjectPalette } from "../domain/types";
 import type { PixelValue } from "../domain/types";
@@ -136,6 +137,7 @@ export class EditorCanvas {
     for (const point of mirroredPoints(x, y, preview.mirrorX, preview.mirrorY, this.width, this.height)) {
       for (let yy = 0; yy < preview.brushSize; yy += 1) {
         for (let xx = 0; xx < preview.brushSize; xx += 1) {
+          if (!brushShapeContains(preview.brushShape, preview.brushSize, xx, yy)) continue;
           const px = point.x + xx - half;
           const py = point.y + yy - half;
           if (inBounds(px, py, this.width, this.height)) {

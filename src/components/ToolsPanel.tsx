@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { toolUsesBrushSize } from "../domain/toolProperties";
-import type { EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
+import type { BrushShape, EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
@@ -60,7 +60,9 @@ export function ToolsPanel(): React.JSX.Element {
   const activePaletteIndex = useEditorStore((state) => state.activePaletteIndex);
   const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
   const brushSize = useEditorStore((state) => state.brushSize);
+  const brushShape = useEditorStore((state) => state.brushShape);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
+  const setBrushShape = useEditorStore((state) => state.setBrushShape);
   const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const editTarget = useEditorStore((state) => state.editTarget);
@@ -83,8 +85,10 @@ export function ToolsPanel(): React.JSX.Element {
     <EditorPanel side="left" aria-label="Drawing tools">
       <ToolPropertiesPane
         activeTool={activeTool}
+        brushShape={brushShape}
         brushSize={brushSize}
         propertiesEnabled={propertiesEnabled}
+        setBrushShape={setBrushShape}
         setBrushSize={setBrushSize}
       />
 
@@ -169,13 +173,17 @@ function SwatchesPane({
 
 function ToolPropertiesPane({
   activeTool,
+  brushShape,
   brushSize,
   propertiesEnabled,
+  setBrushShape,
   setBrushSize,
 }: {
   activeTool: Tool;
+  brushShape: BrushShape;
   brushSize: number;
   propertiesEnabled: boolean;
+  setBrushShape: (shape: BrushShape) => void;
   setBrushSize: (size: number) => void;
 }): React.JSX.Element {
   const hasBrushSize = toolUsesBrushSize(activeTool);
@@ -184,6 +192,27 @@ function ToolPropertiesPane({
   return (
     <EditorPane disabled={!propertiesEnabled}>
       <EditorPaneTitle className="mb-3">{toolLabel(activeTool)}</EditorPaneTitle>
+      <EditorControlRow className="mb-3 grid-cols-[58px_minmax(0,1fr)]">
+        <Label>Shape</Label>
+        <div className="flex gap-2">
+          <BrushShapeButton
+            active={brushShape === "square"}
+            disabled={!propertiesEnabled}
+            label="Square brush"
+            onSelect={() => setBrushShape("square")}
+          >
+            <Square />
+          </BrushShapeButton>
+          <BrushShapeButton
+            active={brushShape === "circle"}
+            disabled={!propertiesEnabled}
+            label="Circle brush"
+            onSelect={() => setBrushShape("circle")}
+          >
+            <Circle />
+          </BrushShapeButton>
+        </div>
+      </EditorControlRow>
       <EditorControlRow>
         <Label>Size</Label>
         <Slider
@@ -197,6 +226,32 @@ function ToolPropertiesPane({
         <strong className="text-right text-foreground">{brushSize}</strong>
       </EditorControlRow>
     </EditorPane>
+  );
+}
+
+function BrushShapeButton({
+  active,
+  children,
+  disabled,
+  label,
+  onSelect,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  disabled: boolean;
+  label: string;
+  onSelect: () => void;
+}): React.JSX.Element {
+  return (
+    <Button
+      variant={active ? "secondary" : "outline"}
+      size="icon"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onSelect}
+    >
+      {children}
+    </Button>
   );
 }
 

@@ -66,6 +66,7 @@ import type {
   LayerStack,
   ObjectDefinition,
   PaletteIndex,
+  BrushShape,
   PixelValue,
   PixelLayer,
   SelectionCombineMode,
@@ -120,6 +121,7 @@ export interface EditorSessionState {
   activeTool: Tool;
   activePaletteIndex: PaletteIndex;
   brushSize: number;
+  brushShape: BrushShape;
   mirrorX: boolean;
   mirrorY: boolean;
   gridVisible: boolean;
@@ -156,6 +158,7 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setTool: (tool: Tool) => void;
   setActivePaletteIndex: (index: PaletteIndex) => void;
   setBrushSize: (size: number) => void;
+  setBrushShape: (shape: BrushShape) => void;
   setMirrorX: (enabled: boolean) => void;
   setMirrorY: (enabled: boolean) => void;
   setGridVisible: (visible: boolean) => void;
@@ -228,6 +231,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   activeTool: "pencil",
   activePaletteIndex: BLACK_PIXEL,
   brushSize: 1,
+  brushShape: "square",
   mirrorX: false,
   mirrorY: false,
   gridVisible: false,
@@ -284,6 +288,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       status: `${paletteEntryLabel(state.palette, activePaletteIndex)} selected`,
     })),
   setBrushSize: (brushSize) => set({ brushSize }),
+  setBrushShape: (brushShape) => set({ brushShape }),
   setMirrorX: (mirrorX) => set({ mirrorX }),
   setMirrorY: (mirrorY) => set({ mirrorY }),
   setGridVisible: (gridVisible) =>
