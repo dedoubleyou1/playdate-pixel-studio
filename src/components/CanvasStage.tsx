@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState, type CSSProperties } from "react";
 import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -7,6 +7,7 @@ import { activeStack } from "../domain/layers";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import { useCanvasCursor } from "../hooks/useCanvasCursor";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { useCanvasZoomInput } from "../hooks/useCanvasZoomInput";
 import { useSelectionModifierCursor } from "../hooks/useSelectionModifierCursor";
 import { GridOverlay } from "./GridOverlay";
 import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
@@ -15,11 +16,6 @@ import { SelectionOverlay } from "./SelectionOverlay";
 import { selectionOverlaySource } from "../rendering/selectionOverlaySource";
 import { selectActiveSelection, useEditorStore } from "../state/editorStore";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
-
-const DEFAULT_ZOOM = 2;
-const MAX_ZOOM = 6;
-const MIN_ZOOM = 1;
-const WHEEL_ZOOM_STEP = 80;
 
 interface ObjectDropPreview {
   objectId: string;
@@ -33,8 +29,6 @@ export function CanvasStage(): React.JSX.Element {
   const [objectDropPreview, setObjectDropPreview] = useState<ObjectDropPreview | null>(null);
   const { clearSelectionModifierCursor, hoverSelectionCombineMode, updateSelectionModifierCursor } =
     useSelectionModifierCursor();
-  const zoom = useEditorStore((state) => state.zoom);
-  const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
@@ -57,7 +51,10 @@ export function CanvasStage(): React.JSX.Element {
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const pointerInsideCanvasRef = useRef(false);
-  const wheelZoomDeltaRef = useRef(0);
+  const { maxZoom, minZoom, resetWheelZoomDelta, setZoomFromSlider, zoom } = useCanvasZoomInput({
+    canvasWrap,
+    pointerInsideCanvasRef,
+  });
   const objectDropsEnabled = activeContext.type === "root";
   const { isDropTarget, ref: droppableRef } = useDroppable({
     id: CANVAS_DROP_ID,
@@ -67,12 +64,6 @@ export function CanvasStage(): React.JSX.Element {
     disabled: !objectDropsEnabled,
   });
 
-  useEffect(() => {
-    wrapRef.current?.style.setProperty("--zoom", String(zoom));
-    wrapRef.current?.style.setProperty("--canvas-width", String(stack.width));
-    wrapRef.current?.style.setProperty("--canvas-height", String(stack.height));
-  }, [stack.height, stack.width, zoom]);
-
   const setCanvasWrapRef = useCallback(
     (element: HTMLDivElement | null) => {
       wrapRef.current = element;
@@ -81,60 +72,6 @@ export function CanvasStage(): React.JSX.Element {
     },
     [droppableRef],
   );
-
-  const adjustZoom = useCallback(
-    (direction: -1 | 1) => {
-      setZoom(clampZoom(zoom + direction));
-    },
-    [setZoom, zoom],
-  );
-
-  useEffect(() => {
-    if (!canvasWrap) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
-
-      event.preventDefault();
-      wheelZoomDeltaRef.current += event.deltaY;
-
-      if (Math.abs(wheelZoomDeltaRef.current) < WHEEL_ZOOM_STEP) return;
-
-      adjustZoom(wheelZoomDeltaRef.current < 0 ? 1 : -1);
-      wheelZoomDeltaRef.current = 0;
-    };
-
-    canvasWrap.addEventListener("wheel", handleWheel, { passive: false });
-    return () => canvasWrap.removeEventListener("wheel", handleWheel);
-  }, [adjustZoom, canvasWrap]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!pointerInsideCanvasRef.current) return;
-      if (!event.metaKey && !event.ctrlKey) return;
-      if (event.altKey) return;
-
-      if (event.key === "+" || event.key === "=") {
-        event.preventDefault();
-        adjustZoom(1);
-        return;
-      }
-
-      if (event.key === "-" || event.key === "_") {
-        event.preventDefault();
-        adjustZoom(-1);
-        return;
-      }
-
-      if (event.key === "0") {
-        event.preventDefault();
-        setZoom(DEFAULT_ZOOM);
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [adjustZoom, setZoom]);
 
   const getDropPreviewFromEvent = useCallback(
     (event: {
@@ -196,13 +133,18 @@ export function CanvasStage(): React.JSX.Element {
         <div
           ref={setCanvasWrapRef}
           className={`canvas-wrap${isDropTarget ? " is-drop-target" : ""}`}
+          style={{
+            "--canvas-height": stack.height,
+            "--canvas-width": stack.width,
+            "--zoom": zoom,
+          } as CSSProperties}
           onPointerEnter={(event) => {
             pointerInsideCanvasRef.current = true;
             updateSelectionModifierCursor(event);
           }}
           onPointerLeave={() => {
             pointerInsideCanvasRef.current = false;
-            wheelZoomDeltaRef.current = 0;
+            resetWheelZoomDelta();
             clearSelectionModifierCursor();
           }}
         >
@@ -254,11 +196,11 @@ export function CanvasStage(): React.JSX.Element {
         >
           <Label>Zoom</Label>
           <Slider
-            min={MIN_ZOOM}
-            max={MAX_ZOOM}
+            min={minZoom}
+            max={maxZoom}
             step={1}
             value={[zoom]}
-            onValueChange={([value]) => setZoom(clampZoom(value ?? MIN_ZOOM))}
+            onValueChange={([value]) => setZoomFromSlider(value)}
           />
           <strong className="text-right text-xs">{zoom}x</strong>
         </EditorBarLeft>
@@ -282,10 +224,6 @@ function getCanvasPixelFromClient(
     x: Math.max(0, Math.min(width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * width))),
     y: Math.max(0, Math.min(height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * height))),
   };
-}
-
-function clampZoom(zoom: number): number {
-  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom));
 }
 
 function previewsEqual(left: ObjectDropPreview | null, right: ObjectDropPreview | null): boolean {
