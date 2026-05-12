@@ -73,6 +73,8 @@ export interface SelectionState {
   mask: BinaryMaskSurface;
 }
 
+export type SelectionCombineMode = "replace" | "add" | "subtract";
+
 export interface FloatingSelection {
   layerIndex: number;
   mask: BinaryMaskSurface;
@@ -150,5 +152,6 @@ export interface CanvasToolPreview extends BaseToolPreview {
 }
 
 export interface SelectionPreview extends BaseToolPreview {
+  combineMode: SelectionCombineMode;
   type: "rect" | "ellipse";
 }

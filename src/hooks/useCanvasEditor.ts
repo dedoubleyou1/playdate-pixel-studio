@@ -94,7 +94,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (!editorCanvas) return;
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
-      const gesture = beginEditorGesture({ point, shiftKey: event.shiftKey }, { requestCanvasRender });
+      const gesture = beginEditorGesture({ altKey: event.altKey, point, shiftKey: event.shiftKey }, { requestCanvasRender });
       gestureStateRef.current = gesture;
       if (isActiveGesture(gesture)) {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -112,7 +112,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       state.setCursorLabel(`x: ${point.x} y: ${point.y}`);
       gestureStateRef.current = updateEditorGesture(
         gestureStateRef.current,
-        { point, shiftKey: event.shiftKey },
+        { altKey: event.altKey, point, shiftKey: event.shiftKey },
         { requestCanvasRender },
       );
     },
@@ -127,7 +127,7 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       gestureStateRef.current = finishEditorGesture(
         gestureStateRef.current,
-        { point, shiftKey: event.shiftKey },
+        { altKey: event.altKey, point, shiftKey: event.shiftKey },
         { requestCanvasRender },
       );
     },

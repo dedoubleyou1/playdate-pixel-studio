@@ -6,6 +6,7 @@ import {
   type PixelSurface,
   type Point,
   type SelectionBounds,
+  type SelectionCombineMode,
   type SelectionState,
 } from "./types";
 
@@ -73,6 +74,26 @@ export function invertBinaryMaskSurface(mask: BinaryMaskSurface): BinaryMaskSurf
     inverted.data[index] = mask.data[index] ? 0 : 1;
   }
   return inverted;
+}
+
+export function combineBinaryMaskSurface(
+  base: BinaryMaskSurface | null | undefined,
+  next: BinaryMaskSurface,
+  mode: SelectionCombineMode,
+): BinaryMaskSurface {
+  if (mode === "replace") return cloneBinaryMaskSurface(next);
+
+  const combined = createBinaryMaskSurface(next.width, next.height);
+  for (let y = 0; y < next.height; y += 1) {
+    for (let x = 0; x < next.width; x += 1) {
+      const index = indexFor(x, y, next.width);
+      const baseValue = base && x < base.width && y < base.height ? base.data[indexFor(x, y, base.width)] === 1 : false;
+      const nextValue = next.data[index] === 1;
+      combined.data[index] = mode === "add" ? (baseValue || nextValue ? 1 : 0) : baseValue && !nextValue ? 1 : 0;
+    }
+  }
+
+  return combined;
 }
 
 export function createRectMask(width: number, height: number, start: Point, end: Point): BinaryMaskSurface {

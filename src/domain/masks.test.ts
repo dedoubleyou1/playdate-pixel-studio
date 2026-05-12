@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canvasSelectionToLayerMask,
   cloneBinaryMaskSurface,
+  combineBinaryMaskSurface,
   createBinaryMaskSurface,
   createEllipseMask,
   createRectMask,
@@ -22,6 +23,19 @@ describe("binary mask helpers", () => {
     expect(clone).toEqual(mask);
     expect(clone.data).not.toBe(mask.data);
     expect(Array.from(inverted.data)).toEqual([1, 0, 1, 1, 1, 1]);
+  });
+
+  it("combines masks by replacing, adding, and subtracting", () => {
+    const base = createBinaryMaskSurface(3, 1);
+    base.data[0] = 1;
+    base.data[1] = 1;
+    const next = createBinaryMaskSurface(3, 1);
+    next.data[1] = 1;
+    next.data[2] = 1;
+
+    expect(Array.from(combineBinaryMaskSurface(base, next, "replace").data)).toEqual([0, 1, 1]);
+    expect(Array.from(combineBinaryMaskSurface(base, next, "add").data)).toEqual([1, 1, 1]);
+    expect(Array.from(combineBinaryMaskSurface(base, next, "subtract").data)).toEqual([1, 0, 0]);
   });
 
   it("creates rectangular masks and computes bounds", () => {

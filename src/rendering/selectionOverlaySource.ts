@@ -1,4 +1,4 @@
-import { createEllipseMask, createRectMask } from "../domain/masks";
+import { combineBinaryMaskSurface, createEllipseMask, createRectMask } from "../domain/masks";
 import type { BinaryMaskSurface, SelectionPreview, SelectionState } from "../domain/types";
 
 export interface SelectionOverlaySource {
@@ -21,13 +21,14 @@ export function selectionOverlaySource({
   width: number;
 }): SelectionOverlaySource {
   if (selectionPreview) {
+    const previewMask =
+      selectionPreview.type === "ellipse"
+        ? createEllipseMask(width, height, selectionPreview.start, selectionPreview.end)
+        : createRectMask(width, height, selectionPreview.start, selectionPreview.end);
     return {
       dx: 0,
       dy: 0,
-      mask:
-        selectionPreview.type === "ellipse"
-          ? createEllipseMask(width, height, selectionPreview.start, selectionPreview.end)
-          : createRectMask(width, height, selectionPreview.start, selectionPreview.end),
+      mask: combineBinaryMaskSurface(activeSelection?.mask, previewMask, selectionPreview.combineMode),
     };
   }
 

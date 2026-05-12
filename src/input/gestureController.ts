@@ -22,7 +22,7 @@ export function beginEditorGesture(
   const point = event.point;
 
   if (isSelectionTool(tool)) {
-    return beginSelectionGesture(point, tool);
+    return beginSelectionGesture(point, tool, selectionCombineMode(event));
   }
 
   if (tool === "move") {
@@ -95,4 +95,10 @@ export function cancelEditorGesture(gesture: EditorGestureState, bridge: Gesture
 
 export function activeLayerStackSelector(state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">) {
   return activeStack(state);
+}
+
+function selectionCombineMode(event: EditorGestureEvent) {
+  if (event.altKey) return "subtract";
+  if (event.shiftKey) return "add";
+  return "replace";
 }

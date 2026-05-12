@@ -1,5 +1,5 @@
 import type { LayerMovePreview } from "../rendering/frameComposer";
-import type { Point, Tool } from "../domain/types";
+import type { Point, SelectionCombineMode, Tool } from "../domain/types";
 
 export interface GestureTransaction {
   commit: (changed: boolean, status?: string) => void;
@@ -11,6 +11,7 @@ export type EditorGestureState =
   | { type: "idle" }
   | {
       type: "selecting";
+      combineMode: SelectionCombineMode;
       start: Point;
       tool: Tool;
     }
@@ -46,6 +47,7 @@ export type EditorGestureState =
     };
 
 export interface EditorGestureEvent {
+  altKey?: boolean;
   point: Point;
   shiftKey: boolean;
 }

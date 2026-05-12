@@ -16,6 +16,7 @@ describe("selectionOverlaySource", () => {
       pendingSelectionMove: { dx: 2, dy: 1, floating: { mask: pending } },
       selectionPreview: {
         brushSize: 1,
+        combineMode: "replace",
         end: { x: 1, y: 1 },
         mirrorX: false,
         mirrorY: false,
@@ -40,6 +41,7 @@ describe("selectionOverlaySource", () => {
       pendingSelectionMove: null,
       selectionPreview: {
         brushSize: 1,
+        combineMode: "replace",
         end: { x: 4, y: 4 },
         mirrorX: false,
         mirrorY: false,
@@ -51,6 +53,55 @@ describe("selectionOverlaySource", () => {
 
     expect(source.mask?.data[indexFor(2, 2, 5)]).toBe(1);
     expect(source.mask?.data[indexFor(0, 0, 5)]).toBe(0);
+  });
+
+  it("previews added selections by unioning with committed selection", () => {
+    const committed = createBinaryMaskSurface(5, 5);
+    committed.data[indexFor(4, 4, 5)] = 1;
+
+    const source = selectionOverlaySource({
+      activeSelection: createSelectionStateFromMask(committed),
+      height: 5,
+      pendingSelectionMove: null,
+      selectionPreview: {
+        brushSize: 1,
+        combineMode: "add",
+        end: { x: 1, y: 1 },
+        mirrorX: false,
+        mirrorY: false,
+        start: { x: 0, y: 0 },
+        type: "rect",
+      },
+      width: 5,
+    });
+
+    expect(source.mask?.data[indexFor(0, 0, 5)]).toBe(1);
+    expect(source.mask?.data[indexFor(4, 4, 5)]).toBe(1);
+  });
+
+  it("previews subtracted selections by removing from committed selection", () => {
+    const committed = createBinaryMaskSurface(5, 5);
+    committed.data[indexFor(1, 1, 5)] = 1;
+    committed.data[indexFor(4, 4, 5)] = 1;
+
+    const source = selectionOverlaySource({
+      activeSelection: createSelectionStateFromMask(committed),
+      height: 5,
+      pendingSelectionMove: null,
+      selectionPreview: {
+        brushSize: 1,
+        combineMode: "subtract",
+        end: { x: 1, y: 1 },
+        mirrorX: false,
+        mirrorY: false,
+        start: { x: 1, y: 1 },
+        type: "rect",
+      },
+      width: 5,
+    });
+
+    expect(source.mask?.data[indexFor(1, 1, 5)]).toBe(0);
+    expect(source.mask?.data[indexFor(4, 4, 5)]).toBe(1);
   });
 
   it("uses pending selection moves before committed selections", () => {

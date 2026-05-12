@@ -120,6 +120,7 @@ describe("editor store revision semantics", () => {
 
     state.setSelectionPreview({
       brushSize: 1,
+      combineMode: "replace",
       end: { x: 4, y: 4 },
       mirrorX: false,
       mirrorY: false,
@@ -487,6 +488,22 @@ describe("editor store selection and alpha masks", () => {
     expect(useEditorStore.getState().rootSelection).toBeNull();
   });
 
+  it("adds and subtracts from the active selection", () => {
+    const state = useEditorStore.getState();
+    state.setSelectionFromRect({ x: 0, y: 0 }, { x: 1, y: 1 });
+    state.setSelectionFromRect({ x: 3, y: 3 }, { x: 3, y: 3 }, "add");
+
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(0, 0)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 3)]).toBe(1);
+
+    state.setSelectionFromRect({ x: 0, y: 0 }, { x: 0, y: 0 }, "subtract");
+
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(0, 0)]).toBe(0);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(3, 3)]).toBe(1);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 0, top: 0, right: 3, bottom: 3 });
+  });
+
   it("keeps newer selection edits when undoing an older document edit", () => {
     const state = useEditorStore.getState();
     const layer = currentActivePixelLayer();
@@ -568,6 +585,7 @@ describe("editor store selection and alpha masks", () => {
     if (gesture.type !== "drawingAlphaMask") throw new Error("Expected alpha mask gesture");
     finishAlphaMaskGesture(gesture, {
       point: { x: 0, y: 0 },
+      altKey: false,
       shiftKey: false,
     });
 

@@ -42,6 +42,7 @@ import {
   canvasSelectionToLayerMask,
   cloneBinaryMaskSurface,
   cloneSelectionState,
+  combineBinaryMaskSurface,
   createBinaryMaskSurface,
   createEllipseMask,
   createRectMask,
@@ -67,6 +68,7 @@ import type {
   PaletteIndex,
   PixelValue,
   PixelLayer,
+  SelectionCombineMode,
   SelectionPreview,
   SelectionState,
   Tool,
@@ -165,8 +167,12 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   setSelectionPreview: (preview: SelectionPreview | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
   setEditTarget: (target: EditTarget) => void;
-  setSelectionFromRect: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
-  setSelectionFromEllipse: (start: { x: number; y: number }, end: { x: number; y: number }) => void;
+  setSelectionFromRect: (start: { x: number; y: number }, end: { x: number; y: number }, mode?: SelectionCombineMode) => void;
+  setSelectionFromEllipse: (
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    mode?: SelectionCombineMode,
+  ) => void;
   clearSelection: () => void;
   addActiveLayerAlphaMask: () => void;
   removeActiveLayerAlphaMask: () => void;
@@ -306,13 +312,13 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
             viewRevision: state.viewRevision + 1,
           },
     ),
-  setSelectionFromRect: (start, end) => {
-    setSelectionFromMask(set, "Set selection", "Selection created", (width, height) =>
+  setSelectionFromRect: (start, end, mode = "replace") => {
+    setSelectionFromMask(set, selectionCommandLabel(mode, "selection"), selectionStatus(mode), mode, (width, height) =>
       createRectMask(width, height, start, end),
     );
   },
-  setSelectionFromEllipse: (start, end) => {
-    setSelectionFromMask(set, "Set ellipse selection", "Ellipse selection created", (width, height) =>
+  setSelectionFromEllipse: (start, end, mode = "replace") => {
+    setSelectionFromMask(set, selectionCommandLabel(mode, "ellipse selection"), selectionStatus(mode), mode, (width, height) =>
       createEllipseMask(width, height, start, end),
     );
   },
@@ -1294,14 +1300,16 @@ function setSelectionFromMask(
   set: typeof useEditorStore.setState,
   label: string,
   status: string,
+  mode: SelectionCombineMode,
   createMask: (width: number, height: number) => BinaryMaskSurface,
 ): void {
   const before = currentSnapshot();
   const beforeSelection = currentSelectionSnapshot();
   set((state) => {
     const stack = activeStack(state);
-    const selection = createSelectionStateFromMask(createMask(stack.width, stack.height));
-    return setActiveSelectionState(state, selection, status);
+    const combinedMask = combineBinaryMaskSurface(activeSelection(state)?.mask, createMask(stack.width, stack.height), mode);
+    const selection = createSelectionStateFromMask(combinedMask);
+    return setActiveSelectionState(state, selection.isEmpty ? null : selection, status);
   });
   pushCommand(
     set,
@@ -1310,6 +1318,18 @@ function setSelectionFromMask(
       beforeSelection,
     }),
   );
+}
+
+function selectionCommandLabel(mode: SelectionCombineMode, shape: string): string {
+  if (mode === "add") return `Add ${shape}`;
+  if (mode === "subtract") return `Subtract ${shape}`;
+  return shape === "ellipse selection" ? "Set ellipse selection" : "Set selection";
+}
+
+function selectionStatus(mode: SelectionCombineMode): string {
+  if (mode === "add") return "Selection added";
+  if (mode === "subtract") return "Selection subtracted";
+  return "Selection created";
 }
 
 type SelectionStateHost = {
