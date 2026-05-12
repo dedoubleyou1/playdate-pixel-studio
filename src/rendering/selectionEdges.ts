@@ -6,10 +6,10 @@ export interface SelectionHaloMask {
   data: Uint8Array;
 }
 
-export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): SelectionHaloMask {
-  const cellSize = Math.max(1, Math.round(zoom));
-  const width = mask.width * cellSize + 2;
-  const height = mask.height * cellSize + 2;
+export function createSelectionHaloMask(mask: BinaryMaskSurface, cellSize: number): SelectionHaloMask {
+  const safeCellSize = Math.max(1, Math.round(cellSize));
+  const width = mask.width * safeCellSize + 2;
+  const height = mask.height * safeCellSize + 2;
   const data = new Uint8Array(width * height);
 
   const markPixel = (x: number, y: number) => {
@@ -26,10 +26,10 @@ export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): 
     for (let cellX = 0; cellX < mask.width; cellX += 1) {
       if (!maskCell(mask, cellX, cellY)) continue;
 
-      const left = 1 + cellX * cellSize;
-      const top = 1 + cellY * cellSize;
-      const right = left + cellSize;
-      const bottom = top + cellSize;
+      const left = 1 + cellX * safeCellSize;
+      const top = 1 + cellY * safeCellSize;
+      const right = left + safeCellSize;
+      const bottom = top + safeCellSize;
 
       if (!maskCell(mask, cellX, cellY - 1)) {
         for (let x = left; x < right; x += 1) markPixel(x, top - 1);
@@ -50,7 +50,7 @@ export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): 
   }
 
   // Side-only halos overlap at inside notches; clear those corner joins so holes stay open.
-  clearConcaveInsideCorners(mask, cellSize, clearPixel);
+  clearConcaveInsideCorners(mask, safeCellSize, clearPixel);
 
   return { width, height, data };
 }
