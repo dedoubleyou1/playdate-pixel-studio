@@ -103,6 +103,19 @@ describe("editor gesture controller", () => {
     expect(useEditorStore.getState().activeSelectionCombineMode).toBeNull();
   });
 
+  it("uses shift as add mode instead of constraining ellipse selections", () => {
+    useEditorStore.setState({ activeTool: "ellipseSelect" });
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: true }, bridge);
+
+    gesture = updateEditorGesture(gesture, { point: { x: 4, y: 2 }, shiftKey: true }, bridge);
+    expect(useEditorStore.getState().selectionPreview?.end).toEqual({ x: 4, y: 2 });
+
+    gesture = finishEditorGesture(gesture, { point: { x: 4, y: 2 }, shiftKey: true }, bridge);
+
+    expect(gesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 0, top: 0, right: 4, bottom: 2 });
+  });
+
   it("resolves selection combine modifiers with alt taking precedence", () => {
     expect(selectionCombineModeForModifiers({ shiftKey: false })).toBe("replace");
     expect(selectionCombineModeForModifiers({ shiftKey: true })).toBe("add");

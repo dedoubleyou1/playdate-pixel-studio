@@ -23,18 +23,19 @@ export function SelectionOverlay({
   const [dashOffset, setDashOffset] = useState(0);
   const cellSize = Math.max(1, Math.round(zoom));
   const paths = useMemo(() => (mask ? traceSelectionBoundaryPaths(mask, cellSize) : []), [cellSize, mask]);
+  const hasPaths = paths.length > 0;
   const browserWidth = width * cellSize + 2;
   const browserHeight = height * cellSize + 2;
 
   useEffect(() => {
-    if (!mask) return;
+    if (!hasPaths) return;
 
     const intervalId = window.setInterval(() => {
       setDashOffset((current) => (current + 1) % (DASH_LENGTH * 2));
     }, DASH_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [mask]);
+  }, [hasPaths]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;

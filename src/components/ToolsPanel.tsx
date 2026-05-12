@@ -26,7 +26,7 @@ const TOOL_GROUPS: Array<{ id: string; label: string; tools: ToolButtonConfig[] 
     label: "Selection and movement",
     tools: [
       { tool: "marquee", label: "Marquee", shortcut: "M", icon: SquareDashed },
-      { tool: "ellipseSelect", label: "Ellipse Select", shortcut: "O", hint: "Shift for circle", icon: CircleDashed },
+      { tool: "ellipseSelect", label: "Ellipse Select", shortcut: "O", icon: CircleDashed },
       { tool: "move", label: "Move", shortcut: "V", icon: Move },
     ],
   },

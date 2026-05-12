@@ -1,5 +1,5 @@
 import { useEditorStore } from "../state/editorStore";
-import { constrainedShapeEndPoint, idleGestureState, selectionPreviewType, type EditorGestureEvent, type EditorGestureState } from "./gestureTypes";
+import { idleGestureState, selectionPreviewType, type EditorGestureEvent, type EditorGestureState } from "./gestureTypes";
 import type { Point, SelectionCombineMode, Tool } from "../domain/types";
 
 export function beginSelectionGesture(point: Point, tool: Tool, combineMode: SelectionCombineMode): EditorGestureState {
@@ -21,12 +21,11 @@ export function updateSelectionGesture(
   gesture: Extract<EditorGestureState, { type: "selecting" }>,
   event: EditorGestureEvent,
 ): EditorGestureState {
-  const previewPoint = constrainedShapeEndPoint(gesture.start, event.point, gesture.tool, event.shiftKey);
   useEditorStore.getState().setSelectionPreview({
     combineMode: gesture.combineMode,
     type: selectionPreviewType(gesture.tool),
     start: gesture.start,
-    end: previewPoint,
+    end: event.point,
     brushSize: 1,
     mirrorX: false,
     mirrorY: false,
@@ -39,11 +38,10 @@ export function finishSelectionGesture(
   event: EditorGestureEvent,
 ): EditorGestureState {
   const state = useEditorStore.getState();
-  const constrainedPoint = constrainedShapeEndPoint(gesture.start, event.point, gesture.tool, event.shiftKey);
   if (gesture.tool === "ellipseSelect") {
-    state.setSelectionFromEllipse(gesture.start, constrainedPoint, gesture.combineMode);
+    state.setSelectionFromEllipse(gesture.start, event.point, gesture.combineMode);
   } else {
-    state.setSelectionFromRect(gesture.start, constrainedPoint, gesture.combineMode);
+    state.setSelectionFromRect(gesture.start, event.point, gesture.combineMode);
   }
   state.setSelectionPreview(null);
   state.setActiveSelectionCombineMode(null);
