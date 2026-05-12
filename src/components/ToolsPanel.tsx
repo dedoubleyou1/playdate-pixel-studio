@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { toolUsesSizeAndMirror } from "../domain/toolProperties";
+import { toolUsesBrushSize } from "../domain/toolProperties";
 import type { EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
@@ -62,15 +61,11 @@ export function ToolsPanel(): React.JSX.Element {
   const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
   const brushSize = useEditorStore((state) => state.brushSize);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
-  const mirrorX = useEditorStore((state) => state.mirrorX);
-  const mirrorY = useEditorStore((state) => state.mirrorY);
-  const setMirrorX = useEditorStore((state) => state.setMirrorX);
-  const setMirrorY = useEditorStore((state) => state.setMirrorY);
   const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const editTarget = useEditorStore((state) => state.editTarget);
   const paletteEnabled = drawingEnabled && editTarget === "pixels";
-  const propertiesEnabled = (drawingEnabled || editTarget === "alphaMask") && toolUsesSizeAndMirror(activeTool);
+  const propertiesEnabled = (drawingEnabled || editTarget === "alphaMask") && toolUsesBrushSize(activeTool);
   const paletteGroups = [
     {
       id: "solid",
@@ -122,12 +117,8 @@ export function ToolsPanel(): React.JSX.Element {
       <ToolPropertiesPane
         activeTool={activeTool}
         brushSize={brushSize}
-        mirrorX={mirrorX}
-        mirrorY={mirrorY}
         propertiesEnabled={propertiesEnabled}
         setBrushSize={setBrushSize}
-        setMirrorX={setMirrorX}
-        setMirrorY={setMirrorY}
       />
       <ObjectLibrary />
     </EditorPanel>
@@ -179,44 +170,32 @@ function SwatchesPane({
 function ToolPropertiesPane({
   activeTool,
   brushSize,
-  mirrorX,
-  mirrorY,
   propertiesEnabled,
   setBrushSize,
-  setMirrorX,
-  setMirrorY,
 }: {
   activeTool: Tool;
   brushSize: number;
-  mirrorX: boolean;
-  mirrorY: boolean;
   propertiesEnabled: boolean;
   setBrushSize: (size: number) => void;
-  setMirrorX: (checked: boolean) => void;
-  setMirrorY: (checked: boolean) => void;
 }): React.JSX.Element {
-  const hasSizeAndMirror = toolUsesSizeAndMirror(activeTool);
+  const hasBrushSize = toolUsesBrushSize(activeTool);
 
   return (
     <EditorPane disabled={!propertiesEnabled}>
       <EditorPaneTitle className="mb-3">{toolLabel(activeTool)} Properties</EditorPaneTitle>
-      {hasSizeAndMirror ? (
-        <>
-          <EditorControlRow>
-            <Label>Size</Label>
-            <Slider
-              disabled={!propertiesEnabled}
-              min={1}
-              max={8}
-              step={1}
-              value={[brushSize]}
-              onValueChange={([value]) => setBrushSize(value ?? 1)}
-            />
-            <strong className="text-right text-foreground">{brushSize}</strong>
-          </EditorControlRow>
-          <ControlSwitch label="Mirror X" checked={mirrorX} disabled={!propertiesEnabled} onCheckedChange={setMirrorX} />
-          <ControlSwitch label="Mirror Y" checked={mirrorY} disabled={!propertiesEnabled} onCheckedChange={setMirrorY} />
-        </>
+      {hasBrushSize ? (
+        <EditorControlRow>
+          <Label>Size</Label>
+          <Slider
+            disabled={!propertiesEnabled}
+            min={1}
+            max={8}
+            step={1}
+            value={[brushSize]}
+            onValueChange={([value]) => setBrushSize(value ?? 1)}
+          />
+          <strong className="text-right text-foreground">{brushSize}</strong>
+        </EditorControlRow>
       ) : (
         <p className="text-sm text-muted-foreground">No properties</p>
       )}
@@ -318,24 +297,5 @@ function ToolButton({
         {config.hint ? `, ${config.hint}` : ""})
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function ControlSwitch({
-  label,
-  checked,
-  disabled,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}): React.JSX.Element {
-  return (
-    <div className="mt-3 flex items-center gap-2 text-sm">
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onCheckedChange} />
-      <Label>{label}</Label>
-    </div>
   );
 }
