@@ -1,33 +1,9 @@
 import type { BinaryMaskSurface } from "../domain/types";
 
-export type SelectionEdgeSide = "top" | "right" | "bottom" | "left";
-
-export interface SelectionEdge {
-  side: SelectionEdgeSide;
-  x: number;
-  y: number;
-}
-
 export interface SelectionHaloMask {
   width: number;
   height: number;
   data: Uint8Array;
-}
-
-export function exposedSelectionEdges(mask: BinaryMaskSurface): SelectionEdge[] {
-  const edges: SelectionEdge[] = [];
-
-  for (let y = 0; y < mask.height; y += 1) {
-    for (let x = 0; x < mask.width; x += 1) {
-      if (!maskCell(mask, x, y)) continue;
-      if (!maskCell(mask, x, y - 1)) edges.push({ side: "top", x, y });
-      if (!maskCell(mask, x + 1, y)) edges.push({ side: "right", x, y });
-      if (!maskCell(mask, x, y + 1)) edges.push({ side: "bottom", x, y });
-      if (!maskCell(mask, x - 1, y)) edges.push({ side: "left", x, y });
-    }
-  }
-
-  return edges;
 }
 
 export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): SelectionHaloMask {
@@ -39,6 +15,11 @@ export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): 
   const markPixel = (x: number, y: number) => {
     if (x < 0 || y < 0 || x >= width || y >= height) return;
     data[y * width + x] = 1;
+  };
+
+  const clearPixel = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    data[y * width + x] = 0;
   };
 
   for (let cellY = 0; cellY < mask.height; cellY += 1) {
@@ -65,13 +46,11 @@ export function createSelectionHaloMask(mask: BinaryMaskSurface, zoom: number): 
       if (!maskCell(mask, cellX - 1, cellY)) {
         for (let y = top; y < bottom; y += 1) markPixel(left - 1, y);
       }
-
-      if (!maskCell(mask, cellX - 1, cellY - 1)) markPixel(left - 1, top - 1);
-      if (!maskCell(mask, cellX + 1, cellY - 1)) markPixel(right, top - 1);
-      if (!maskCell(mask, cellX + 1, cellY + 1)) markPixel(right, bottom);
-      if (!maskCell(mask, cellX - 1, cellY + 1)) markPixel(left - 1, bottom);
     }
   }
+
+  // Side-only halos overlap at inside notches; clear those corner joins so holes stay open.
+  clearConcaveInsideCorners(mask, cellSize, clearPixel);
 
   return { width, height, data };
 }
@@ -85,4 +64,26 @@ export function checkerSelectionColorIndex(screenX: number, screenY: number, cel
 function maskCell(mask: BinaryMaskSurface, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= mask.width || y >= mask.height) return false;
   return mask.data[y * mask.width + x] === 1;
+}
+
+function clearConcaveInsideCorners(
+  mask: BinaryMaskSurface,
+  cellSize: number,
+  clearPixel: (x: number, y: number) => void,
+): void {
+  for (let cellY = 0; cellY < mask.height; cellY += 1) {
+    for (let cellX = 0; cellX < mask.width; cellX += 1) {
+      if (maskCell(mask, cellX, cellY)) continue;
+
+      const left = 1 + cellX * cellSize;
+      const top = 1 + cellY * cellSize;
+      const right = left + cellSize - 1;
+      const bottom = top + cellSize - 1;
+
+      if (maskCell(mask, cellX, cellY - 1) && maskCell(mask, cellX - 1, cellY)) clearPixel(left, top);
+      if (maskCell(mask, cellX, cellY - 1) && maskCell(mask, cellX + 1, cellY)) clearPixel(right, top);
+      if (maskCell(mask, cellX, cellY + 1) && maskCell(mask, cellX + 1, cellY)) clearPixel(right, bottom);
+      if (maskCell(mask, cellX, cellY + 1) && maskCell(mask, cellX - 1, cellY)) clearPixel(left, bottom);
+    }
+  }
 }

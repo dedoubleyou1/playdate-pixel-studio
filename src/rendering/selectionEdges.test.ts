@@ -1,48 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
-import { checkerSelectionColorIndex, createSelectionHaloMask, exposedSelectionEdges } from "./selectionEdges";
-
-describe("exposedSelectionEdges", () => {
-  it("emits outer edges for adjacent selected cells without shared interior edges", () => {
-    const mask = createBinaryMaskSurface(3, 3);
-    mask.data[indexFor(0, 0, 3)] = 1;
-    mask.data[indexFor(1, 0, 3)] = 1;
-
-    expect(exposedSelectionEdges(mask)).toEqual([
-      { side: "top", x: 0, y: 0 },
-      { side: "bottom", x: 0, y: 0 },
-      { side: "left", x: 0, y: 0 },
-      { side: "top", x: 1, y: 0 },
-      { side: "right", x: 1, y: 0 },
-      { side: "bottom", x: 1, y: 0 },
-    ]);
-  });
-
-  it("emits inner edges around holes", () => {
-    const mask = createBinaryMaskSurface(3, 3, true);
-    mask.data[indexFor(1, 1, 3)] = 0;
-
-    expect(exposedSelectionEdges(mask)).toEqual(
-      expect.arrayContaining([
-        { side: "bottom", x: 1, y: 0 },
-        { side: "right", x: 0, y: 1 },
-        { side: "left", x: 2, y: 1 },
-        { side: "top", x: 1, y: 2 },
-      ]),
-    );
-  });
-});
+import { checkerSelectionColorIndex, createSelectionHaloMask } from "./selectionEdges";
 
 describe("createSelectionHaloMask", () => {
-  it("marks all side strips and corners around a single selected cell", () => {
+  it("marks side strips around a single selected cell without corner pixels", () => {
     const mask = createBinaryMaskSurface(1, 1, true);
     const halo = createSelectionHaloMask(mask, 2);
 
     expect(halo.width).toBe(4);
     expect(halo.height).toBe(4);
     expect(haloPoints(halo)).toEqual(
-      new Set(["1,0", "2,0", "0,1", "3,1", "0,2", "3,2", "1,3", "2,3", "0,0", "3,0", "3,3", "0,3"]),
+      new Set(["1,0", "2,0", "0,1", "3,1", "0,2", "3,2", "1,3", "2,3"]),
     );
   });
 
@@ -82,16 +51,22 @@ describe("createSelectionHaloMask", () => {
     expect(points.has("2,3")).toBe(false);
   });
 
-  it("marks the inside halo around holes", () => {
+  it("marks the inside halo around holes without concave corner pixels", () => {
     const mask = createBinaryMaskSurface(3, 3, true);
     mask.data[indexFor(1, 1, 3)] = 0;
-    const halo = createSelectionHaloMask(mask, 2);
+    const halo = createSelectionHaloMask(mask, 4);
     const points = haloPoints(halo);
 
-    expect(points.has("3,3")).toBe(true);
-    expect(points.has("4,3")).toBe(true);
-    expect(points.has("3,4")).toBe(true);
-    expect(points.has("4,4")).toBe(true);
+    expect(points.has("6,5")).toBe(true);
+    expect(points.has("7,5")).toBe(true);
+    expect(points.has("5,6")).toBe(true);
+    expect(points.has("8,7")).toBe(true);
+    expect(points.has("6,8")).toBe(true);
+    expect(points.has("7,8")).toBe(true);
+    expect(points.has("5,5")).toBe(false);
+    expect(points.has("8,5")).toBe(false);
+    expect(points.has("8,8")).toBe(false);
+    expect(points.has("5,8")).toBe(false);
   });
 });
 
