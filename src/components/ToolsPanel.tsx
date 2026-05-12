@@ -81,6 +81,13 @@ export function ToolsPanel(): React.JSX.Element {
 
   return (
     <EditorPanel side="left" aria-label="Drawing tools">
+      <ToolPropertiesPane
+        activeTool={activeTool}
+        brushSize={brushSize}
+        propertiesEnabled={propertiesEnabled}
+        setBrushSize={setBrushSize}
+      />
+
       <EditorPane disabled={!layerSelected}>
         <EditorPaneTitle className="mb-3">Tools</EditorPaneTitle>
         <div className="space-y-3">
@@ -112,13 +119,6 @@ export function ToolsPanel(): React.JSX.Element {
         paletteEnabled={paletteEnabled}
         paletteGroups={paletteGroups}
         setActivePaletteIndex={setActivePaletteIndex}
-      />
-
-      <ToolPropertiesPane
-        activeTool={activeTool}
-        brushSize={brushSize}
-        propertiesEnabled={propertiesEnabled}
-        setBrushSize={setBrushSize}
       />
       <ObjectLibrary />
     </EditorPanel>
@@ -179,26 +179,23 @@ function ToolPropertiesPane({
   setBrushSize: (size: number) => void;
 }): React.JSX.Element {
   const hasBrushSize = toolUsesBrushSize(activeTool);
+  if (!hasBrushSize) return <></>;
 
   return (
     <EditorPane disabled={!propertiesEnabled}>
-      <EditorPaneTitle className="mb-3">{toolLabel(activeTool)} Properties</EditorPaneTitle>
-      {hasBrushSize ? (
-        <EditorControlRow>
-          <Label>Size</Label>
-          <Slider
-            disabled={!propertiesEnabled}
-            min={1}
-            max={8}
-            step={1}
-            value={[brushSize]}
-            onValueChange={([value]) => setBrushSize(value ?? 1)}
-          />
-          <strong className="text-right text-foreground">{brushSize}</strong>
-        </EditorControlRow>
-      ) : (
-        <p className="text-sm text-muted-foreground">No properties</p>
-      )}
+      <EditorPaneTitle className="mb-3">{toolLabel(activeTool)}</EditorPaneTitle>
+      <EditorControlRow>
+        <Label>Size</Label>
+        <Slider
+          disabled={!propertiesEnabled}
+          min={1}
+          max={8}
+          step={1}
+          value={[brushSize]}
+          onValueChange={([value]) => setBrushSize(value ?? 1)}
+        />
+        <strong className="text-right text-foreground">{brushSize}</strong>
+      </EditorControlRow>
     </EditorPane>
   );
 }
