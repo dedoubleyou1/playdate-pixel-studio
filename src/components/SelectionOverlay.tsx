@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { checkerSelectionColorIndex, createSelectionHaloMask } from "../rendering/selectionEdges";
-import type { SelectionHaloMask } from "../rendering/selectionEdges";
+import { traceSelectionBoundaryPaths } from "../rendering/selectionEdges";
+import type { SelectionBoundaryPath } from "../rendering/selectionEdges";
 import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 
-const CHECKER_CELL_CSS_PX = 4;
-const PHASE_INTERVAL_MS = 260;
+const DASH_LENGTH = 4;
+const DASH_INTERVAL_MS = 120;
 const SELECTION_COLORS = ["#7800ff", "#ffffff"] as const;
 
 export function SelectionOverlay({
@@ -20,9 +20,9 @@ export function SelectionOverlay({
 }): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { dx, dy, mask } = model;
-  const [phase, setPhase] = useState<0 | 1>(0);
+  const [dashOffset, setDashOffset] = useState(0);
   const cellSize = Math.max(1, Math.round(zoom));
-  const haloMask = useMemo(() => (mask ? createSelectionHaloMask(mask, cellSize) : null), [cellSize, mask]);
+  const paths = useMemo(() => (mask ? traceSelectionBoundaryPaths(mask, cellSize) : []), [cellSize, mask]);
   const browserWidth = width * cellSize + 2;
   const browserHeight = height * cellSize + 2;
 
@@ -30,8 +30,8 @@ export function SelectionOverlay({
     if (!mask) return;
 
     const intervalId = window.setInterval(() => {
-      setPhase((current) => (current === 0 ? 1 : 0));
-    }, PHASE_INTERVAL_MS);
+      setDashOffset((current) => (current + 1) % (DASH_LENGTH * 2));
+    }, DASH_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
   }, [mask]);
@@ -48,15 +48,14 @@ export function SelectionOverlay({
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, browserWidth, browserHeight);
 
-    if (!haloMask || browserWidth <= 0 || browserHeight <= 0) return;
+    if (paths.length === 0 || browserWidth <= 0 || browserHeight <= 0) return;
 
-    renderSelectionHalo(context, haloMask, {
-      checkerCellSize: CHECKER_CELL_CSS_PX,
+    renderSelectionPaths(context, paths, {
+      dashOffset,
       offsetX: dx * cellSize,
       offsetY: dy * cellSize,
-      phase,
     });
-  }, [browserHeight, browserWidth, cellSize, dx, dy, haloMask, phase]);
+  }, [browserHeight, browserWidth, cellSize, dashOffset, dx, dy, paths]);
 
   return (
     <canvas
@@ -75,30 +74,46 @@ export function SelectionOverlay({
   );
 }
 
-function renderSelectionHalo(
+function renderSelectionPaths(
   context: CanvasRenderingContext2D,
-  haloMask: SelectionHaloMask,
+  paths: SelectionBoundaryPath[],
   options: {
-    checkerCellSize: number;
+    dashOffset: number;
     offsetX: number;
     offsetY: number;
-    phase: 0 | 1;
   },
 ): void {
-  const canvasWidth = context.canvas.width;
-  const canvasHeight = context.canvas.height;
+  context.save();
+  context.translate(options.offsetX, options.offsetY);
+  context.lineWidth = 1;
+  context.lineCap = "butt";
+  context.lineJoin = "miter";
+  context.miterLimit = 2;
+  context.setLineDash([DASH_LENGTH, DASH_LENGTH]);
 
-  for (let y = 0; y < haloMask.height; y += 1) {
-    for (let x = 0; x < haloMask.width; x += 1) {
-      if (!haloMask.data[y * haloMask.width + x]) continue;
+  strokeSelectionPaths(context, paths, SELECTION_COLORS[0], -options.dashOffset);
+  strokeSelectionPaths(context, paths, SELECTION_COLORS[1], DASH_LENGTH - options.dashOffset);
+  context.restore();
+}
 
-      const screenX = x + options.offsetX;
-      const screenY = y + options.offsetY;
-      if (screenX < 0 || screenY < 0 || screenX >= canvasWidth || screenY >= canvasHeight) continue;
+function strokeSelectionPaths(
+  context: CanvasRenderingContext2D,
+  paths: SelectionBoundaryPath[],
+  color: string,
+  dashOffset: number,
+): void {
+  context.strokeStyle = color;
+  context.lineDashOffset = dashOffset;
 
-      context.fillStyle =
-        SELECTION_COLORS[checkerSelectionColorIndex(screenX, screenY, options.checkerCellSize, options.phase)];
-      context.fillRect(screenX, screenY, 1, 1);
+  for (const path of paths) {
+    const [firstPoint, ...remainingPoints] = path.points;
+    if (!firstPoint) continue;
+    context.beginPath();
+    context.moveTo(firstPoint.x, firstPoint.y);
+    for (const point of remainingPoints) {
+      context.lineTo(point.x, point.y);
     }
+    context.closePath();
+    context.stroke();
   }
 }
