@@ -1,12 +1,11 @@
 import { useCallback, useRef, useState, type CSSProperties } from "react";
-import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { CANVAS_DROP_ID } from "../dragDropIds";
 import { activeStack } from "../domain/layers";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
 import { useCanvasCursor } from "../hooks/useCanvasCursor";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
+import { useCanvasObjectDrop } from "../hooks/useCanvasObjectDrop";
 import { useCanvasZoomInput } from "../hooks/useCanvasZoomInput";
 import { useSelectionModifierCursor } from "../hooks/useSelectionModifierCursor";
 import { GridOverlay } from "./GridOverlay";
@@ -17,23 +16,15 @@ import { selectionOverlaySource } from "../rendering/selectionOverlaySource";
 import { selectActiveSelection, useEditorStore } from "../state/editorStore";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
-interface ObjectDropPreview {
-  objectId: string;
-  x: number;
-  y: number;
-}
-
 export function CanvasStage(): React.JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const [canvasWrap, setCanvasWrap] = useState<HTMLDivElement | null>(null);
-  const [objectDropPreview, setObjectDropPreview] = useState<ObjectDropPreview | null>(null);
   const { clearSelectionModifierCursor, hoverSelectionCombineMode, updateSelectionModifierCursor } =
     useSelectionModifierCursor();
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
-  const objects = useEditorStore((state) => state.objects);
   const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
   const activeSelection = useEditorStore(selectActiveSelection);
@@ -47,7 +38,6 @@ export function CanvasStage(): React.JSX.Element {
     width: stack.width,
   });
   const canvasCursor = useCanvasCursor(hoverSelectionCombineMode);
-  const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const pointerInsideCanvasRef = useRef(false);
@@ -55,68 +45,16 @@ export function CanvasStage(): React.JSX.Element {
     canvasWrap,
     pointerInsideCanvasRef,
   });
-  const objectDropsEnabled = activeContext.type === "root";
-  const { isDropTarget, ref: droppableRef } = useDroppable({
-    id: CANVAS_DROP_ID,
-    accept: "object",
-    type: "canvas",
-    data: { kind: "canvas" },
-    disabled: !objectDropsEnabled,
-  });
+  const { isDropTarget, objectDropPreview, previewObject, setDropTargetRef } = useCanvasObjectDrop(canvas);
 
   const setCanvasWrapRef = useCallback(
     (element: HTMLDivElement | null) => {
       wrapRef.current = element;
       setCanvasWrap((current) => (current === element ? current : element));
-      droppableRef(element);
+      setDropTargetRef(element);
     },
-    [droppableRef],
+    [setDropTargetRef],
   );
-
-  const getDropPreviewFromEvent = useCallback(
-    (event: {
-      nativeEvent?: Event;
-      operation: { source?: { data?: unknown } | null; target?: { id?: unknown } | null };
-    }) => {
-      if (!objectDropsEnabled) return null;
-      if (event.operation.target?.id !== CANVAS_DROP_ID) return null;
-
-      const objectId = getDraggedObjectId(event.operation.source?.data);
-      const object = objects.find((candidate) => candidate.id === objectId);
-      const coordinates = getClientCoordinates(event.nativeEvent);
-      if (!objectId || !object || !coordinates || !canvas) return null;
-
-      const center = getCanvasPixelFromClient(coordinates, canvas, stack.width, stack.height);
-      return {
-        objectId,
-        x: center.x - Math.floor(object.width / 2),
-        y: center.y - Math.floor(object.height / 2),
-      };
-    },
-    [canvas, objectDropsEnabled, objects, stack.height, stack.width],
-  );
-
-  const previewObject = objectDropPreview
-    ? objects.find((candidate) => candidate.id === objectDropPreview.objectId)
-    : null;
-
-  useDragDropMonitor({
-    onDragStart() {
-      setObjectDropPreview(null);
-    },
-    onDragMove(event) {
-      const preview = getDropPreviewFromEvent(event);
-      setObjectDropPreview((current) => (previewsEqual(current, preview) ? current : preview));
-    },
-    onDragEnd(event) {
-      const preview = getDropPreviewFromEvent(event) ?? objectDropPreview;
-      setObjectDropPreview(null);
-
-      if (!event.canceled && preview) {
-        placeObjectOnRoot(preview.objectId, { x: preview.x, y: preview.y });
-      }
-    },
-  });
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -211,40 +149,4 @@ export function CanvasStage(): React.JSX.Element {
       </EditorBar>
     </section>
   );
-}
-
-function getCanvasPixelFromClient(
-  coordinates: { clientX: number; clientY: number },
-  canvas: HTMLCanvasElement,
-  width: number,
-  height: number,
-): { x: number; y: number } {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: Math.max(0, Math.min(width - 1, Math.floor(((coordinates.clientX - rect.left) / rect.width) * width))),
-    y: Math.max(0, Math.min(height - 1, Math.floor(((coordinates.clientY - rect.top) / rect.height) * height))),
-  };
-}
-
-function previewsEqual(left: ObjectDropPreview | null, right: ObjectDropPreview | null): boolean {
-  if (left === right) return true;
-  if (!left || !right) return false;
-  return left.objectId === right.objectId && left.x === right.x && left.y === right.y;
-}
-
-function getDraggedObjectId(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-  const objectData = data as { kind?: unknown; objectId?: unknown };
-  return objectData.kind === "object" && typeof objectData.objectId === "string" ? objectData.objectId : null;
-}
-
-function getClientCoordinates(event: Event | undefined): { clientX: number; clientY: number } | null {
-  if (event && "clientX" in event && "clientY" in event) {
-    return {
-      clientX: Number(event.clientX),
-      clientY: Number(event.clientY),
-    };
-  }
-
-  return null;
 }
