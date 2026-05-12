@@ -3,8 +3,9 @@ import { useDragDropMonitor, useDroppable } from "@dnd-kit/react";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { CANVAS_DROP_ID } from "../dragDropIds";
-import { activeLayer, activeStack, isPixelEditableLayer } from "../domain/layers";
+import { activeStack } from "../domain/layers";
 import { objectThumbnailKey } from "../domain/thumbnailKeys";
+import { useCanvasCursor } from "../hooks/useCanvasCursor";
 import { useCanvasEditor } from "../hooks/useCanvasEditor";
 import { useSelectionModifierCursor } from "../hooks/useSelectionModifierCursor";
 import { GridOverlay } from "./GridOverlay";
@@ -13,7 +14,6 @@ import { ObjectContextBar } from "./ObjectContextBar";
 import { SelectionOverlay } from "./SelectionOverlay";
 import { selectionOverlaySource } from "../rendering/selectionOverlaySource";
 import { selectActiveSelection, useEditorStore } from "../state/editorStore";
-import { toolCursor } from "../toolCursors";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
 
 const DEFAULT_ZOOM = 2;
@@ -37,8 +37,6 @@ export function CanvasStage(): React.JSX.Element {
   const setZoom = useEditorStore((state) => state.setZoom);
   const gridVisible = useEditorStore((state) => state.gridVisible);
   const gridSize = useEditorStore((state) => state.gridSize);
-  const activeTool = useEditorStore((state) => state.activeTool);
-  const activeSelectionCombineMode = useEditorStore((state) => state.activeSelectionCombineMode);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
   const objects = useEditorStore((state) => state.objects);
@@ -54,20 +52,7 @@ export function CanvasStage(): React.JSX.Element {
     selectionPreview,
     width: stack.width,
   });
-  const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
-  const moveEnabled = useEditorStore((state) => Boolean(activeLayer(state)));
-  const maskEditingEnabled = useEditorStore((state) => state.editTarget === "alphaMask" && Boolean(activeLayer(state)));
-  const selectionCursorCombineMode = activeSelectionCombineMode ?? hoverSelectionCombineMode;
-  const canvasCursor =
-    activeTool === "marquee" || activeTool === "ellipseSelect"
-      ? toolCursor(activeTool, selectionCursorCombineMode)
-      : activeTool === "move"
-      ? moveEnabled
-        ? toolCursor(activeTool)
-        : "not-allowed"
-      : drawingEnabled || maskEditingEnabled
-        ? toolCursor(activeTool)
-        : "not-allowed";
+  const canvasCursor = useCanvasCursor(hoverSelectionCombineMode);
   const placeObjectOnRoot = useEditorStore((state) => state.placeObjectOnRoot);
   const handlers = useCanvasEditor(canvas);
   const wrapRef = useRef<HTMLDivElement | null>(null);
