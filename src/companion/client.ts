@@ -1,24 +1,27 @@
 import type { PreviewMode } from "../export/playdateExport";
 import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { packPlaydateFrame, PLAYDATE_FRAME_BYTES } from "./protocol";
-import { PDPS_STREAM_ID_HEADER } from "./streamMetadata";
-
-export const COMPANION_CONTROL_ORIGIN = "http://127.0.0.1:9137";
+import {
+  getDesktopBridgeDevices,
+  getDesktopBridgeHealth,
+  getDesktopBridgeSession,
+  sendDesktopBridgeFrame,
+} from "../desktop/desktopApi";
 
 export interface BridgeHealth {
   ok: boolean;
   service: string;
-  controlPort: number;
   streamPort: number;
   latestRevision: number | null;
   latestStreamId?: string | null;
+  latestFrameAgeMs?: number | null;
+  latestFrameBytes?: number | null;
   connectedDevices: number;
   devices?: BridgeDevice[];
 }
 
 export interface BridgeSession {
   sessionCode: string;
-  controlPort: number;
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
@@ -47,17 +50,26 @@ export interface FrameSendResult {
 }
 
 export async function fetchBridgeHealth(signal?: AbortSignal): Promise<BridgeHealth> {
-  return fetchBridgeJson<BridgeHealth>("/v1/health", signal);
+  throwIfAborted(signal);
+  const result = await getDesktopBridgeHealth();
+  throwIfAborted(signal);
+  return result;
 }
 
 export async function fetchBridgeSession(signal?: AbortSignal): Promise<BridgeSession> {
-  return fetchBridgeJson<BridgeSession>("/v1/session", signal);
+  throwIfAborted(signal);
+  const result = await getDesktopBridgeSession();
+  throwIfAborted(signal);
+  return result;
 }
 
 export async function fetchBridgeDevices(
   signal?: AbortSignal,
 ): Promise<{ connectedDevices: number; devices: BridgeDevice[] }> {
-  return fetchBridgeJson<{ connectedDevices: number; devices: BridgeDevice[] }>("/v1/devices", signal);
+  throwIfAborted(signal);
+  const result = await getDesktopBridgeDevices();
+  throwIfAborted(signal);
+  return result;
 }
 
 export async function sendFrameToBridge(
@@ -80,24 +92,15 @@ export async function sendFrameToBridge(
     packed.payload.byteOffset,
     packed.payload.byteOffset + packed.payload.byteLength,
   ) as ArrayBuffer;
-  const response = await fetch(`${COMPANION_CONTROL_ORIGIN}/v1/frame`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/octet-stream",
-      "x-pdps-revision": String(packed.revision),
-      "x-pdps-flags": String(packed.flags),
-      "x-pdps-crc32": String(packed.crc32),
-      [PDPS_STREAM_ID_HEADER]: streamId,
-    },
-    body,
-    signal,
+  throwIfAborted(signal);
+  const result = await sendDesktopBridgeFrame({
+    revision: packed.revision,
+    streamId,
+    flags: packed.flags,
+    payload: body,
+    crc32: packed.crc32,
   });
-
-  if (!response.ok) {
-    throw new Error(`Bridge rejected frame (${response.status}).`);
-  }
-
-  const result = (await response.json()) as { revision: number; streamId?: string };
+  throwIfAborted(signal);
   return {
     revision: result.revision,
     streamId: result.streamId ?? streamId,
@@ -107,10 +110,6 @@ export async function sendFrameToBridge(
   };
 }
 
-async function fetchBridgeJson<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${COMPANION_CONTROL_ORIGIN}${path}`, { signal });
-  if (!response.ok) {
-    throw new Error(`Bridge request failed (${response.status}).`);
-  }
-  return (await response.json()) as T;
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
 }

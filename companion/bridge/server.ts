@@ -1,21 +1,83 @@
-import http from "node:http";
 import net from "node:net";
 import os from "node:os";
-import { URL } from "node:url";
 import { encodeFramePacket, PLAYDATE_FRAME_BYTES } from "../../src/companion/protocol.ts";
-import {
-  normalizeStreamId,
-  PDPS_FRAME_REQUEST_HEADERS,
-  PDPS_STREAM_ID_HEADER,
-  shouldAcceptFrameRevision,
-} from "../../src/companion/streamMetadata.ts";
+import { normalizeStreamId, shouldAcceptFrameRevision } from "../../src/companion/streamMetadata.ts";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../../src/domain/constants.ts";
 
-const CONTROL_PORT = Number.parseInt(process.env.PDPS_CONTROL_PORT ?? "9137", 10);
-const STREAM_PORT = Number.parseInt(process.env.PDPS_STREAM_PORT ?? "9138", 10);
+const DEFAULT_STREAM_PORT = 9138;
 const DEFAULT_SESSION_CODE = "ABC123";
-const SESSION_CODE = (process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
-const ALLOWED_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost):\d+$/;
+
+export interface BridgeServerOptions {
+  streamPort?: number;
+  sessionCode?: string;
+}
+
+export interface BridgeServerHandle {
+  streamPort: number;
+  sessionCode: string;
+  stop: () => Promise<void>;
+  getHealth: () => BridgeHealth;
+  getSession: () => BridgeSession;
+  getDevices: () => BridgeDevicesPayload;
+  postFrame: (frame: BridgeFrameRequest) => BridgeFrameResult;
+}
+
+export interface BridgeDevice {
+  id: string;
+  address: string;
+  connectedForMs: number;
+  authenticatedForMs: number | null;
+  lastFrameAgeMs: number | null;
+  lastRevisionSent: number | null;
+  packetsSent: number;
+  bytesSent: number;
+}
+
+export interface BridgeHealth {
+  ok: boolean;
+  service: "playdate-pixel-studio-bridge";
+  streamPort: number;
+  latestRevision: number | null;
+  latestStreamId: string | null;
+  latestFrameAgeMs: number | null;
+  latestFrameBytes: number | null;
+  connectedDevices: number;
+  devices: BridgeDevice[];
+}
+
+export interface BridgeSession {
+  sessionCode: string;
+  streamPort: number;
+  hostCandidates: string[];
+  latestRevision: number | null;
+  latestStreamId: string | null;
+  connectedDevices: number;
+  devices: BridgeDevice[];
+}
+
+export interface BridgeDevicesPayload {
+  connectedDevices: number;
+  devices: BridgeDevice[];
+}
+
+export interface BridgeFrameRequest {
+  revision: number;
+  streamId?: string;
+  flags?: number;
+  payload: ArrayBuffer | Uint8Array;
+}
+
+export interface BridgeFrameResult {
+  ok: true;
+  ignored?: boolean;
+  revision: number;
+  streamId: string;
+  latestRevision?: number | null;
+  latestStreamId?: string | null;
+  bytes?: number;
+  connectedDevices: number;
+  devices: BridgeDevice[];
+}
 
 interface LatestFrame {
   revision: number;
@@ -46,199 +108,148 @@ interface StreamClient {
 let latestFrame: LatestFrame | null = null;
 let nextClientId = 1;
 const streamClients = new Set<StreamClient>();
+let streamPort = Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
+let sessionCode = (process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
+let activeHandle: BridgeServerHandle | null = null;
+let tcpServer: net.Server | null = null;
 
-const httpServer = http.createServer((request, response) => {
-  const origin = request.headers.origin;
-  if (origin && !ALLOWED_ORIGIN.test(origin)) {
-    writeJson(response, 403, { ok: false, error: "Origin is not allowed." });
-    return;
-  }
+export async function startBridge(options: BridgeServerOptions = {}): Promise<BridgeServerHandle> {
+  if (activeHandle) return activeHandle;
 
-  setCorsHeaders(response, origin);
+  streamPort = options.streamPort ?? Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
+  sessionCode = (options.sessionCode ?? process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
+  tcpServer = createTcpServer();
 
-  if (request.method === "OPTIONS") {
-    response.writeHead(204);
-    response.end();
-    return;
-  }
-
-  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "127.0.0.1"}`);
-
-  if (request.method === "GET" && url.pathname === "/v1/health") {
-    writeJson(response, 200, healthPayload());
-    return;
-  }
-
-  if (request.method === "GET" && url.pathname === "/v1/session") {
-    writeJson(response, 200, {
-      sessionCode: SESSION_CODE,
-      controlPort: CONTROL_PORT,
-      streamPort: STREAM_PORT,
-      hostCandidates: getLanAddresses(),
-      latestRevision: latestFrame?.revision ?? null,
-      latestStreamId: latestFrame?.streamId ?? null,
-      connectedDevices: readyClientCount(),
-      devices: readyClientSnapshots(),
-    });
-    return;
-  }
-
-  if (request.method === "GET" && url.pathname === "/v1/devices") {
-    writeJson(response, 200, {
-      connectedDevices: readyClientCount(),
-      devices: readyClientSnapshots(),
-    });
-    return;
-  }
-
-  if (request.method === "GET" && url.pathname === "/v1/frame.bin") {
-    if (!latestFrame) {
-      response.writeHead(404, { "content-type": "application/json" });
-      response.end(JSON.stringify({ ok: false, error: "No frame has been posted yet." }));
-      return;
-    }
-    response.writeHead(200, {
-      "content-type": "application/octet-stream",
-      "content-length": latestFrame.packet.byteLength,
-      "x-pdps-revision": String(latestFrame.revision),
-      [PDPS_STREAM_ID_HEADER]: latestFrame.streamId,
-    });
-    response.end(Buffer.from(latestFrame.packet));
-    return;
-  }
-
-  if (request.method === "POST" && url.pathname === "/v1/frame") {
-    void receiveFrame(request, response);
-    return;
-  }
-
-  writeJson(response, 404, { ok: false, error: "Unknown endpoint." });
-});
-
-const tcpServer = net.createServer((socket) => {
-  const client: StreamClient = {
-    id: `pd-${nextClientId.toString().padStart(2, "0")}`,
-    socket,
-    remoteAddress: `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`,
-    ready: false,
-    buffer: "",
-    connectedAt: Date.now(),
-    authenticatedAt: null,
-    lastSentAt: null,
-    lastRevisionSent: null,
-    packetsSent: 0,
-    bytesSent: 0,
-    awaitingDrain: false,
-    pendingPacket: null,
-    pendingRevision: null,
-  };
-  nextClientId += 1;
-  streamClients.add(client);
-  console.log(`Playdate TCP client ${client.id} connected from ${client.remoteAddress}`);
-
-  socket.on("data", (chunk) => {
-    if (client.ready) return;
-    client.buffer += chunk.toString("utf8");
-    const lineEnd = client.buffer.indexOf("\n");
-    if (lineEnd === -1) return;
-
-    const line = client.buffer.slice(0, lineEnd).trim();
-    if (line !== `HELLO ${SESSION_CODE}`) {
-      socket.end(`ERR SESSION\n`);
-      return;
-    }
-
-    client.ready = true;
-    client.authenticatedAt = Date.now();
-    socket.write(`OK ${SESSION_CODE}\n`);
-    if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
-    console.log(`Playdate TCP client ${client.id} authenticated from ${client.remoteAddress}`);
-  });
-
-  socket.on("drain", () => {
-    flushPendingFrame(client);
-  });
-
-  socket.on("close", () => {
-    streamClients.delete(client);
-    console.log(`Playdate TCP client ${client.id} disconnected from ${client.remoteAddress}`);
-  });
-
-  socket.on("error", (error) => {
-    streamClients.delete(client);
-    console.warn(`Playdate TCP client ${client.id} error from ${client.remoteAddress}: ${error.message}`);
-  });
-});
-
-httpServer.listen(CONTROL_PORT, "0.0.0.0", () => {
-  console.log(`Playdate Pixel Studio bridge HTTP listening on http://127.0.0.1:${CONTROL_PORT}`);
-  console.log(`Session ${SESSION_CODE}, LAN candidates: ${getLanAddresses().join(", ") || "none found"}`);
-});
-
-tcpServer.listen(STREAM_PORT, "0.0.0.0", () => {
-  console.log(`Playdate Pixel Studio bridge TCP listening on 0.0.0.0:${STREAM_PORT}`);
-});
-
-async function receiveFrame(request: http.IncomingMessage, response: http.ServerResponse): Promise<void> {
   try {
-    const body = await readRequestBody(request, PLAYDATE_FRAME_BYTES);
-    const revision = Number.parseInt(String(request.headers["x-pdps-revision"] ?? "0"), 10);
-    const streamId = normalizeStreamId(request.headers[PDPS_STREAM_ID_HEADER]);
-    const flags = Number.parseInt(String(request.headers["x-pdps-flags"] ?? "0"), 10);
+    await listen(tcpServer, streamPort, "0.0.0.0");
+  } catch (error) {
+    await closeServer(tcpServer);
+    tcpServer = null;
+    throw error;
+  }
 
-    if (!Number.isFinite(revision) || revision < 0) {
-      writeJson(response, 400, { ok: false, error: "Frame revision is invalid." });
-      return;
-    }
+  console.log(`Playdate Pixel Studio bridge TCP listening on 0.0.0.0:${streamPort}`);
+  console.log(`Session ${sessionCode}, LAN candidates: ${getLanAddresses().join(", ") || "none found"}`);
 
-    const acceptance = shouldAcceptFrameRevision(
-      latestFrame ? { revision: latestFrame.revision, streamId: latestFrame.streamId } : null,
-      { revision, streamId },
-    );
+  activeHandle = {
+    streamPort,
+    sessionCode,
+    stop: stopBridge,
+    getHealth: healthPayload,
+    getSession: sessionPayload,
+    getDevices: devicesPayload,
+    postFrame,
+  };
+  return activeHandle;
+}
 
-    if (!acceptance.accepted) {
-      writeJson(response, 202, {
-        ok: true,
-        ignored: true,
-        revision: acceptance.latestRevision,
-        streamId,
-        latestRevision: acceptance.latestRevision,
-        latestStreamId: acceptance.latestStreamId,
-        connectedDevices: readyClientCount(),
-        devices: readyClientSnapshots(),
-      });
-      return;
-    }
+function createTcpServer(): net.Server {
+  return net.createServer((socket) => {
+    const client: StreamClient = {
+      id: `pd-${nextClientId.toString().padStart(2, "0")}`,
+      socket,
+      remoteAddress: `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`,
+      ready: false,
+      buffer: "",
+      connectedAt: Date.now(),
+      authenticatedAt: null,
+      lastSentAt: null,
+      lastRevisionSent: null,
+      packetsSent: 0,
+      bytesSent: 0,
+      awaitingDrain: false,
+      pendingPacket: null,
+      pendingRevision: null,
+    };
+    nextClientId += 1;
+    streamClients.add(client);
+    console.log(`Playdate TCP client ${client.id} connected from ${client.remoteAddress}`);
 
-    const packet = encodeFramePacket({
-      width: PLAYDATE_WIDTH,
-      height: PLAYDATE_HEIGHT,
-      revision,
-      flags,
-      payload: body,
+    socket.on("data", (chunk) => {
+      if (client.ready) return;
+      client.buffer += chunk.toString("utf8");
+      const lineEnd = client.buffer.indexOf("\n");
+      if (lineEnd === -1) return;
+
+      const line = client.buffer.slice(0, lineEnd).trim();
+      if (line !== `HELLO ${sessionCode}`) {
+        socket.end(`ERR SESSION\n`);
+        return;
+      }
+
+      client.ready = true;
+      client.authenticatedAt = Date.now();
+      socket.write(`OK ${sessionCode}\n`);
+      if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
+      console.log(`Playdate TCP client ${client.id} authenticated from ${client.remoteAddress}`);
     });
 
-    latestFrame = {
-      revision,
-      streamId,
-      flags,
-      payload: body,
-      packet,
-      receivedAt: Date.now(),
-    };
-    broadcast(packet, revision);
-    writeJson(response, 200, {
+    socket.on("drain", () => {
+      flushPendingFrame(client);
+    });
+
+    socket.on("close", () => {
+      streamClients.delete(client);
+      console.log(`Playdate TCP client ${client.id} disconnected from ${client.remoteAddress}`);
+    });
+
+    socket.on("error", (error) => {
+      streamClients.delete(client);
+      console.warn(`Playdate TCP client ${client.id} error from ${client.remoteAddress}: ${error.message}`);
+    });
+  });
+}
+
+function postFrame(request: BridgeFrameRequest): BridgeFrameResult {
+  const revision = normalizeRevision(request.revision);
+  const streamId = normalizeStreamId(request.streamId);
+  const flags = normalizeFlags(request.flags);
+  const payload = normalizePayload(request.payload);
+
+  const acceptance = shouldAcceptFrameRevision(
+    latestFrame ? { revision: latestFrame.revision, streamId: latestFrame.streamId } : null,
+    { revision, streamId },
+  );
+
+  if (!acceptance.accepted) {
+    return {
       ok: true,
-      revision,
+      ignored: true,
+      revision: acceptance.latestRevision ?? revision,
       streamId,
-      bytes: body.byteLength,
+      latestRevision: acceptance.latestRevision,
+      latestStreamId: acceptance.latestStreamId,
       connectedDevices: readyClientCount(),
       devices: readyClientSnapshots(),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to read frame.";
-    writeJson(response, 400, { ok: false, error: message });
+    };
   }
+
+  const packet = encodeFramePacket({
+    width: PLAYDATE_WIDTH,
+    height: PLAYDATE_HEIGHT,
+    revision,
+    flags,
+    payload,
+  });
+
+  latestFrame = {
+    revision,
+    streamId,
+    flags,
+    payload,
+    packet,
+    receivedAt: Date.now(),
+  };
+  broadcast(packet, revision);
+
+  return {
+    ok: true,
+    revision,
+    streamId,
+    bytes: payload.byteLength,
+    connectedDevices: readyClientCount(),
+    devices: readyClientSnapshots(),
+  };
 }
 
 function broadcast(packet: Uint8Array, revision: number): void {
@@ -278,40 +289,11 @@ function writeFrameNow(client: StreamClient, packet: Uint8Array, revision: numbe
   client.awaitingDrain = !canAcceptMore;
 }
 
-function readRequestBody(request: http.IncomingMessage, expectedBytes: number): Promise<Uint8Array> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-
-    request.on("data", (chunk: Buffer) => {
-      total += chunk.byteLength;
-      if (total > expectedBytes) {
-        reject(new Error(`Frame payload is larger than ${expectedBytes} bytes.`));
-        request.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-
-    request.on("end", () => {
-      const body = Buffer.concat(chunks);
-      if (body.byteLength !== expectedBytes) {
-        reject(new Error(`Expected ${expectedBytes} bytes, received ${body.byteLength}.`));
-        return;
-      }
-      resolve(new Uint8Array(body));
-    });
-
-    request.on("error", reject);
-  });
-}
-
-function healthPayload(): Record<string, unknown> {
+function healthPayload(): BridgeHealth {
   return {
     ok: true,
     service: "playdate-pixel-studio-bridge",
-    controlPort: CONTROL_PORT,
-    streamPort: STREAM_PORT,
+    streamPort,
     latestRevision: latestFrame?.revision ?? null,
     latestStreamId: latestFrame?.streamId ?? null,
     latestFrameAgeMs: latestFrame ? Date.now() - latestFrame.receivedAt : null,
@@ -321,20 +303,23 @@ function healthPayload(): Record<string, unknown> {
   };
 }
 
-function writeJson(response: http.ServerResponse, status: number, payload: unknown): void {
-  const body = JSON.stringify(payload);
-  response.writeHead(status, {
-    "content-type": "application/json",
-    "content-length": Buffer.byteLength(body),
-  });
-  response.end(body);
+function sessionPayload(): BridgeSession {
+  return {
+    sessionCode,
+    streamPort,
+    hostCandidates: getLanAddresses(),
+    latestRevision: latestFrame?.revision ?? null,
+    latestStreamId: latestFrame?.streamId ?? null,
+    connectedDevices: readyClientCount(),
+    devices: readyClientSnapshots(),
+  };
 }
 
-function setCorsHeaders(response: http.ServerResponse, origin: string | undefined): void {
-  if (origin) response.setHeader("access-control-allow-origin", origin);
-  response.setHeader("vary", "origin");
-  response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
-  response.setHeader("access-control-allow-headers", PDPS_FRAME_REQUEST_HEADERS.join(","));
+function devicesPayload(): BridgeDevicesPayload {
+  return {
+    connectedDevices: readyClientCount(),
+    devices: readyClientSnapshots(),
+  };
 }
 
 function readyClientCount(): number {
@@ -345,7 +330,7 @@ function readyClientCount(): number {
   return count;
 }
 
-function readyClientSnapshots(): Array<Record<string, unknown>> {
+function readyClientSnapshots(): BridgeDevice[] {
   const now = Date.now();
   return [...streamClients]
     .filter((client) => client.ready && !client.socket.destroyed)
@@ -371,4 +356,68 @@ function getLanAddresses(): string[] {
     }
   }
   return addresses;
+}
+
+function listen(server: net.Server, port: number, host: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onError = (error: Error) => {
+      server.off("listening", onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off("error", onError);
+      resolve();
+    };
+
+    server.once("error", onError);
+    server.once("listening", onListening);
+    server.listen(port, host);
+  });
+}
+
+async function stopBridge(): Promise<void> {
+  for (const client of streamClients) {
+    client.socket.destroy();
+  }
+  streamClients.clear();
+  latestFrame = null;
+  activeHandle = null;
+  const server = tcpServer;
+  tcpServer = null;
+  if (server) await closeServer(server);
+}
+
+function closeServer(server: net.Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!server.listening) {
+      resolve();
+      return;
+    }
+
+    server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+function normalizeRevision(revision: number): number {
+  if (!Number.isFinite(revision) || revision < 0) {
+    throw new Error("Frame revision is invalid.");
+  }
+  return Math.floor(revision) >>> 0;
+}
+
+function normalizeFlags(flags: number | undefined): number {
+  if (flags === undefined) return 0;
+  if (!Number.isFinite(flags) || flags < 0) throw new Error("Frame flags are invalid.");
+  return Math.floor(flags) & 0xff;
+}
+
+function normalizePayload(payload: ArrayBuffer | Uint8Array): Uint8Array {
+  const bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+  if (bytes.byteLength !== PLAYDATE_FRAME_BYTES) {
+    throw new Error(`Expected ${PLAYDATE_FRAME_BYTES} frame bytes, received ${bytes.byteLength}.`);
+  }
+  return new Uint8Array(bytes);
 }

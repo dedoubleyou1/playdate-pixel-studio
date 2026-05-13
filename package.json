@@ -3,17 +3,42 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "dist-electron/electron/main.js",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
+    "dev": "npm run electron:dev",
+    "vite:dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "tsc --noEmit && vite build && npm run build:electron",
+    "build:electron": "node scripts/build-electron.mjs",
+    "electron:dev": "concurrently -k \"npm:vite:dev\" \"npm:electron:dev:app\"",
+    "electron:dev:app": "wait-on http://127.0.0.1:5173 && npm run build:electron && ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .",
+    "electron:start": "npm run build && electron .",
+    "electron:pack": "npm run build && electron-builder --mac --dir",
+    "electron:dist": "npm run build && electron-builder --mac",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview --host 127.0.0.1",
-    "typecheck": "tsc --noEmit",
-    "companion:bridge": "node --experimental-strip-types companion/bridge/server.ts"
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.electron.json --noEmit"
+  },
+  "build": {
+    "appId": "com.playdatepixelstudio.app",
+    "productName": "Playdate Pixel Studio",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.graphics-design"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -21,6 +46,10 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^42.0.1",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
@@ -28,7 +57,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wait-on": "^9.0.10"
   },
   "dependencies": {
     "@dnd-kit/react": "^0.4.0",

@@ -1,21 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { DesktopBridgeFrameRequest } from "../desktop/desktopApi";
 import { createDefaultPalette, createLayer } from "../domain/layers";
 import { WHITE_PIXEL } from "../domain/types";
 import { sendFrameToBridge } from "./client";
-import { PDPS_STREAM_ID_HEADER } from "./streamMetadata";
 
 describe("companion bridge client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  it("posts frames with the supplied document revision and stream id", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ revision: 8, streamId: "stream-1" }), {
-        headers: { "content-type": "application/json" },
-        status: 200,
-      }),
-    );
+  it("sends packed frames through the Electron bridge IPC API", async () => {
+    const sendFrame = vi.fn().mockResolvedValue({
+      ok: true,
+      revision: 8,
+      streamId: "stream-1",
+      bytes: 12_000,
+      connectedDevices: 0,
+      devices: [],
+    });
+    vi.stubGlobal("window", {
+      pdps: {
+        bridge: {
+          sendFrame,
+        },
+      },
+    });
 
     await sendFrameToBridge(
       [createLayer(1, "Layer")],
@@ -27,11 +37,11 @@ describe("companion bridge client", () => {
       "stream-1",
     );
 
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init?.method).toBe("POST");
-    expect(init?.headers).toMatchObject({
-      [PDPS_STREAM_ID_HEADER]: "stream-1",
-      "x-pdps-revision": "8",
-    });
+    const [[request]] = sendFrame.mock.calls as Array<[DesktopBridgeFrameRequest]>;
+    expect(request.revision).toBe(8);
+    expect(request.streamId).toBe("stream-1");
+    expect(request.flags).toBe(0);
+    expect(typeof request.crc32).toBe("number");
+    expect(request.payload).toBeInstanceOf(ArrayBuffer);
   });
 });

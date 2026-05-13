@@ -70,15 +70,6 @@ export async function createProjectBundle(
   return zip.generateAsync({ type: "blob" });
 }
 
-export function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("Unable to export canvas.");

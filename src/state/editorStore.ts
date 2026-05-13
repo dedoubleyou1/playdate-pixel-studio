@@ -73,7 +73,8 @@ import type {
   SelectionState,
   Tool,
 } from "../domain/types";
-import { createProjectBundle, createPlaydatePngCanvas, downloadBlob, type PreviewMode } from "../export/playdateExport";
+import { openProjectFileWithDesktopDialog, saveBlobWithDesktopDialog } from "../desktop/desktopApi";
+import { canvasToBlob, createProjectBundle, createPlaydatePngCanvas, type PreviewMode } from "../export/playdateExport";
 import {
   deleteProjectDocument,
   listProjectSummaries,
@@ -215,9 +216,10 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   loadMostRecentProject: () => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
-  exportProjectFile: () => void;
+  exportProjectFile: () => Promise<void>;
+  openProjectFile: () => Promise<void>;
   importProjectFile: (file: File) => Promise<void>;
-  exportPng: () => void;
+  exportPng: () => Promise<void>;
   exportBundle: () => Promise<void>;
 }
 
@@ -1159,68 +1161,58 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
     }
   },
 
-  exportProjectFile: () => {
-    const state = get();
-    const id = state.currentProjectId ?? crypto.randomUUID();
-    const document = serializeProject(currentSnapshot(), id, state.projectName);
-    downloadBlob(
-      new Blob([exportProjectJson(document)], { type: "application/json" }),
-      `${slugify(document.name)}.playdate-pixel.json`,
-    );
-    set({ status: "Project file exported" });
+  exportProjectFile: async () => {
+    try {
+      const state = get();
+      const id = state.currentProjectId ?? crypto.randomUUID();
+      const document = serializeProject(currentSnapshot(), id, state.projectName);
+      const saved = await saveBlobWithDesktopDialog(
+        new Blob([exportProjectJson(document)], { type: "application/json" }),
+        `${slugify(document.name)}.playdate-pixel.json`,
+      );
+      if (saved) set({ status: "Project file exported" });
+    } catch {
+      set({ status: "Unable to export project file" });
+    }
   },
 
-  importProjectFile: async (file) => {
+  openProjectFile: async () => {
     try {
-      const text = await file.text();
-      const document = parseProjectJson(text);
-      const snapshot = deserializeProject(document);
-      const normalizedDocument = serializeProject(snapshot, document.id, document.name);
-      const saved = await saveProjectDocument(normalizedDocument);
-      set((state) => ({
-        ...snapshotState(snapshot),
-        projectName: document.name,
-        currentProjectId: document.id,
-        savedDocumentRevision: state.documentRevision + 1,
-        pendingCommand: null,
-        pendingMove: null,
-        pendingSelectionMove: null,
-        undoStack: [],
-        redoStack: [],
-        canUndo: false,
-        canRedo: false,
-        canvasToolPreview: null,
-        selectionPreview: null,
-        activeSelectionCombineMode: null,
-        editTarget: "pixels",
-        rootSelection: null,
-        objectSelection: null,
-        status: "Project imported",
-        activePaletteIndex: BLACK_PIXEL,
-        documentRevision: state.documentRevision + 1,
-        viewRevision: state.viewRevision + 1,
-        hasUnsavedChanges: false,
-        recentProjects: mergeSummary(state.recentProjects, saved),
-      }));
+      const result = await openProjectFileWithDesktopDialog();
+      if (result.canceled) return;
+      if (!result.text) {
+        set({ status: "Unable to read project file" });
+        return;
+      }
+      await importProjectText(result.text);
     } catch {
       set({ status: "Unable to import project file" });
     }
   },
 
-  exportPng: () => {
-    const state = get();
-    const canvas = createPlaydatePngCanvas(
-      state.root.layers,
-      state.previewMode,
-      state.objects,
-      state.root.background,
-      state.palette,
-    );
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      downloadBlob(blob, `${slugify(state.projectName)}.png`);
-    }, "image/png");
-    set({ status: "PNG exported" });
+  importProjectFile: async (file) => {
+    try {
+      await importProjectText(await file.text());
+    } catch {
+      set({ status: "Unable to import project file" });
+    }
+  },
+
+  exportPng: async () => {
+    try {
+      const state = get();
+      const canvas = createPlaydatePngCanvas(
+        state.root.layers,
+        state.previewMode,
+        state.objects,
+        state.root.background,
+        state.palette,
+      );
+      const saved = await saveBlobWithDesktopDialog(await canvasToBlob(canvas), `${slugify(state.projectName)}.png`);
+      if (saved) set({ status: "PNG exported" });
+    } catch {
+      set({ status: "Unable to export PNG" });
+    }
   },
 
   exportBundle: async () => {
@@ -1235,13 +1227,45 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
         state.root.background,
         state.palette,
       );
-      downloadBlob(bundle, `${slugify(document.name)}.playdate-pixel.zip`);
-      set({ status: "Project bundle exported" });
+      const saved = await saveBlobWithDesktopDialog(bundle, `${slugify(document.name)}.playdate-pixel.zip`);
+      if (saved) set({ status: "Project bundle exported" });
     } catch {
       set({ status: "Unable to export project bundle" });
     }
   },
 }));
+
+async function importProjectText(text: string): Promise<void> {
+  const document = parseProjectJson(text);
+  const snapshot = deserializeProject(document);
+  const normalizedDocument = serializeProject(snapshot, document.id, document.name);
+  const saved = await saveProjectDocument(normalizedDocument);
+  useEditorStore.setState((state) => ({
+    ...snapshotState(snapshot),
+    projectName: document.name,
+    currentProjectId: document.id,
+    savedDocumentRevision: state.documentRevision + 1,
+    pendingCommand: null,
+    pendingMove: null,
+    pendingSelectionMove: null,
+    undoStack: [],
+    redoStack: [],
+    canUndo: false,
+    canRedo: false,
+    canvasToolPreview: null,
+    selectionPreview: null,
+    activeSelectionCombineMode: null,
+    editTarget: "pixels",
+    rootSelection: null,
+    objectSelection: null,
+    status: "Project imported",
+    activePaletteIndex: BLACK_PIXEL,
+    documentRevision: state.documentRevision + 1,
+    viewRevision: state.viewRevision + 1,
+    hasUnsavedChanges: false,
+    recentProjects: mergeSummary(state.recentProjects, saved),
+  }));
+}
 
 export function currentSnapshot(): EditorSnapshot {
   return snapshotFrom(useEditorStore.getState());

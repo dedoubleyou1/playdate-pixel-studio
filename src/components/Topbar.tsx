@@ -11,7 +11,6 @@ import {
   Undo2,
   Upload,
 } from "lucide-react";
-import { useRef } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Menubar,
@@ -59,10 +58,9 @@ export function Topbar(): React.JSX.Element {
   const saveProject = useEditorStore((state) => state.saveProject);
   const loadProject = useEditorStore((state) => state.loadProject);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
-  const importProjectFile = useEditorStore((state) => state.importProjectFile);
+  const openProjectFile = useEditorStore((state) => state.openProjectFile);
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportBundle = useEditorStore((state) => state.exportBundle);
-  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <EditorHeader aria-label="Application menu">
@@ -91,16 +89,20 @@ export function Topbar(): React.JSX.Element {
                   ))}
                 </MenubarSubContent>
               </MenubarSub>
-              <MenubarItem onSelect={() => importInputRef.current?.click()}>
+              <MenubarItem
+                onSelect={() => {
+                  void openProjectFile();
+                }}
+              >
                 <Upload />
                 Import Project
               </MenubarItem>
               <MenubarSeparator />
-              <MenubarItem onSelect={exportPng}>
+              <MenubarItem onSelect={() => void exportPng()}>
                 <Download />
                 Export PNG
               </MenubarItem>
-              <MenubarItem onSelect={exportProjectFile}>
+              <MenubarItem onSelect={() => void exportProjectFile()}>
                 <FileDown />
                 Export Project JSON
               </MenubarItem>
@@ -178,17 +180,6 @@ export function Topbar(): React.JSX.Element {
       <EditorHeaderRight>
         <PlaydateStreamMenu />
       </EditorHeaderRight>
-      <input
-        ref={importInputRef}
-        hidden
-        type="file"
-        accept=".json,.playdate-pixel.json,application/json"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file) void importProjectFile(file);
-          event.currentTarget.value = "";
-        }}
-      />
     </EditorHeader>
   );
 }
