@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  fetchPlaydateStreamHealth,
   fetchPlaydateStreamInfo,
   sendPlaydateStreamFrame,
   type PlaydateStreamDevice,
@@ -28,11 +27,7 @@ export interface PlaydateStreamController {
   streamActionDisabled: boolean;
   streamInfo: PlaydateStreamInfo | null;
   primaryHost: string;
-  lastSentRevision: number | null;
-  roundTripMs: number | null;
-  connectedDevices: number;
   devices: PlaydateStreamDevice[];
-  statusText: string;
   toggleStream: () => void;
 }
 
@@ -40,38 +35,29 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
   const [enabled, setEnabled] = useState(false);
   const [streamState, setStreamState] = useState<PlaydateStreamState>("idle");
   const [streamInfo, setStreamInfo] = useState<PlaydateStreamInfo | null>(null);
-  const [lastSentRevision, setLastSentRevision] = useState<number | null>(null);
-  const [roundTripMs, setRoundTripMs] = useState<number | null>(null);
-  const [connectedDevices, setConnectedDevices] = useState(0);
   const [devices, setDevices] = useState<PlaydateStreamDevice[]>([]);
-  const [statusText, setStatusText] = useState("Start streaming, then connect the companion.");
   const latestFrameRef = useRef(frameSource);
   const lastPostedRevisionRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
   const streamRunIdRef = useRef(0);
-  const preserveStatusOnCleanupRef = useRef(false);
 
   useEffect(() => {
     latestFrameRef.current = frameSource;
   }, [frameSource]);
 
-  const primaryHost = useMemo(() => streamInfo?.hostCandidates[0] ?? "your-computer-ip", [streamInfo]);
+  const primaryHost = useMemo(() => streamInfo?.hostCandidates[0] ?? "Unavailable", [streamInfo]);
   const streamStatusLabel = statusLabelForState(streamState);
   const streamActionDisabled = streamState === "starting" || streamState === "stopping";
 
   const resetStreamSnapshot = useCallback((): void => {
-    setConnectedDevices(0);
     setDevices([]);
     setStreamInfo(null);
-    setLastSentRevision(null);
-    setRoundTripMs(null);
     lastPostedRevisionRef.current = null;
   }, []);
 
   const toggleStream = useCallback((): void => {
     if (enabled) {
       setStreamState("stopping");
-      setStatusText("Stopping Playdate stream.");
       resetStreamSnapshot();
       setEnabled(false);
       return;
@@ -93,19 +79,14 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
 
     const refreshStreamInfo = async (): Promise<void> => {
       try {
-        const [nextStreamInfo, health] = await Promise.all([
-          fetchPlaydateStreamInfo(controller.signal),
-          fetchPlaydateStreamHealth(controller.signal),
-        ]);
+        const nextStreamInfo = await fetchPlaydateStreamInfo(controller.signal);
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         setStreamInfo(nextStreamInfo);
-        setConnectedDevices(health.connectedDevices);
         setDevices(nextStreamInfo.devices ?? []);
         setStreamState("online");
       } catch {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         setStreamState("offline");
-        setConnectedDevices(0);
         setDevices([]);
         setStreamInfo(null);
       }
@@ -132,17 +113,12 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
           if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
           setStreamState("online");
           lastPostedRevisionRef.current = result.revision;
-          setLastSentRevision(result.revision);
-          setRoundTripMs(result.roundTripMs);
-          setStatusText(
-            `Streaming document revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`,
-          );
           void refreshStreamInfo();
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
+          console.warn(error instanceof Error ? error.message : "Unable to stream to the Playdate.");
           setStreamState("offline");
-          setStatusText(error instanceof Error ? error.message : "Unable to stream to the Playdate.");
         })
         .finally(() => {
           if (streamRunIdRef.current === runId) {
@@ -154,12 +130,10 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     const startStream = async () => {
       try {
         setStreamState("starting");
-        setStatusText("Starting Playdate stream.");
         await startDesktopStream();
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         await refreshStreamInfo();
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
-        setStatusText("Stream ready. Connect the companion, then edit to send frames.");
         sendLatestFrame();
         sendInterval = window.setInterval(sendLatestFrame, 100);
         refreshInterval = window.setInterval(() => {
@@ -167,9 +141,8 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
         }, 3000);
       } catch (error) {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
+        console.warn(error instanceof Error ? error.message : "Unable to start the Playdate stream.");
         setStreamState("offline");
-        setStatusText(error instanceof Error ? error.message : "Unable to start the Playdate stream.");
-        preserveStatusOnCleanupRef.current = true;
         setEnabled(false);
       }
     };
@@ -177,26 +150,20 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     void startStream();
 
     return () => {
-      const preserveStatus = preserveStatusOnCleanupRef.current;
-      preserveStatusOnCleanupRef.current = false;
       controller.abort();
       streamRunIdRef.current += 1;
       if (sendInterval !== null) window.clearInterval(sendInterval);
       if (refreshInterval !== null) window.clearInterval(refreshInterval);
       sendInFlightRef.current = false;
-      if (!preserveStatus) {
-        setStreamState("stopping");
-        setStatusText("Stopping Playdate stream.");
-      }
+      setStreamState("stopping");
       void Promise.resolve()
         .then(() => stopDesktopStream())
         .catch((error: unknown) => {
           console.warn(error instanceof Error ? error.message : "Unable to stop the Playdate stream.");
         })
         .finally(() => {
-          if (streamRunIdRef.current === runId + 1 && !preserveStatus) {
+          if (streamRunIdRef.current === runId + 1) {
             setStreamState("idle");
-            setStatusText("Start streaming, then connect the companion.");
           }
         });
     };
@@ -209,11 +176,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     streamActionDisabled,
     streamInfo,
     primaryHost,
-    lastSentRevision,
-    roundTripMs,
-    connectedDevices,
     devices,
-    statusText,
     toggleStream,
   };
 }

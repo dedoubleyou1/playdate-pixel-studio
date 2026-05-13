@@ -23,7 +23,6 @@ export interface DesktopStreamStatus {
 }
 
 export interface DesktopStreamDevice {
-  id: string;
   address: string;
   connectedForMs: number;
   readyForMs: number | null;

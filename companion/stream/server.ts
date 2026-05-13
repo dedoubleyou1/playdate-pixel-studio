@@ -22,7 +22,6 @@ export interface PlaydateStreamServerHandle {
 }
 
 export interface PlaydateStreamDevice {
-  id: string;
   address: string;
   connectedForMs: number;
   readyForMs: number | null;
@@ -89,6 +88,7 @@ interface LatestFrame {
 interface StreamClient {
   id: string;
   socket: net.Socket;
+  remoteHost: string;
   remoteAddress: string;
   ready: boolean;
   buffer: string;
@@ -143,6 +143,7 @@ function createTcpServer(): net.Server {
     const client: StreamClient = {
       id: `pd-${nextClientId.toString().padStart(2, "0")}`,
       socket,
+      remoteHost: socket.remoteAddress ?? "unknown",
       remoteAddress: `${socket.remoteAddress ?? "unknown"}:${socket.remotePort ?? "?"}`,
       ready: false,
       buffer: "",
@@ -174,6 +175,7 @@ function createTcpServer(): net.Server {
 
       client.ready = true;
       client.readyAt = Date.now();
+      replaceReadyClientForHost(client);
       socket.write("OK\n");
       if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
       console.log(`Playdate TCP client ${client.id} ready from ${client.remoteAddress}`);
@@ -184,15 +186,29 @@ function createTcpServer(): net.Server {
     });
 
     socket.on("close", () => {
-      streamClients.delete(client);
+      removeClient(client);
       console.log(`Playdate TCP client ${client.id} disconnected from ${client.remoteAddress}`);
     });
 
     socket.on("error", (error) => {
-      streamClients.delete(client);
+      removeClient(client);
       console.warn(`Playdate TCP client ${client.id} error from ${client.remoteAddress}: ${error.message}`);
     });
   });
+}
+
+function replaceReadyClientForHost(nextClient: StreamClient): void {
+  for (const client of streamClients) {
+    if (client === nextClient || client.remoteHost !== nextClient.remoteHost) continue;
+    removeClient(client);
+    client.socket.destroy();
+  }
+}
+
+function removeClient(client: StreamClient): void {
+  client.pendingPacket = null;
+  client.pendingRevision = null;
+  streamClients.delete(client);
 }
 
 function postFrame(request: PlaydateStreamFrameRequest): PlaydateStreamFrameResult {
@@ -329,7 +345,6 @@ function readyClientSnapshots(): PlaydateStreamDevice[] {
   return [...streamClients]
     .filter((client) => client.ready && !client.socket.destroyed)
     .map((client) => ({
-      id: client.id,
       address: client.remoteAddress,
       connectedForMs: now - client.connectedAt,
       readyForMs: client.readyAt ? now - client.readyAt : null,

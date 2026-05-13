@@ -21,8 +21,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     setCompanionActionRunning(true);
     setCompanionActionStatus(null);
     try {
-      const result = await saveCompanionPdxWithDesktopDialog();
-      if (!result.canceled) setCompanionActionStatus("Companion saved.");
+      await saveCompanionPdxWithDesktopDialog();
     } catch (error) {
       setCompanionActionStatus(error instanceof Error ? error.message : "Unable to save companion.");
     } finally {
@@ -35,7 +34,6 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     setCompanionActionStatus(null);
     try {
       await openCompanionPdxInSimulator();
-      setCompanionActionStatus("Companion opened in Simulator.");
     } catch (error) {
       setCompanionActionStatus(error instanceof Error ? error.message : "Unable to open companion in Simulator.");
     } finally {
@@ -53,51 +51,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
       </PopoverTrigger>
       <PopoverContent className="playdate-stream-menu" align="end">
         <div className="stream-menu-header">
-          <div>
-            <h2 className="text-sm font-medium">Playdate Stream</h2>
-            <p className="mt-1 text-xs text-muted-foreground">{stream.statusText}</p>
-          </div>
-          <div className={`stream-status is-${stream.streamState}`}>
-            <Wifi size={15} aria-hidden />
-            {stream.streamStatusLabel}
-          </div>
+          <h2 className="text-sm font-medium">Playdate Stream</h2>
         </div>
-
-        <div className="stream-readout-grid">
-          <Readout label="Target" value={`${stream.primaryHost}:${stream.streamInfo?.streamPort ?? 9138}`} />
-          <Readout label="Revision" value={stream.lastSentRevision?.toString() ?? "--"} />
-          <Readout label="Latency" value={stream.roundTripMs === null ? "--" : `${stream.roundTripMs} ms`} />
-          <Readout label="Devices" value={stream.connectedDevices.toString()} />
-        </div>
-
-        <div className="stream-device-list" aria-label="Connected Playdate devices">
-          {stream.devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No connected Playdate devices yet.</p>
-          ) : (
-            stream.devices.map((device) => (
-              <div className="stream-device-row text-xs" key={device.id}>
-                <div>
-                  <strong className="truncate">{device.id}</strong>
-                  <span className="truncate text-muted-foreground">{device.address}</span>
-                </div>
-                <span className="truncate text-muted-foreground">rev {device.lastRevisionSent ?? "--"}</span>
-                <span className="truncate text-muted-foreground">{device.packetsSent} packets</span>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="stream-menu-actions">
-          <Button onClick={() => void saveCompanion()} variant="outline" disabled={companionActionRunning}>
-            <Download size={16} aria-hidden />
-            Save companion
-          </Button>
-          <Button onClick={() => void openCompanion()} variant="outline" disabled={companionActionRunning}>
-            <MonitorPlay size={16} aria-hidden />
-            Open in Simulator
-          </Button>
-        </div>
-        {companionActionStatus ? <div className="text-xs text-muted-foreground">{companionActionStatus}</div> : null}
 
         <div className="stream-menu-actions">
           <Button
@@ -108,9 +63,52 @@ export function PlaydateStreamMenu(): React.JSX.Element {
             {stream.enabled ? <Square size={16} aria-hidden /> : <RadioTower size={16} aria-hidden />}
             {stream.enabled ? "Stop stream" : "Start stream"}
           </Button>
+          <div className={`stream-status is-${stream.streamState}`}>
+            <Wifi size={15} aria-hidden />
+            {stream.streamStatusLabel}
+          </div>
         </div>
 
-        <div className="text-xs text-muted-foreground">The Playdate target is available while streaming is active.</div>
+        {stream.enabled ? (
+          <>
+            <div className="stream-readout-grid">
+              <Readout label="Host" value={stream.primaryHost} />
+              <Readout label="Port" value={`${stream.streamInfo?.streamPort ?? 9138}`} />
+            </div>
+
+            <div className="stream-section">
+              <h3 className="text-xs font-medium uppercase text-muted-foreground">Connected Devices</h3>
+              <div className="stream-device-list" aria-label="Connected Playdate devices">
+                {stream.devices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No Devices Connected</p>
+                ) : (
+                  stream.devices.map((device) => (
+                    <div className="stream-device-row text-xs" key={device.address}>
+                      <div>
+                        <span className="truncate text-muted-foreground">{device.address}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <div className="stream-companion-section">
+          <h3 className="text-xs font-medium uppercase text-muted-foreground">PD Pixel Preview</h3>
+          <div className="stream-menu-actions">
+            <Button onClick={() => void openCompanion()} variant="outline" disabled={companionActionRunning}>
+              <MonitorPlay size={16} aria-hidden />
+              Open in Simulator
+            </Button>
+            <Button onClick={() => void saveCompanion()} variant="outline" disabled={companionActionRunning}>
+              <Download size={16} aria-hidden />
+              Save .pdx
+            </Button>
+          </div>
+          {companionActionStatus ? <div className="text-xs text-muted-foreground">{companionActionStatus}</div> : null}
+        </div>
       </PopoverContent>
     </Popover>
   );

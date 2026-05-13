@@ -69,6 +69,18 @@ describe("Playdate TCP stream service", () => {
     socket.destroy();
   });
 
+  it("replaces older ready connections from the same host", async () => {
+    const port = await getAvailablePort();
+    stream = await startPlaydateStreamServer({ streamPort: port });
+    const firstSocket = await connectPlaydateClient(port);
+    const secondSocket = await connectPlaydateClient(port);
+
+    expect(stream.getDevices().connectedDevices).toBe(1);
+    await waitForSocketClose(firstSocket);
+
+    secondSocket.destroy();
+  });
+
   it("rejects stale revisions within a stream but accepts a new stream generation", async () => {
     const port = await getAvailablePort();
     stream = await startPlaydateStreamServer({ streamPort: port });
@@ -150,6 +162,15 @@ function connectPlaydateClient(port: number): Promise<net.Socket> {
         return;
       }
       resolve(socket);
+    });
+  });
+}
+
+function waitForSocketClose(socket: net.Socket): Promise<void> {
+  if (socket.destroyed) return Promise.resolve();
+  return new Promise((resolve) => {
+    socket.once("close", () => {
+      resolve();
     });
   });
 }

@@ -26,9 +26,6 @@ local reconnectAfterMs = 0
 local openTcpRequested = false
 local closingTcp = false
 local status = "Press A to connect"
-local latestRevision = nil
-local framesReceived = 0
-local framesRejected = 0
 local lastFrameMs = nil
 local showOverlay = true
 local pendingKeyboardField = nil
@@ -131,7 +128,6 @@ local function processPackets()
         local payloadBytes = u32At(rx, 17)
         if headerBytes ~= HEADER_BYTES or payloadBytes ~= FRAME_BYTES then
             rx = string.sub(rx, 2)
-            framesRejected += 1
             status = "Rejected malformed frame"
         else
             local packetBytes = headerBytes + payloadBytes
@@ -142,12 +138,9 @@ local function processPackets()
 
             local ok, result = playdate.applyPDPSFrame(packet)
             if ok then
-                latestRevision = result
-                framesReceived += 1
                 lastFrameMs = playdate.getCurrentTimeMilliseconds()
                 status = "Streaming"
             else
-                framesRejected += 1
                 status = result
             end
         end
@@ -247,20 +240,11 @@ local function drawOverlay()
     gfx.setColor(gfx.kColorBlack)
     gfx.drawRect(0, 0, 400, 54)
 
-    local frameAge = "--"
-    if lastFrameMs then
-        frameAge = tostring(playdate.getCurrentTimeMilliseconds() - lastFrameMs) .. " ms"
-    end
-
     local text = string.format(
-        "PD Pixel Preview  %s:%s  %s\nRev %s  Frames %i  Rejected %i  Age %s",
+        "PD Pixel Preview  %s:%s\n%s",
         config.host,
         config.port,
-        status,
-        latestRevision or "--",
-        framesReceived,
-        framesRejected,
-        frameAge
+        status
     )
     gfx.drawTextInRect(text, 6, 5, 388, 46)
 end

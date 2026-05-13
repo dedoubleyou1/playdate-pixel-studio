@@ -30,7 +30,6 @@ export interface PlaydateStreamInfo {
 }
 
 export interface PlaydateStreamDevice {
-  id: string;
   address: string;
   connectedForMs: number;
   readyForMs: number | null;
