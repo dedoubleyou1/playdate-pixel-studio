@@ -16,7 +16,8 @@ export interface DesktopFileResult {
 export interface DesktopBridgeStatus {
   ok: boolean;
   running: boolean;
-  restarting: boolean;
+  starting: boolean;
+  stopping: boolean;
   error: string | null;
   streamPort: number | null;
   sessionCode: string | null;
@@ -83,12 +84,12 @@ export interface PlaydatePixelDesktopApi {
     openProjectFile: () => Promise<DesktopFileResult>;
   };
   bridge: {
-    getStatus: () => Promise<DesktopBridgeStatus>;
+    start: () => Promise<DesktopBridgeStatus>;
+    stop: () => Promise<DesktopBridgeStatus>;
     getHealth: () => Promise<DesktopBridgeHealth>;
     getSession: () => Promise<DesktopBridgeSession>;
     getDevices: () => Promise<{ connectedDevices: number; devices: DesktopBridgeDevice[] }>;
     sendFrame: (request: DesktopBridgeFrameRequest) => Promise<DesktopBridgeFrameResult>;
-    restart: () => Promise<DesktopBridgeStatus>;
   };
 }
 
@@ -117,9 +118,14 @@ export async function openProjectFileWithDesktopDialog(): Promise<DesktopFileRes
   return result;
 }
 
-export async function getDesktopBridgeStatus(): Promise<DesktopBridgeStatus> {
+export async function startDesktopBridge(): Promise<DesktopBridgeStatus> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.getStatus();
+  return desktopApi.bridge.start();
+}
+
+export async function stopDesktopBridge(): Promise<DesktopBridgeStatus> {
+  const desktopApi = requireDesktopApi();
+  return desktopApi.bridge.stop();
 }
 
 export async function getDesktopBridgeHealth(): Promise<DesktopBridgeHealth> {
@@ -144,11 +150,6 @@ export async function sendDesktopBridgeFrame(
   const result = await desktopApi.bridge.sendFrame(request);
   if (!result.ok) throw new Error(result.error ?? "Unable to stream frame.");
   return result;
-}
-
-export async function restartDesktopBridge(): Promise<DesktopBridgeStatus> {
-  const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.restart();
 }
 
 function requireDesktopApi(): PlaydatePixelDesktopApi {

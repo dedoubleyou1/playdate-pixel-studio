@@ -23,7 +23,8 @@ interface DesktopActionResult {
 let mainWindow: BrowserWindow | null = null;
 let bridgeHandle: BridgeServerHandle | null = null;
 let bridgeError: string | null = null;
-let bridgeRestarting = false;
+let bridgeStarting: Promise<void> | null = null;
+let bridgeStopping: Promise<void> | null = null;
 
 const electronDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -62,7 +63,9 @@ function loadRendererUrl(window: BrowserWindow, rendererUrl: string): void {
 }
 
 function loadPackagedRenderer(window: BrowserWindow): void {
-  const indexPath = path.join(app.getAppPath(), "dist", "index.html");
+  const indexPath = app.isPackaged
+    ? path.join(process.resourcesPath, "app.asar.unpacked", "dist", "index.html")
+    : path.join(app.getAppPath(), "dist", "index.html");
   void window.loadFile(indexPath).catch((error: unknown) => {
     console.error(`Unable to load packaged renderer ${indexPath}: ${errorMessage(error)}`);
   });
@@ -110,9 +113,15 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("pdps:bridge-status", () => ({
-    ...bridgeStatusPayload(),
-  }));
+  ipcMain.handle("pdps:bridge-start", async () => {
+    await startPlaydateBridge();
+    return bridgeStatusPayload();
+  });
+
+  ipcMain.handle("pdps:bridge-stop", async () => {
+    await stopPlaydateBridge();
+    return bridgeStatusPayload();
+  });
 
   ipcMain.handle("pdps:bridge-health", () => requireBridge().getHealth());
 
@@ -135,10 +144,6 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("pdps:bridge-restart", async () => {
-    await restartPlaydateBridge();
-    return bridgeStatusPayload();
-  });
 }
 
 function createApplicationMenu(): void {
@@ -177,40 +182,54 @@ function createApplicationMenu(): void {
 }
 
 async function startPlaydateBridge(): Promise<void> {
-  try {
-    bridgeHandle = await startBridge();
-    bridgeError = null;
-  } catch (error) {
-    bridgeHandle = null;
-    bridgeError = errorMessage(error);
-    console.warn(`Playdate bridge did not start: ${bridgeError}`);
+  if (bridgeStopping) {
+    await bridgeStopping;
   }
+  if (bridgeHandle) return;
+  if (bridgeStarting) return bridgeStarting;
+  bridgeError = null;
+
+  bridgeStarting = startBridge()
+    .then((handle) => {
+      bridgeHandle = handle;
+      bridgeError = null;
+    })
+    .catch((error: unknown) => {
+      bridgeHandle = null;
+      bridgeError = errorMessage(error);
+      console.warn(`Playdate stream did not start: ${bridgeError}`);
+      throw error;
+    })
+    .finally(() => {
+      bridgeStarting = null;
+    });
+
+  return bridgeStarting;
 }
 
-async function restartPlaydateBridge(): Promise<void> {
-  if (bridgeRestarting) return;
+async function stopPlaydateBridge(): Promise<void> {
+  if (bridgeStarting) {
+    await bridgeStarting.catch(() => undefined);
+  }
+  if (bridgeStopping) return bridgeStopping;
+  if (!bridgeHandle) return;
 
-  bridgeRestarting = true;
-  const previousBridge = bridgeHandle;
+  const bridge = bridgeHandle;
   bridgeHandle = null;
   bridgeError = null;
 
-  try {
-    if (previousBridge) await previousBridge.stop();
-    await startPlaydateBridge();
-  } catch (error) {
-    bridgeHandle = null;
-    bridgeError = errorMessage(error);
-    console.warn(`Playdate bridge restart failed: ${bridgeError}`);
-  } finally {
-    bridgeRestarting = false;
-  }
+  bridgeStopping = bridge.stop().finally(() => {
+    bridgeStopping = null;
+  });
+
+  return bridgeStopping;
 }
 
 function bridgeStatusPayload(): {
   ok: boolean;
   running: boolean;
-  restarting: boolean;
+  starting: boolean;
+  stopping: boolean;
   error: string | null;
   streamPort: number | null;
   sessionCode: string | null;
@@ -218,7 +237,8 @@ function bridgeStatusPayload(): {
   return {
     ok: bridgeError === null && Boolean(bridgeHandle),
     running: Boolean(bridgeHandle),
-    restarting: bridgeRestarting,
+    starting: Boolean(bridgeStarting),
+    stopping: Boolean(bridgeStopping),
     error: bridgeError,
     streamPort: bridgeHandle?.streamPort ?? null,
     sessionCode: bridgeHandle?.sessionCode ?? null,
@@ -264,7 +284,6 @@ function errorMessage(error: unknown): string {
 void app.whenReady().then(() => {
   registerIpcHandlers();
   createApplicationMenu();
-  void startPlaydateBridge();
   createMainWindow();
 
   app.on("activate", () => {
@@ -280,7 +299,5 @@ app.on("before-quit", (event) => {
   if (!bridgeHandle) return;
 
   event.preventDefault();
-  const bridge = bridgeHandle;
-  bridgeHandle = null;
-  void bridge.stop().finally(() => app.quit());
+  void stopPlaydateBridge().finally(() => app.quit());
 });

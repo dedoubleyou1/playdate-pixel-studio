@@ -23,7 +23,13 @@ export default tseslint.config(
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ["electron/*.ts", "electron/*.cts", "scripts/*.mjs", "companion/bridge/server.test.ts"],
+          allowDefaultProject: [
+            "electron/*.ts",
+            "electron/*.cts",
+            "scripts/*.mjs",
+            "companion/bridge/server.ts",
+            "companion/bridge/server.test.ts",
+          ],
         },
         tsconfigRootDir: import.meta.dirname,
       },

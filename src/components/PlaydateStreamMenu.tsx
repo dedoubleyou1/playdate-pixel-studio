@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RadioTower, RefreshCw, Square, Wifi } from "lucide-react";
+import { RadioTower, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -9,10 +9,10 @@ import {
   type BridgeDevice,
   type BridgeSession,
 } from "../companion/client";
-import { getDesktopBridgeStatus, restartDesktopBridge } from "../desktop/desktopApi";
+import { startDesktopBridge, stopDesktopBridge } from "../desktop/desktopApi";
 import { useEditorStore } from "../state/editorStore";
 
-type BridgeState = "checking" | "online" | "offline" | "restarting";
+type BridgeState = "idle" | "starting" | "online" | "offline" | "stopping";
 
 export function PlaydateStreamMenu(): React.JSX.Element {
   const layers = useEditorStore((state) => state.root.layers);
@@ -22,14 +22,13 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const documentRevision = useEditorStore((state) => state.documentRevision);
   const previewMode = useEditorStore((state) => state.previewMode);
   const [enabled, setEnabled] = useState(false);
-  const [bridgeState, setBridgeState] = useState<BridgeState>("checking");
+  const [bridgeState, setBridgeState] = useState<BridgeState>("idle");
   const [session, setSession] = useState<BridgeSession | null>(null);
   const [lastSentRevision, setLastSentRevision] = useState<number | null>(null);
   const [roundTripMs, setRoundTripMs] = useState<number | null>(null);
   const [connectedDevices, setConnectedDevices] = useState(0);
   const [devices, setDevices] = useState<BridgeDevice[]>([]);
-  const [restartInFlight, setRestartInFlight] = useState(false);
-  const [statusText, setStatusText] = useState("Connect the companion, then stream.");
+  const [statusText, setStatusText] = useState("Start streaming, then connect the companion.");
   const latestFrameRef = useRef({ background, layers, objects, palette, previewMode, documentRevision });
   const lastPostedRevisionRef = useRef<number | null>(null);
   const sendInFlightRef = useRef(false);
@@ -37,7 +36,16 @@ export function PlaydateStreamMenu(): React.JSX.Element {
 
   const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
   const bridgeStatusLabel =
-    bridgeState === "online" ? "Online" : bridgeState === "restarting" ? "Restarting" : bridgeState === "checking" ? "Checking" : "Offline";
+    bridgeState === "online"
+      ? "Streaming"
+      : bridgeState === "starting"
+        ? "Starting"
+        : bridgeState === "stopping"
+          ? "Stopping"
+          : bridgeState === "idle"
+            ? "Idle"
+            : "Offline";
+  const streamActionDisabled = bridgeState === "starting" || bridgeState === "stopping";
 
   useEffect(() => {
     latestFrameRef.current = { background, layers, objects, palette, previewMode, documentRevision };
@@ -47,26 +55,22 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     async (signal?: AbortSignal): Promise<void> => {
       try {
         const [nextSession, health] = await Promise.all([fetchBridgeSession(signal), fetchBridgeHealth(signal)]);
+        if (signal?.aborted) return;
         setSession(nextSession);
         setConnectedDevices(health.connectedDevices);
         setDevices(nextSession.devices ?? []);
         setBridgeState("online");
         if (!enabled) {
-          setStatusText("Built-in bridge ready. Stream when the companion says waiting for frames.");
+          setStatusText("Stream stopped.");
         }
       } catch {
         if (!signal?.aborted) {
-          const desktopStatus = await getDesktopBridgeStatus().catch(() => null);
-          setBridgeState(desktopStatus?.restarting ? "restarting" : "offline");
+          setBridgeState("offline");
           setConnectedDevices(0);
           setDevices([]);
           setSession(null);
           if (!enabled) {
-            if (desktopStatus?.restarting) setStatusText("Built-in bridge is restarting.");
-            else if (desktopStatus && !desktopStatus.ok) {
-              setStatusText(`Built-in bridge failed to start: ${desktopStatus.error ?? "unknown error"}.`);
-            } else if (desktopStatus?.running) setStatusText("Built-in bridge is starting.");
-            else setStatusText("Built-in bridge is offline.");
+            setStatusText("Start streaming, then connect the companion.");
           }
         }
       }
@@ -74,37 +78,22 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     [enabled],
   );
 
-  const restartBridge = useCallback(async (): Promise<void> => {
-    try {
-      setRestartInFlight(true);
+  const toggleStream = useCallback((): void => {
+    if (enabled) {
+      setBridgeState("stopping");
+      setStatusText("Stopping Playdate stream.");
+      setConnectedDevices(0);
+      setDevices([]);
+      setSession(null);
+      setLastSentRevision(null);
+      setRoundTripMs(null);
+      lastPostedRevisionRef.current = null;
       setEnabled(false);
-      setBridgeState("restarting");
-      setStatusText("Restarting built-in bridge.");
-      await restartDesktopBridge();
-      await refreshSession();
-    } catch (error) {
-      setBridgeState("offline");
-      setStatusText(error instanceof Error ? error.message : "Unable to restart the built-in bridge.");
-    } finally {
-      setRestartInFlight(false);
+      return;
     }
-  }, [refreshSession]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const initial = window.setTimeout(() => {
-      void refreshSession(controller.signal);
-    }, 0);
-    const interval = window.setInterval(() => {
-      void refreshSession(controller.signal);
-    }, 3000);
-
-    return () => {
-      controller.abort();
-      window.clearTimeout(initial);
-      window.clearInterval(interval);
-    };
-  }, [refreshSession]);
+    setEnabled(true);
+  }, [enabled]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -114,6 +103,8 @@ export function PlaydateStreamMenu(): React.JSX.Element {
     const streamId = createStreamId();
     streamRunIdRef.current = runId;
     lastPostedRevisionRef.current = null;
+    let sendInterval: number | null = null;
+    let refreshInterval: number | null = null;
 
     const sendLatestFrame = () => {
       if (controller.signal.aborted || streamRunIdRef.current !== runId || sendInFlightRef.current) return;
@@ -133,7 +124,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         controller.signal,
       )
         .then((result) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
           setBridgeState("online");
           lastPostedRevisionRef.current = result.revision;
           setLastSentRevision(result.revision);
@@ -141,7 +132,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
           setStatusText(
             `Streaming document revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`,
           );
-          void refreshSession();
+          void refreshSession(controller.signal);
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted) return;
@@ -155,14 +146,48 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         });
     };
 
-    sendLatestFrame();
-    const interval = window.setInterval(sendLatestFrame, 100);
+    const startStream = async () => {
+      try {
+        setBridgeState("starting");
+        setStatusText("Starting Playdate stream.");
+        await startDesktopBridge();
+        if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
+        await refreshSession(controller.signal);
+        if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
+        setStatusText("Stream ready. Connect the companion, then edit to send frames.");
+        sendLatestFrame();
+        sendInterval = window.setInterval(sendLatestFrame, 100);
+        refreshInterval = window.setInterval(() => {
+          void refreshSession(controller.signal);
+        }, 3000);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setBridgeState("offline");
+        setStatusText(error instanceof Error ? error.message : "Unable to start the Playdate stream.");
+        setEnabled(false);
+      }
+    };
+
+    void startStream();
 
     return () => {
       controller.abort();
       streamRunIdRef.current += 1;
-      window.clearInterval(interval);
+      if (sendInterval !== null) window.clearInterval(sendInterval);
+      if (refreshInterval !== null) window.clearInterval(refreshInterval);
       sendInFlightRef.current = false;
+      setBridgeState("stopping");
+      setStatusText("Stopping Playdate stream.");
+      void stopDesktopBridge()
+        .catch((error: unknown) => {
+          console.warn(error instanceof Error ? error.message : "Unable to stop the Playdate stream.");
+        })
+        .finally(() => {
+          if (streamRunIdRef.current === runId + 1) {
+            setBridgeState("idle");
+            setStatusText("Start streaming, then connect the companion.");
+          }
+        });
     };
   }, [enabled, refreshSession]);
 
@@ -189,7 +214,6 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         <div className="stream-readout-grid">
           <Readout label="Session" value={session?.sessionCode ?? "------"} />
           <Readout label="Target" value={`${primaryHost}:${session?.streamPort ?? 9138}`} />
-          <Readout label="Bridge" value="Built-in" />
           <Readout label="Revision" value={lastSentRevision?.toString() ?? "--"} />
           <Readout label="Latency" value={roundTripMs === null ? "--" : `${roundTripMs} ms`} />
           <Readout label="Devices" value={connectedDevices.toString()} />
@@ -213,21 +237,17 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         </div>
 
         <div className="stream-menu-actions">
-          <Button onClick={() => setEnabled((current) => !current)} variant={enabled ? "secondary" : "default"}>
+          <Button
+            onClick={toggleStream}
+            variant={enabled ? "secondary" : "default"}
+            disabled={streamActionDisabled}
+          >
             {enabled ? <Square size={16} aria-hidden /> : <RadioTower size={16} aria-hidden />}
             {enabled ? "Stop stream" : "Start stream"}
           </Button>
-          <Button variant="outline" onClick={() => void refreshSession()}>
-            <RefreshCw size={16} aria-hidden />
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={() => void restartBridge()} disabled={restartInFlight}>
-            <RefreshCw size={16} aria-hidden />
-            Restart bridge
-          </Button>
         </div>
 
-        <div className="text-xs text-muted-foreground">Closing this menu does not stop an active stream.</div>
+        <div className="text-xs text-muted-foreground">The Playdate target is available while streaming is active.</div>
       </PopoverContent>
     </Popover>
   );

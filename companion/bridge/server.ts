@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import net from "node:net";
 import os from "node:os";
 import { encodeFramePacket, PLAYDATE_FRAME_BYTES } from "../../src/companion/protocol.ts";

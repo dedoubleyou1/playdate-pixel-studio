@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld("pdps", {
     openProjectFile: () => ipcRenderer.invoke("pdps:open-project-file"),
   },
   bridge: {
-    getStatus: () => ipcRenderer.invoke("pdps:bridge-status"),
+    start: () => ipcRenderer.invoke("pdps:bridge-start"),
+    stop: () => ipcRenderer.invoke("pdps:bridge-stop"),
     getHealth: () => ipcRenderer.invoke("pdps:bridge-health"),
     getSession: () => ipcRenderer.invoke("pdps:bridge-session"),
     getDevices: () => ipcRenderer.invoke("pdps:bridge-devices"),
@@ -19,6 +20,5 @@ contextBridge.exposeInMainWorld("pdps", {
       payload: ArrayBuffer;
       crc32: number;
     }) => ipcRenderer.invoke("pdps:bridge-frame", request),
-    restart: () => ipcRenderer.invoke("pdps:bridge-restart"),
   },
 });

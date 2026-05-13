@@ -263,8 +263,9 @@ body {
   color: var(--green);
 }
 
-.bridge-status.is-checking,
-.bridge-status.is-restarting {
+.bridge-status.is-starting,
+.bridge-status.is-stopping,
+.bridge-status.is-idle {
   border-color: rgba(124, 103, 45, 0.34);
   color: #75632c;
 }
