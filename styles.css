@@ -235,7 +235,7 @@ body {
 
 .stream-menu-header,
 .stream-menu-actions,
-.bridge-status {
+.stream-status {
   display: flex;
   align-items: center;
 }
@@ -245,7 +245,7 @@ body {
   gap: 16px;
 }
 
-.bridge-status {
+.stream-status {
   gap: 7px;
   min-height: 30px;
   padding: 0 10px;
@@ -258,19 +258,19 @@ body {
   white-space: nowrap;
 }
 
-.bridge-status.is-online {
+.stream-status.is-online {
   border-color: rgba(27, 127, 99, 0.38);
   color: var(--green);
 }
 
-.bridge-status.is-starting,
-.bridge-status.is-stopping,
-.bridge-status.is-idle {
+.stream-status.is-starting,
+.stream-status.is-stopping,
+.stream-status.is-idle {
   border-color: rgba(124, 103, 45, 0.34);
   color: #75632c;
 }
 
-.bridge-status.is-offline {
+.stream-status.is-offline {
   border-color: rgba(179, 38, 30, 0.32);
   color: var(--destructive);
 }

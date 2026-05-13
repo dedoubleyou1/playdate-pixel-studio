@@ -10,8 +10,8 @@
   "include": [
     "electron/**/*.ts",
     "electron/**/*.cts",
-    "companion/bridge/server.ts",
-    "companion/bridge/server.test.ts",
+    "companion/stream/server.ts",
+    "companion/stream/server.test.ts",
     "src/companion/protocol.ts",
     "src/companion/streamMetadata.ts",
     "src/domain/constants.ts"

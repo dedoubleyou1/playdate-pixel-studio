@@ -2,13 +2,13 @@ import type { PreviewMode } from "../export/playdateExport";
 import type { Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
 import { packPlaydateFrame, PLAYDATE_FRAME_BYTES } from "./protocol";
 import {
-  getDesktopBridgeDevices,
-  getDesktopBridgeHealth,
-  getDesktopBridgeSession,
-  sendDesktopBridgeFrame,
+  getDesktopStreamDevices,
+  getDesktopStreamHealth,
+  getDesktopStreamSession,
+  sendDesktopStreamFrame,
 } from "../desktop/desktopApi";
 
-export interface BridgeHealth {
+export interface PlaydateStreamHealth {
   ok: boolean;
   service: string;
   streamPort: number;
@@ -17,20 +17,20 @@ export interface BridgeHealth {
   latestFrameAgeMs?: number | null;
   latestFrameBytes?: number | null;
   connectedDevices: number;
-  devices?: BridgeDevice[];
+  devices?: PlaydateStreamDevice[];
 }
 
-export interface BridgeSession {
+export interface PlaydateStreamSession {
   sessionCode: string;
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
   latestStreamId?: string | null;
   connectedDevices: number;
-  devices?: BridgeDevice[];
+  devices?: PlaydateStreamDevice[];
 }
 
-export interface BridgeDevice {
+export interface PlaydateStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
@@ -49,30 +49,30 @@ export interface FrameSendResult {
   roundTripMs: number;
 }
 
-export async function fetchBridgeHealth(signal?: AbortSignal): Promise<BridgeHealth> {
+export async function fetchPlaydateStreamHealth(signal?: AbortSignal): Promise<PlaydateStreamHealth> {
   throwIfAborted(signal);
-  const result = await getDesktopBridgeHealth();
-  throwIfAborted(signal);
-  return result;
-}
-
-export async function fetchBridgeSession(signal?: AbortSignal): Promise<BridgeSession> {
-  throwIfAborted(signal);
-  const result = await getDesktopBridgeSession();
+  const result = await getDesktopStreamHealth();
   throwIfAborted(signal);
   return result;
 }
 
-export async function fetchBridgeDevices(
+export async function fetchPlaydateStreamSession(signal?: AbortSignal): Promise<PlaydateStreamSession> {
+  throwIfAborted(signal);
+  const result = await getDesktopStreamSession();
+  throwIfAborted(signal);
+  return result;
+}
+
+export async function fetchPlaydateStreamDevices(
   signal?: AbortSignal,
-): Promise<{ connectedDevices: number; devices: BridgeDevice[] }> {
+): Promise<{ connectedDevices: number; devices: PlaydateStreamDevice[] }> {
   throwIfAborted(signal);
-  const result = await getDesktopBridgeDevices();
+  const result = await getDesktopStreamDevices();
   throwIfAborted(signal);
   return result;
 }
 
-export async function sendFrameToBridge(
+export async function sendPlaydateStreamFrame(
   layers: Layer[],
   mode: PreviewMode,
   revision: number,
@@ -93,7 +93,7 @@ export async function sendFrameToBridge(
     packed.payload.byteOffset + packed.payload.byteLength,
   ) as ArrayBuffer;
   throwIfAborted(signal);
-  const result = await sendDesktopBridgeFrame({
+  const result = await sendDesktopStreamFrame({
     revision: packed.revision,
     streamId,
     flags: packed.flags,

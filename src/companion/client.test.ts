@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DesktopBridgeFrameRequest } from "../desktop/desktopApi";
+import type { DesktopStreamFrameRequest } from "../desktop/desktopApi";
 import { createDefaultPalette, createLayer } from "../domain/layers";
 import { WHITE_PIXEL } from "../domain/types";
-import { sendFrameToBridge } from "./client";
+import { sendPlaydateStreamFrame } from "./client";
 
-describe("companion bridge client", () => {
+describe("Playdate stream client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("sends packed frames through the Electron bridge IPC API", async () => {
+  it("sends packed frames through the Electron stream IPC API", async () => {
     const sendFrame = vi.fn().mockResolvedValue({
       ok: true,
       revision: 8,
@@ -21,13 +21,13 @@ describe("companion bridge client", () => {
     });
     vi.stubGlobal("window", {
       pdps: {
-        bridge: {
+        stream: {
           sendFrame,
         },
       },
     });
 
-    await sendFrameToBridge(
+    await sendPlaydateStreamFrame(
       [createLayer(1, "Layer")],
       "normal",
       8,
@@ -37,7 +37,7 @@ describe("companion bridge client", () => {
       "stream-1",
     );
 
-    const [[request]] = sendFrame.mock.calls as Array<[DesktopBridgeFrameRequest]>;
+    const [[request]] = sendFrame.mock.calls as Array<[DesktopStreamFrameRequest]>;
     expect(request.revision).toBe(8);
     expect(request.streamId).toBe("stream-1");
     expect(request.flags).toBe(0);

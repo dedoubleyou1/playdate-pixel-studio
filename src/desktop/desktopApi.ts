@@ -13,7 +13,7 @@ export interface DesktopFileResult {
   error?: string;
 }
 
-export interface DesktopBridgeStatus {
+export interface DesktopStreamStatus {
   ok: boolean;
   running: boolean;
   starting: boolean;
@@ -23,7 +23,7 @@ export interface DesktopBridgeStatus {
   sessionCode: string | null;
 }
 
-export interface DesktopBridgeDevice {
+export interface DesktopStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
@@ -34,7 +34,7 @@ export interface DesktopBridgeDevice {
   bytesSent: number;
 }
 
-export interface DesktopBridgeHealth {
+export interface DesktopStreamHealth {
   ok: boolean;
   service: string;
   streamPort: number;
@@ -43,20 +43,20 @@ export interface DesktopBridgeHealth {
   latestFrameAgeMs: number | null;
   latestFrameBytes: number | null;
   connectedDevices: number;
-  devices: DesktopBridgeDevice[];
+  devices: DesktopStreamDevice[];
 }
 
-export interface DesktopBridgeSession {
+export interface DesktopStreamSession {
   sessionCode: string;
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
   latestStreamId: string | null;
   connectedDevices: number;
-  devices: DesktopBridgeDevice[];
+  devices: DesktopStreamDevice[];
 }
 
-export interface DesktopBridgeFrameRequest {
+export interface DesktopStreamFrameRequest {
   revision: number;
   streamId: string;
   flags: number;
@@ -64,7 +64,7 @@ export interface DesktopBridgeFrameRequest {
   crc32: number;
 }
 
-export interface DesktopBridgeFrameResult {
+export interface DesktopStreamFrameResult {
   ok: boolean;
   ignored?: boolean;
   revision: number;
@@ -73,7 +73,7 @@ export interface DesktopBridgeFrameResult {
   latestStreamId?: string | null;
   bytes?: number;
   connectedDevices: number;
-  devices: DesktopBridgeDevice[];
+  devices: DesktopStreamDevice[];
   error?: string;
 }
 
@@ -83,13 +83,13 @@ export interface PlaydatePixelDesktopApi {
     saveBlob: (request: DesktopSaveBlobRequest) => Promise<DesktopFileResult>;
     openProjectFile: () => Promise<DesktopFileResult>;
   };
-  bridge: {
-    start: () => Promise<DesktopBridgeStatus>;
-    stop: () => Promise<DesktopBridgeStatus>;
-    getHealth: () => Promise<DesktopBridgeHealth>;
-    getSession: () => Promise<DesktopBridgeSession>;
-    getDevices: () => Promise<{ connectedDevices: number; devices: DesktopBridgeDevice[] }>;
-    sendFrame: (request: DesktopBridgeFrameRequest) => Promise<DesktopBridgeFrameResult>;
+  stream: {
+    start: () => Promise<DesktopStreamStatus>;
+    stop: () => Promise<DesktopStreamStatus>;
+    getHealth: () => Promise<DesktopStreamHealth>;
+    getSession: () => Promise<DesktopStreamSession>;
+    getDevices: () => Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }>;
+    sendFrame: (request: DesktopStreamFrameRequest) => Promise<DesktopStreamFrameResult>;
   };
 }
 
@@ -118,36 +118,36 @@ export async function openProjectFileWithDesktopDialog(): Promise<DesktopFileRes
   return result;
 }
 
-export async function startDesktopBridge(): Promise<DesktopBridgeStatus> {
+export async function startDesktopStream(): Promise<DesktopStreamStatus> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.start();
+  return desktopApi.stream.start();
 }
 
-export async function stopDesktopBridge(): Promise<DesktopBridgeStatus> {
+export async function stopDesktopStream(): Promise<DesktopStreamStatus> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.stop();
+  return desktopApi.stream.stop();
 }
 
-export async function getDesktopBridgeHealth(): Promise<DesktopBridgeHealth> {
+export async function getDesktopStreamHealth(): Promise<DesktopStreamHealth> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.getHealth();
+  return desktopApi.stream.getHealth();
 }
 
-export async function getDesktopBridgeSession(): Promise<DesktopBridgeSession> {
+export async function getDesktopStreamSession(): Promise<DesktopStreamSession> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.getSession();
+  return desktopApi.stream.getSession();
 }
 
-export async function getDesktopBridgeDevices(): Promise<{ connectedDevices: number; devices: DesktopBridgeDevice[] }> {
+export async function getDesktopStreamDevices(): Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.bridge.getDevices();
+  return desktopApi.stream.getDevices();
 }
 
-export async function sendDesktopBridgeFrame(
-  request: DesktopBridgeFrameRequest,
-): Promise<DesktopBridgeFrameResult> {
+export async function sendDesktopStreamFrame(
+  request: DesktopStreamFrameRequest,
+): Promise<DesktopStreamFrameResult> {
   const desktopApi = requireDesktopApi();
-  const result = await desktopApi.bridge.sendFrame(request);
+  const result = await desktopApi.stream.sendFrame(request);
   if (!result.ok) throw new Error(result.error ?? "Unable to stream frame.");
   return result;
 }

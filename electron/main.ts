@@ -3,7 +3,11 @@ import type { FileFilter, OpenDialogOptions, SaveDialogOptions } from "electron"
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { startBridge, type BridgeFrameRequest, type BridgeServerHandle } from "../companion/bridge/server.ts";
+import {
+  startPlaydateStreamServer,
+  type PlaydateStreamFrameRequest,
+  type PlaydateStreamServerHandle,
+} from "../companion/stream/server.ts";
 
 interface SaveBlobRequest {
   filename: string;
@@ -21,10 +25,10 @@ interface DesktopActionResult {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let bridgeHandle: BridgeServerHandle | null = null;
-let bridgeError: string | null = null;
-let bridgeStarting: Promise<void> | null = null;
-let bridgeStopping: Promise<void> | null = null;
+let streamHandle: PlaydateStreamServerHandle | null = null;
+let streamError: string | null = null;
+let streamStarting: Promise<void> | null = null;
+let streamStopping: Promise<void> | null = null;
 
 const electronDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -113,25 +117,25 @@ function registerIpcHandlers(): void {
     }
   });
 
-  ipcMain.handle("pdps:bridge-start", async () => {
-    await startPlaydateBridge();
-    return bridgeStatusPayload();
+  ipcMain.handle("pdps:stream-start", async () => {
+    await startPlaydateStream();
+    return streamStatusPayload();
   });
 
-  ipcMain.handle("pdps:bridge-stop", async () => {
-    await stopPlaydateBridge();
-    return bridgeStatusPayload();
+  ipcMain.handle("pdps:stream-stop", async () => {
+    await stopPlaydateStream();
+    return streamStatusPayload();
   });
 
-  ipcMain.handle("pdps:bridge-health", () => requireBridge().getHealth());
+  ipcMain.handle("pdps:stream-health", () => requireStream().getHealth());
 
-  ipcMain.handle("pdps:bridge-session", () => requireBridge().getSession());
+  ipcMain.handle("pdps:stream-session", () => requireStream().getSession());
 
-  ipcMain.handle("pdps:bridge-devices", () => requireBridge().getDevices());
+  ipcMain.handle("pdps:stream-devices", () => requireStream().getDevices());
 
-  ipcMain.handle("pdps:bridge-frame", (_event, request: BridgeFrameRequest) => {
+  ipcMain.handle("pdps:stream-frame", (_event, request: PlaydateStreamFrameRequest) => {
     try {
-      return requireBridge().postFrame(validateFrameRequest(request));
+      return requireStream().postFrame(validateFrameRequest(request));
     } catch (error) {
       return {
         ok: false,
@@ -181,51 +185,51 @@ function createApplicationMenu(): void {
   );
 }
 
-async function startPlaydateBridge(): Promise<void> {
-  if (bridgeStopping) {
-    await bridgeStopping;
+async function startPlaydateStream(): Promise<void> {
+  if (streamStopping) {
+    await streamStopping;
   }
-  if (bridgeHandle) return;
-  if (bridgeStarting) return bridgeStarting;
-  bridgeError = null;
+  if (streamHandle) return;
+  if (streamStarting) return streamStarting;
+  streamError = null;
 
-  bridgeStarting = startBridge()
+  streamStarting = startPlaydateStreamServer()
     .then((handle) => {
-      bridgeHandle = handle;
-      bridgeError = null;
+      streamHandle = handle;
+      streamError = null;
     })
     .catch((error: unknown) => {
-      bridgeHandle = null;
-      bridgeError = errorMessage(error);
-      console.warn(`Playdate stream did not start: ${bridgeError}`);
+      streamHandle = null;
+      streamError = errorMessage(error);
+      console.warn(`Playdate stream did not start: ${streamError}`);
       throw error;
     })
     .finally(() => {
-      bridgeStarting = null;
+      streamStarting = null;
     });
 
-  return bridgeStarting;
+  return streamStarting;
 }
 
-async function stopPlaydateBridge(): Promise<void> {
-  if (bridgeStarting) {
-    await bridgeStarting.catch(() => undefined);
+async function stopPlaydateStream(): Promise<void> {
+  if (streamStarting) {
+    await streamStarting.catch(() => undefined);
   }
-  if (bridgeStopping) return bridgeStopping;
-  if (!bridgeHandle) return;
+  if (streamStopping) return streamStopping;
+  if (!streamHandle) return;
 
-  const bridge = bridgeHandle;
-  bridgeHandle = null;
-  bridgeError = null;
+  const stream = streamHandle;
+  streamHandle = null;
+  streamError = null;
 
-  bridgeStopping = bridge.stop().finally(() => {
-    bridgeStopping = null;
+  streamStopping = stream.stop().finally(() => {
+    streamStopping = null;
   });
 
-  return bridgeStopping;
+  return streamStopping;
 }
 
-function bridgeStatusPayload(): {
+function streamStatusPayload(): {
   ok: boolean;
   running: boolean;
   starting: boolean;
@@ -235,24 +239,24 @@ function bridgeStatusPayload(): {
   sessionCode: string | null;
 } {
   return {
-    ok: bridgeError === null && Boolean(bridgeHandle),
-    running: Boolean(bridgeHandle),
-    starting: Boolean(bridgeStarting),
-    stopping: Boolean(bridgeStopping),
-    error: bridgeError,
-    streamPort: bridgeHandle?.streamPort ?? null,
-    sessionCode: bridgeHandle?.sessionCode ?? null,
+    ok: streamError === null && Boolean(streamHandle),
+    running: Boolean(streamHandle),
+    starting: Boolean(streamStarting),
+    stopping: Boolean(streamStopping),
+    error: streamError,
+    streamPort: streamHandle?.streamPort ?? null,
+    sessionCode: streamHandle?.sessionCode ?? null,
   };
 }
 
-function requireBridge(): BridgeServerHandle {
-  if (!bridgeHandle) {
-    throw new Error(bridgeError ?? "Playdate bridge is not running.");
+function requireStream(): PlaydateStreamServerHandle {
+  if (!streamHandle) {
+    throw new Error(streamError ?? "Playdate stream is not running.");
   }
-  return bridgeHandle;
+  return streamHandle;
 }
 
-function validateFrameRequest(request: BridgeFrameRequest): BridgeFrameRequest {
+function validateFrameRequest(request: PlaydateStreamFrameRequest): PlaydateStreamFrameRequest {
   if (!request || typeof request !== "object") throw new Error("Frame request is invalid.");
   if (!Number.isFinite(request.revision) || request.revision < 0) throw new Error("Frame revision is invalid.");
   if (typeof request.streamId !== "string" || request.streamId.trim().length === 0) {
@@ -296,8 +300,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
-  if (!bridgeHandle) return;
+  if (!streamHandle) return;
 
   event.preventDefault();
-  void stopPlaydateBridge().finally(() => app.quit());
+  void stopPlaydateStream().finally(() => app.quit());
 });

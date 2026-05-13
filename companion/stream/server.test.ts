@@ -3,47 +3,60 @@
 import net from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { PLAYDATE_FRAME_BYTES } from "../../src/companion/protocol";
-import { startBridge, type BridgeServerHandle } from "./server";
+import { startPlaydateStreamServer, type PlaydateStreamServerHandle } from "./server";
 
-let bridge: BridgeServerHandle | null = null;
+let stream: PlaydateStreamServerHandle | null = null;
 
 afterEach(async () => {
-  if (bridge) {
-    await bridge.stop();
-    bridge = null;
+  if (stream) {
+    await stream.stop();
+    stream = null;
   }
 });
 
-describe("Playdate TCP bridge service", () => {
+describe("Playdate TCP stream service", () => {
   it("starts, reports session and health, and stops", async () => {
     const port = await getAvailablePort();
-    bridge = await startBridge({ streamPort: port, sessionCode: "TEST01" });
+    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST01" });
 
-    expect(bridge.getSession()).toMatchObject({
+    expect(stream.getSession()).toMatchObject({
       sessionCode: "TEST01",
       streamPort: port,
       latestRevision: null,
       connectedDevices: 0,
     });
-    expect(bridge.getHealth()).toMatchObject({
+    expect(stream.getHealth()).toMatchObject({
       ok: true,
       streamPort: port,
       latestFrameBytes: null,
       connectedDevices: 0,
     });
 
-    await bridge.stop();
-    bridge = null;
+    await stream.stop();
+    stream = null;
+  });
+
+  it("releases the TCP port so streaming can restart cleanly", async () => {
+    const port = await getAvailablePort();
+    const firstStream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST03" });
+
+    expect(firstStream.getSession()).toMatchObject({ sessionCode: "TEST03", streamPort: port });
+
+    await firstStream.stop();
+    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST04" });
+
+    expect(stream).not.toBe(firstStream);
+    expect(stream.getSession()).toMatchObject({ sessionCode: "TEST04", streamPort: port });
   });
 
   it("tracks authenticated devices and broadcasts accepted frames", async () => {
     const port = await getAvailablePort();
-    bridge = await startBridge({ streamPort: port, sessionCode: "TEST02" });
+    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST02" });
     const socket = await connectPlaydateClient(port, "TEST02");
 
-    expect(bridge.getDevices().connectedDevices).toBe(1);
+    expect(stream.getDevices().connectedDevices).toBe(1);
 
-    const result = bridge.postFrame({
+    const result = stream.postFrame({
       revision: 3,
       streamId: "stream-a",
       flags: 0,
@@ -51,29 +64,29 @@ describe("Playdate TCP bridge service", () => {
     });
 
     expect(result).toMatchObject({ ok: true, revision: 3, streamId: "stream-a", connectedDevices: 1 });
-    expect(bridge.getHealth()).toMatchObject({ latestRevision: 3, latestFrameBytes: PLAYDATE_FRAME_BYTES });
-    expect(bridge.getDevices().devices[0]).toMatchObject({ lastRevisionSent: 3, packetsSent: 1 });
+    expect(stream.getHealth()).toMatchObject({ latestRevision: 3, latestFrameBytes: PLAYDATE_FRAME_BYTES });
+    expect(stream.getDevices().devices[0]).toMatchObject({ lastRevisionSent: 3, packetsSent: 1 });
 
     socket.destroy();
   });
 
   it("rejects stale revisions within a stream but accepts a new stream generation", async () => {
     const port = await getAvailablePort();
-    bridge = await startBridge({ streamPort: port });
+    stream = await startPlaydateStreamServer({ streamPort: port });
 
-    bridge.postFrame({
+    stream.postFrame({
       revision: 12,
       streamId: "stream-a",
       flags: 0,
       payload: new Uint8Array(PLAYDATE_FRAME_BYTES),
     });
-    const stale = bridge.postFrame({
+    const stale = stream.postFrame({
       revision: 4,
       streamId: "stream-a",
       flags: 0,
       payload: new Uint8Array(PLAYDATE_FRAME_BYTES),
     });
-    const nextStream = bridge.postFrame({
+    const nextStream = stream.postFrame({
       revision: 0,
       streamId: "stream-b",
       flags: 0,
@@ -82,14 +95,14 @@ describe("Playdate TCP bridge service", () => {
 
     expect(stale).toMatchObject({ ignored: true, revision: 12, latestStreamId: "stream-a" });
     expect(nextStream).toMatchObject({ ok: true, revision: 0, streamId: "stream-b" });
-    expect(bridge.getHealth()).toMatchObject({ latestRevision: 0, latestStreamId: "stream-b" });
+    expect(stream.getHealth()).toMatchObject({ latestRevision: 0, latestStreamId: "stream-b" });
   });
 
   it("reports port bind failures", async () => {
     const port = await getAvailablePort();
     const blocker = await listenOnPort(port);
 
-    await expect(startBridge({ streamPort: port })).rejects.toThrow(/EADDRINUSE|address already in use/i);
+    await expect(startPlaydateStreamServer({ streamPort: port })).rejects.toThrow(/EADDRINUSE|address already in use/i);
     blocker.close();
   });
 });
@@ -133,7 +146,7 @@ function connectPlaydateClient(port: number, sessionCode: string): Promise<net.S
     socket.once("data", (chunk) => {
       const response = chunk.toString("utf8");
       if (!response.startsWith(`OK ${sessionCode}`)) {
-        reject(new Error(`Unexpected bridge response: ${response}`));
+        reject(new Error(`Unexpected stream response: ${response}`));
         socket.destroy();
         return;
       }

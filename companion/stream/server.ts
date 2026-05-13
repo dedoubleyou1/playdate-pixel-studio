@@ -9,22 +9,22 @@ import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../../src/domain/constants.ts";
 const DEFAULT_STREAM_PORT = 9138;
 const DEFAULT_SESSION_CODE = "ABC123";
 
-export interface BridgeServerOptions {
+export interface PlaydateStreamServerOptions {
   streamPort?: number;
   sessionCode?: string;
 }
 
-export interface BridgeServerHandle {
+export interface PlaydateStreamServerHandle {
   streamPort: number;
   sessionCode: string;
   stop: () => Promise<void>;
-  getHealth: () => BridgeHealth;
-  getSession: () => BridgeSession;
-  getDevices: () => BridgeDevicesPayload;
-  postFrame: (frame: BridgeFrameRequest) => BridgeFrameResult;
+  getHealth: () => PlaydateStreamHealth;
+  getSession: () => PlaydateStreamSession;
+  getDevices: () => PlaydateStreamDevicesPayload;
+  postFrame: (frame: PlaydateStreamFrameRequest) => PlaydateStreamFrameResult;
 }
 
-export interface BridgeDevice {
+export interface PlaydateStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
@@ -35,41 +35,41 @@ export interface BridgeDevice {
   bytesSent: number;
 }
 
-export interface BridgeHealth {
+export interface PlaydateStreamHealth {
   ok: boolean;
-  service: "playdate-pixel-studio-bridge";
+  service: "playdate-pixel-studio-stream";
   streamPort: number;
   latestRevision: number | null;
   latestStreamId: string | null;
   latestFrameAgeMs: number | null;
   latestFrameBytes: number | null;
   connectedDevices: number;
-  devices: BridgeDevice[];
+  devices: PlaydateStreamDevice[];
 }
 
-export interface BridgeSession {
+export interface PlaydateStreamSession {
   sessionCode: string;
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
   latestStreamId: string | null;
   connectedDevices: number;
-  devices: BridgeDevice[];
+  devices: PlaydateStreamDevice[];
 }
 
-export interface BridgeDevicesPayload {
+export interface PlaydateStreamDevicesPayload {
   connectedDevices: number;
-  devices: BridgeDevice[];
+  devices: PlaydateStreamDevice[];
 }
 
-export interface BridgeFrameRequest {
+export interface PlaydateStreamFrameRequest {
   revision: number;
   streamId?: string;
   flags?: number;
   payload: ArrayBuffer | Uint8Array;
 }
 
-export interface BridgeFrameResult {
+export interface PlaydateStreamFrameResult {
   ok: true;
   ignored?: boolean;
   revision: number;
@@ -78,7 +78,7 @@ export interface BridgeFrameResult {
   latestStreamId?: string | null;
   bytes?: number;
   connectedDevices: number;
-  devices: BridgeDevice[];
+  devices: PlaydateStreamDevice[];
 }
 
 interface LatestFrame {
@@ -112,10 +112,10 @@ let nextClientId = 1;
 const streamClients = new Set<StreamClient>();
 let streamPort = Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
 let sessionCode = (process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
-let activeHandle: BridgeServerHandle | null = null;
+let activeHandle: PlaydateStreamServerHandle | null = null;
 let tcpServer: net.Server | null = null;
 
-export async function startBridge(options: BridgeServerOptions = {}): Promise<BridgeServerHandle> {
+export async function startPlaydateStreamServer(options: PlaydateStreamServerOptions = {}): Promise<PlaydateStreamServerHandle> {
   if (activeHandle) return activeHandle;
 
   streamPort = options.streamPort ?? Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
@@ -130,13 +130,13 @@ export async function startBridge(options: BridgeServerOptions = {}): Promise<Br
     throw error;
   }
 
-  console.log(`Playdate Pixel Studio bridge TCP listening on 0.0.0.0:${streamPort}`);
+  console.log(`Playdate Pixel Studio stream TCP listening on 0.0.0.0:${streamPort}`);
   console.log(`Session ${sessionCode}, LAN candidates: ${getLanAddresses().join(", ") || "none found"}`);
 
   activeHandle = {
     streamPort,
     sessionCode,
-    stop: stopBridge,
+    stop: stopPlaydateStreamServer,
     getHealth: healthPayload,
     getSession: sessionPayload,
     getDevices: devicesPayload,
@@ -202,7 +202,7 @@ function createTcpServer(): net.Server {
   });
 }
 
-function postFrame(request: BridgeFrameRequest): BridgeFrameResult {
+function postFrame(request: PlaydateStreamFrameRequest): PlaydateStreamFrameResult {
   const revision = normalizeRevision(request.revision);
   const streamId = normalizeStreamId(request.streamId);
   const flags = normalizeFlags(request.flags);
@@ -291,10 +291,10 @@ function writeFrameNow(client: StreamClient, packet: Uint8Array, revision: numbe
   client.awaitingDrain = !canAcceptMore;
 }
 
-function healthPayload(): BridgeHealth {
+function healthPayload(): PlaydateStreamHealth {
   return {
     ok: true,
-    service: "playdate-pixel-studio-bridge",
+    service: "playdate-pixel-studio-stream",
     streamPort,
     latestRevision: latestFrame?.revision ?? null,
     latestStreamId: latestFrame?.streamId ?? null,
@@ -305,7 +305,7 @@ function healthPayload(): BridgeHealth {
   };
 }
 
-function sessionPayload(): BridgeSession {
+function sessionPayload(): PlaydateStreamSession {
   return {
     sessionCode,
     streamPort,
@@ -317,7 +317,7 @@ function sessionPayload(): BridgeSession {
   };
 }
 
-function devicesPayload(): BridgeDevicesPayload {
+function devicesPayload(): PlaydateStreamDevicesPayload {
   return {
     connectedDevices: readyClientCount(),
     devices: readyClientSnapshots(),
@@ -332,7 +332,7 @@ function readyClientCount(): number {
   return count;
 }
 
-function readyClientSnapshots(): BridgeDevice[] {
+function readyClientSnapshots(): PlaydateStreamDevice[] {
   const now = Date.now();
   return [...streamClients]
     .filter((client) => client.ready && !client.socket.destroyed)
@@ -377,7 +377,7 @@ function listen(server: net.Server, port: number, host: string): Promise<void> {
   });
 }
 
-async function stopBridge(): Promise<void> {
+async function stopPlaydateStreamServer(): Promise<void> {
   for (const client of streamClients) {
     client.socket.destroy();
   }
