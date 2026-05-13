@@ -1,8 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
-import type { FileFilter, OpenDialogOptions, SaveDialogOptions } from "electron";
+import type { FileFilter, MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from "electron";
+import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
   startPlaydateStreamServer,
   type PlaydateStreamFrameRequest,
@@ -31,6 +34,7 @@ let streamStarting: Promise<void> | null = null;
 let streamStopping: Promise<void> | null = null;
 
 const electronDir = path.dirname(fileURLToPath(import.meta.url));
+const execFileAsync = promisify(execFile);
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -117,6 +121,57 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle("pdps:save-companion-pdx", async (event): Promise<DesktopActionResult> => {
+    try {
+      const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
+      const { canceled, filePaths } = owner
+        ? await dialog.showOpenDialog(owner, {
+            title: "Save Playdate Companion",
+            buttonLabel: "Save Companion",
+            properties: ["openDirectory", "createDirectory"],
+          })
+        : await dialog.showOpenDialog({
+            title: "Save Playdate Companion",
+            buttonLabel: "Save Companion",
+            properties: ["openDirectory", "createDirectory"],
+          });
+
+      if (canceled || filePaths.length === 0) return { ok: true, canceled: true };
+
+      const targetPath = path.join(filePaths[0], "playdate-pixel-preview.pdx");
+      if (await pathExists(targetPath)) {
+        const { response } = owner
+          ? await dialog.showMessageBox(owner, overwriteCompanionDialogOptions(targetPath))
+          : await dialog.showMessageBox(overwriteCompanionDialogOptions(targetPath));
+        if (response !== 1) return { ok: true, canceled: true };
+      }
+
+      await fs.rm(targetPath, { recursive: true, force: true });
+      await fs.cp(companionPdxPath(), targetPath, { recursive: true });
+      return { ok: true, filePath: targetPath };
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) };
+    }
+  });
+
+  ipcMain.handle("pdps:open-companion-in-simulator", async (): Promise<DesktopActionResult> => {
+    try {
+      const pdxPath = companionPdxPath();
+      await fs.access(pdxPath);
+      const simulatorPath = await findPlaydateSimulatorPath();
+      if (!simulatorPath) {
+        return {
+          ok: false,
+          error: "Playdate Simulator was not found. Install the Playdate SDK or set PLAYDATE_SDK_PATH.",
+        };
+      }
+      await openPdxInSimulator(simulatorPath, pdxPath);
+      return { ok: true, filePath: pdxPath };
+    } catch (error) {
+      return { ok: false, error: errorMessage(error) };
+    }
+  });
+
   ipcMain.handle("pdps:stream-start", async () => {
     await startPlaydateStream();
     return streamStatusPayload();
@@ -129,7 +184,7 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle("pdps:stream-health", () => requireStream().getHealth());
 
-  ipcMain.handle("pdps:stream-session", () => requireStream().getSession());
+  ipcMain.handle("pdps:stream-info", () => requireStream().getInfo());
 
   ipcMain.handle("pdps:stream-devices", () => requireStream().getDevices());
 
@@ -236,7 +291,6 @@ function streamStatusPayload(): {
   stopping: boolean;
   error: string | null;
   streamPort: number | null;
-  sessionCode: string | null;
 } {
   return {
     ok: streamError === null && Boolean(streamHandle),
@@ -245,7 +299,6 @@ function streamStatusPayload(): {
     stopping: Boolean(streamStopping),
     error: streamError,
     streamPort: streamHandle?.streamPort ?? null,
-    sessionCode: streamHandle?.sessionCode ?? null,
   };
 }
 
@@ -279,6 +332,73 @@ function filtersForFilename(filename: string): FileFilter[] {
   if (filename.endsWith(".zip")) return [{ name: "ZIP Archive", extensions: ["zip"] }];
   if (filename.endsWith(".json")) return [{ name: "JSON Project", extensions: ["json"] }];
   return [{ name: "All Files", extensions: ["*"] }];
+}
+
+function companionPdxPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "playdate-pixel-preview.pdx")
+    : path.join(app.getAppPath(), "companion", "playdate-preview", "playdate-pixel-preview.pdx");
+}
+
+function overwriteCompanionDialogOptions(targetPath: string): MessageBoxOptions {
+  return {
+    type: "warning",
+    buttons: ["Cancel", "Replace"],
+    defaultId: 1,
+    cancelId: 0,
+    message: "Replace existing Playdate companion?",
+    detail: `${targetPath} already exists.`,
+  };
+}
+
+async function findPlaydateSimulatorPath(): Promise<string | null> {
+  const sdkRoots = await candidateSdkRoots();
+  for (const sdkRoot of sdkRoots) {
+    const candidates =
+      process.platform === "darwin"
+        ? [path.join(sdkRoot, "bin", "Playdate Simulator.app")]
+        : [path.join(sdkRoot, "bin", "PlaydateSimulator")];
+    for (const candidate of candidates) {
+      if (await pathExists(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+async function candidateSdkRoots(): Promise<string[]> {
+  const candidates = [
+    process.env.PLAYDATE_SDK_PATH,
+    await readPlaydateConfigSdkRoot(),
+    path.join(os.homedir(), "Developer", "PlaydateSDK"),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+  return [...new Set(candidates.map((candidate) => candidate.replace(/\/export$/, "")))];
+}
+
+async function readPlaydateConfigSdkRoot(): Promise<string | null> {
+  try {
+    const config = await fs.readFile(path.join(os.homedir(), ".Playdate", "config"), "utf8");
+    const match = /^SDKRoot\s+(.+)$/m.exec(config);
+    return match?.[1]?.trim() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function openPdxInSimulator(simulatorPath: string, pdxPath: string): Promise<void> {
+  if (process.platform === "darwin") {
+    await execFileAsync("open", ["-a", simulatorPath, pdxPath]);
+    return;
+  }
+  await execFileAsync(simulatorPath, [pdxPath]);
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function errorMessage(error: unknown): string {

@@ -4,7 +4,7 @@ import { packPlaydateFrame, PLAYDATE_FRAME_BYTES } from "./protocol";
 import {
   getDesktopStreamDevices,
   getDesktopStreamHealth,
-  getDesktopStreamSession,
+  getDesktopStreamInfo,
   sendDesktopStreamFrame,
 } from "../desktop/desktopApi";
 
@@ -20,8 +20,7 @@ export interface PlaydateStreamHealth {
   devices?: PlaydateStreamDevice[];
 }
 
-export interface PlaydateStreamSession {
-  sessionCode: string;
+export interface PlaydateStreamInfo {
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
@@ -34,7 +33,7 @@ export interface PlaydateStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
-  authenticatedForMs: number | null;
+  readyForMs: number | null;
   lastFrameAgeMs: number | null;
   lastRevisionSent: number | null;
   packetsSent: number;
@@ -56,9 +55,9 @@ export async function fetchPlaydateStreamHealth(signal?: AbortSignal): Promise<P
   return result;
 }
 
-export async function fetchPlaydateStreamSession(signal?: AbortSignal): Promise<PlaydateStreamSession> {
+export async function fetchPlaydateStreamInfo(signal?: AbortSignal): Promise<PlaydateStreamInfo> {
   throwIfAborted(signal);
-  const result = await getDesktopStreamSession();
+  const result = await getDesktopStreamInfo();
   throwIfAborted(signal);
   return result;
 }

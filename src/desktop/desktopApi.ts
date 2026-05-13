@@ -20,14 +20,13 @@ export interface DesktopStreamStatus {
   stopping: boolean;
   error: string | null;
   streamPort: number | null;
-  sessionCode: string | null;
 }
 
 export interface DesktopStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
-  authenticatedForMs: number | null;
+  readyForMs: number | null;
   lastFrameAgeMs: number | null;
   lastRevisionSent: number | null;
   packetsSent: number;
@@ -46,8 +45,7 @@ export interface DesktopStreamHealth {
   devices: DesktopStreamDevice[];
 }
 
-export interface DesktopStreamSession {
-  sessionCode: string;
+export interface DesktopStreamInfo {
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
@@ -82,12 +80,14 @@ export interface PlaydatePixelDesktopApi {
   files: {
     saveBlob: (request: DesktopSaveBlobRequest) => Promise<DesktopFileResult>;
     openProjectFile: () => Promise<DesktopFileResult>;
+    saveCompanionPdx: () => Promise<DesktopFileResult>;
+    openCompanionInSimulator: () => Promise<DesktopFileResult>;
   };
   stream: {
     start: () => Promise<DesktopStreamStatus>;
     stop: () => Promise<DesktopStreamStatus>;
     getHealth: () => Promise<DesktopStreamHealth>;
-    getSession: () => Promise<DesktopStreamSession>;
+    getInfo: () => Promise<DesktopStreamInfo>;
     getDevices: () => Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }>;
     sendFrame: (request: DesktopStreamFrameRequest) => Promise<DesktopStreamFrameResult>;
   };
@@ -118,6 +118,20 @@ export async function openProjectFileWithDesktopDialog(): Promise<DesktopFileRes
   return result;
 }
 
+export async function saveCompanionPdxWithDesktopDialog(): Promise<DesktopFileResult> {
+  const desktopApi = requireDesktopApi();
+  const result = await desktopApi.files.saveCompanionPdx();
+  if (!result.ok) throw new Error(result.error ?? "Unable to save Playdate companion.");
+  return result;
+}
+
+export async function openCompanionPdxInSimulator(): Promise<DesktopFileResult> {
+  const desktopApi = requireDesktopApi();
+  const result = await desktopApi.files.openCompanionInSimulator();
+  if (!result.ok) throw new Error(result.error ?? "Unable to open Playdate companion in Simulator.");
+  return result;
+}
+
 export async function startDesktopStream(): Promise<DesktopStreamStatus> {
   const desktopApi = requireDesktopApi();
   return desktopApi.stream.start();
@@ -133,9 +147,9 @@ export async function getDesktopStreamHealth(): Promise<DesktopStreamHealth> {
   return desktopApi.stream.getHealth();
 }
 
-export async function getDesktopStreamSession(): Promise<DesktopStreamSession> {
+export async function getDesktopStreamInfo(): Promise<DesktopStreamInfo> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.stream.getSession();
+  return desktopApi.stream.getInfo();
 }
 
 export async function getDesktopStreamDevices(): Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }> {

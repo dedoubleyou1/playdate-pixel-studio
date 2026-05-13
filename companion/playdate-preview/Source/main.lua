@@ -10,12 +10,10 @@ local FRAME_BYTES <const> = 12000
 local SETTINGS_FILE <const> = "settings"
 local DEFAULT_HOST <const> = "127.0.0.1"
 local DEFAULT_PORT <const> = "9138"
-local DEFAULT_SESSION <const> = "ABC123"
 
 local config = playdate.datastore.read(SETTINGS_FILE) or {
     host = DEFAULT_HOST,
     port = DEFAULT_PORT,
-    session = DEFAULT_SESSION,
 }
 
 local tcp = nil
@@ -45,11 +43,8 @@ end)
 menu:addMenuItem("Edit Port", function()
     pendingKeyboardField = "port"
 end)
-menu:addMenuItem("Edit Session", function()
-    pendingKeyboardField = "session"
-end)
 menu:addMenuItem("Reset Settings", function()
-    config = { host = DEFAULT_HOST, port = DEFAULT_PORT, session = DEFAULT_SESSION }
+    config = { host = DEFAULT_HOST, port = DEFAULT_PORT }
     playdate.datastore.write(config, SETTINGS_FILE, true)
     requestReconnect("Settings reset")
 end)
@@ -87,7 +82,6 @@ local function stopConnection(message)
 end
 
 local function saveConfig()
-    config.session = string.upper(config.session or "")
     playdate.datastore.write(config, SETTINGS_FILE, true)
 end
 
@@ -177,11 +171,11 @@ local function readTcp()
         if lineEnd then
             local line = string.sub(rx, 1, lineEnd - 1)
             rx = string.sub(rx, lineEnd + 1)
-            if string.sub(line, 1, 2) == "OK" then
+            if line == "OK" then
                 handshake = true
                 status = "Waiting for frames"
             else
-                stopConnection("Session rejected; edit session")
+                stopConnection("Stream rejected connection")
             end
         end
     end
@@ -220,8 +214,8 @@ local function openTcp()
         end
 
         connected = true
-        status = "Authenticating"
-        local wrote, writeErr = tcp:write("HELLO " .. string.upper(config.session or "") .. "\n")
+        status = "Opening stream"
+        local wrote, writeErr = tcp:write("HELLO\n")
         if not wrote then
             stopConnection(writeErr or "Unable to write HELLO")
         end
@@ -259,11 +253,10 @@ local function drawOverlay()
     end
 
     local text = string.format(
-        "PD Pixel Preview  %s:%s  %s\nSession %s  Rev %s  Frames %i  Rejected %i  Age %s",
+        "PD Pixel Preview  %s:%s  %s\nRev %s  Frames %i  Rejected %i  Age %s",
         config.host,
         config.port,
         status,
-        string.upper(config.session or ""),
         latestRevision or "--",
         framesReceived,
         framesRejected,

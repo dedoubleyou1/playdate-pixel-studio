@@ -15,12 +15,11 @@ afterEach(async () => {
 });
 
 describe("Playdate TCP stream service", () => {
-  it("starts, reports session and health, and stops", async () => {
+  it("starts, reports stream info and health, and stops", async () => {
     const port = await getAvailablePort();
-    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST01" });
+    stream = await startPlaydateStreamServer({ streamPort: port });
 
-    expect(stream.getSession()).toMatchObject({
-      sessionCode: "TEST01",
+    expect(stream.getInfo()).toMatchObject({
       streamPort: port,
       latestRevision: null,
       connectedDevices: 0,
@@ -38,21 +37,21 @@ describe("Playdate TCP stream service", () => {
 
   it("releases the TCP port so streaming can restart cleanly", async () => {
     const port = await getAvailablePort();
-    const firstStream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST03" });
+    const firstStream = await startPlaydateStreamServer({ streamPort: port });
 
-    expect(firstStream.getSession()).toMatchObject({ sessionCode: "TEST03", streamPort: port });
+    expect(firstStream.getInfo()).toMatchObject({ streamPort: port });
 
     await firstStream.stop();
-    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST04" });
+    stream = await startPlaydateStreamServer({ streamPort: port });
 
     expect(stream).not.toBe(firstStream);
-    expect(stream.getSession()).toMatchObject({ sessionCode: "TEST04", streamPort: port });
+    expect(stream.getInfo()).toMatchObject({ streamPort: port });
   });
 
-  it("tracks authenticated devices and broadcasts accepted frames", async () => {
+  it("tracks connected devices and broadcasts accepted frames", async () => {
     const port = await getAvailablePort();
-    stream = await startPlaydateStreamServer({ streamPort: port, sessionCode: "TEST02" });
-    const socket = await connectPlaydateClient(port, "TEST02");
+    stream = await startPlaydateStreamServer({ streamPort: port });
+    const socket = await connectPlaydateClient(port);
 
     expect(stream.getDevices().connectedDevices).toBe(1);
 
@@ -136,16 +135,16 @@ function listenOnPort(port: number): Promise<net.Server> {
   });
 }
 
-function connectPlaydateClient(port: number, sessionCode: string): Promise<net.Socket> {
+function connectPlaydateClient(port: number): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ port, host: "127.0.0.1" });
     socket.once("error", reject);
     socket.once("connect", () => {
-      socket.write(`HELLO ${sessionCode}\n`);
+      socket.write("HELLO\n");
     });
     socket.once("data", (chunk) => {
       const response = chunk.toString("utf8");
-      if (!response.startsWith(`OK ${sessionCode}`)) {
+      if (!response.startsWith("OK")) {
         reject(new Error(`Unexpected stream response: ${response}`));
         socket.destroy();
         return;

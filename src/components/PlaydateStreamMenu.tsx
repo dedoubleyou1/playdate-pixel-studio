@@ -1,6 +1,8 @@
-import { RadioTower, Square, Wifi } from "lucide-react";
+import { useState } from "react";
+import { Download, MonitorPlay, RadioTower, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { openCompanionPdxInSimulator, saveCompanionPdxWithDesktopDialog } from "../desktop/desktopApi";
 import { usePlaydateStream } from "../hooks/usePlaydateStream";
 import { useEditorStore } from "../state/editorStore";
 
@@ -12,6 +14,34 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   const documentRevision = useEditorStore((state) => state.documentRevision);
   const previewMode = useEditorStore((state) => state.previewMode);
   const stream = usePlaydateStream({ background, layers, objects, palette, previewMode, documentRevision });
+  const [companionActionStatus, setCompanionActionStatus] = useState<string | null>(null);
+  const [companionActionRunning, setCompanionActionRunning] = useState(false);
+
+  const saveCompanion = async (): Promise<void> => {
+    setCompanionActionRunning(true);
+    setCompanionActionStatus(null);
+    try {
+      const result = await saveCompanionPdxWithDesktopDialog();
+      if (!result.canceled) setCompanionActionStatus("Companion saved.");
+    } catch (error) {
+      setCompanionActionStatus(error instanceof Error ? error.message : "Unable to save companion.");
+    } finally {
+      setCompanionActionRunning(false);
+    }
+  };
+
+  const openCompanion = async (): Promise<void> => {
+    setCompanionActionRunning(true);
+    setCompanionActionStatus(null);
+    try {
+      await openCompanionPdxInSimulator();
+      setCompanionActionStatus("Companion opened in Simulator.");
+    } catch (error) {
+      setCompanionActionStatus(error instanceof Error ? error.message : "Unable to open companion in Simulator.");
+    } finally {
+      setCompanionActionRunning(false);
+    }
+  };
 
   return (
     <Popover>
@@ -34,8 +64,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
         </div>
 
         <div className="stream-readout-grid">
-          <Readout label="Session" value={stream.session?.sessionCode ?? "------"} />
-          <Readout label="Target" value={`${stream.primaryHost}:${stream.session?.streamPort ?? 9138}`} />
+          <Readout label="Target" value={`${stream.primaryHost}:${stream.streamInfo?.streamPort ?? 9138}`} />
           <Readout label="Revision" value={stream.lastSentRevision?.toString() ?? "--"} />
           <Readout label="Latency" value={stream.roundTripMs === null ? "--" : `${stream.roundTripMs} ms`} />
           <Readout label="Devices" value={stream.connectedDevices.toString()} />
@@ -43,7 +72,7 @@ export function PlaydateStreamMenu(): React.JSX.Element {
 
         <div className="stream-device-list" aria-label="Connected Playdate devices">
           {stream.devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No authenticated devices yet.</p>
+            <p className="text-sm text-muted-foreground">No connected Playdate devices yet.</p>
           ) : (
             stream.devices.map((device) => (
               <div className="stream-device-row text-xs" key={device.id}>
@@ -57,6 +86,18 @@ export function PlaydateStreamMenu(): React.JSX.Element {
             ))
           )}
         </div>
+
+        <div className="stream-menu-actions">
+          <Button onClick={() => void saveCompanion()} variant="outline" disabled={companionActionRunning}>
+            <Download size={16} aria-hidden />
+            Save companion
+          </Button>
+          <Button onClick={() => void openCompanion()} variant="outline" disabled={companionActionRunning}>
+            <MonitorPlay size={16} aria-hidden />
+            Open in Simulator
+          </Button>
+        </div>
+        {companionActionStatus ? <div className="text-xs text-muted-foreground">{companionActionStatus}</div> : null}
 
         <div className="stream-menu-actions">
           <Button

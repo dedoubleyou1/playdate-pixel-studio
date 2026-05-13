@@ -7,19 +7,16 @@ import { normalizeStreamId, shouldAcceptFrameRevision } from "../../src/companio
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../../src/domain/constants.ts";
 
 const DEFAULT_STREAM_PORT = 9138;
-const DEFAULT_SESSION_CODE = "ABC123";
 
 export interface PlaydateStreamServerOptions {
   streamPort?: number;
-  sessionCode?: string;
 }
 
 export interface PlaydateStreamServerHandle {
   streamPort: number;
-  sessionCode: string;
   stop: () => Promise<void>;
   getHealth: () => PlaydateStreamHealth;
-  getSession: () => PlaydateStreamSession;
+  getInfo: () => PlaydateStreamInfo;
   getDevices: () => PlaydateStreamDevicesPayload;
   postFrame: (frame: PlaydateStreamFrameRequest) => PlaydateStreamFrameResult;
 }
@@ -28,7 +25,7 @@ export interface PlaydateStreamDevice {
   id: string;
   address: string;
   connectedForMs: number;
-  authenticatedForMs: number | null;
+  readyForMs: number | null;
   lastFrameAgeMs: number | null;
   lastRevisionSent: number | null;
   packetsSent: number;
@@ -47,8 +44,7 @@ export interface PlaydateStreamHealth {
   devices: PlaydateStreamDevice[];
 }
 
-export interface PlaydateStreamSession {
-  sessionCode: string;
+export interface PlaydateStreamInfo {
   streamPort: number;
   hostCandidates: string[];
   latestRevision: number | null;
@@ -97,7 +93,7 @@ interface StreamClient {
   ready: boolean;
   buffer: string;
   connectedAt: number;
-  authenticatedAt: number | null;
+  readyAt: number | null;
   lastSentAt: number | null;
   lastRevisionSent: number | null;
   packetsSent: number;
@@ -111,7 +107,6 @@ let latestFrame: LatestFrame | null = null;
 let nextClientId = 1;
 const streamClients = new Set<StreamClient>();
 let streamPort = Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
-let sessionCode = (process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
 let activeHandle: PlaydateStreamServerHandle | null = null;
 let tcpServer: net.Server | null = null;
 
@@ -119,7 +114,6 @@ export async function startPlaydateStreamServer(options: PlaydateStreamServerOpt
   if (activeHandle) return activeHandle;
 
   streamPort = options.streamPort ?? Number.parseInt(process.env.PDPS_STREAM_PORT ?? String(DEFAULT_STREAM_PORT), 10);
-  sessionCode = (options.sessionCode ?? process.env.PDPS_SESSION ?? DEFAULT_SESSION_CODE).toUpperCase();
   tcpServer = createTcpServer();
 
   try {
@@ -131,14 +125,13 @@ export async function startPlaydateStreamServer(options: PlaydateStreamServerOpt
   }
 
   console.log(`Playdate Pixel Studio stream TCP listening on 0.0.0.0:${streamPort}`);
-  console.log(`Session ${sessionCode}, LAN candidates: ${getLanAddresses().join(", ") || "none found"}`);
+  console.log(`LAN candidates: ${getLanAddresses().join(", ") || "none found"}`);
 
   activeHandle = {
     streamPort,
-    sessionCode,
     stop: stopPlaydateStreamServer,
     getHealth: healthPayload,
-    getSession: sessionPayload,
+    getInfo: infoPayload,
     getDevices: devicesPayload,
     postFrame,
   };
@@ -154,7 +147,7 @@ function createTcpServer(): net.Server {
       ready: false,
       buffer: "",
       connectedAt: Date.now(),
-      authenticatedAt: null,
+      readyAt: null,
       lastSentAt: null,
       lastRevisionSent: null,
       packetsSent: 0,
@@ -174,16 +167,16 @@ function createTcpServer(): net.Server {
       if (lineEnd === -1) return;
 
       const line = client.buffer.slice(0, lineEnd).trim();
-      if (line !== `HELLO ${sessionCode}`) {
-        socket.end(`ERR SESSION\n`);
+      if (line !== "HELLO") {
+        socket.end("ERR HELLO\n");
         return;
       }
 
       client.ready = true;
-      client.authenticatedAt = Date.now();
-      socket.write(`OK ${sessionCode}\n`);
+      client.readyAt = Date.now();
+      socket.write("OK\n");
       if (latestFrame) writeFrameToClient(client, latestFrame.packet, latestFrame.revision);
-      console.log(`Playdate TCP client ${client.id} authenticated from ${client.remoteAddress}`);
+      console.log(`Playdate TCP client ${client.id} ready from ${client.remoteAddress}`);
     });
 
     socket.on("drain", () => {
@@ -305,9 +298,8 @@ function healthPayload(): PlaydateStreamHealth {
   };
 }
 
-function sessionPayload(): PlaydateStreamSession {
+function infoPayload(): PlaydateStreamInfo {
   return {
-    sessionCode,
     streamPort,
     hostCandidates: getLanAddresses(),
     latestRevision: latestFrame?.revision ?? null,
@@ -340,7 +332,7 @@ function readyClientSnapshots(): PlaydateStreamDevice[] {
       id: client.id,
       address: client.remoteAddress,
       connectedForMs: now - client.connectedAt,
-      authenticatedForMs: client.authenticatedAt ? now - client.authenticatedAt : null,
+      readyForMs: client.readyAt ? now - client.readyAt : null,
       lastFrameAgeMs: client.lastSentAt ? now - client.lastSentAt : null,
       lastRevisionSent: client.lastRevisionSent,
       packetsSent: client.packetsSent,

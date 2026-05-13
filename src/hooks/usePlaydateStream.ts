@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchPlaydateStreamHealth,
-  fetchPlaydateStreamSession,
+  fetchPlaydateStreamInfo,
   sendPlaydateStreamFrame,
   type PlaydateStreamDevice,
-  type PlaydateStreamSession,
+  type PlaydateStreamInfo,
 } from "../companion/client";
 import type { PixelValue, ProjectPalette, Layer, ObjectDefinition } from "../domain/types";
 import type { PreviewMode } from "../export/playdateExport";
@@ -26,7 +26,7 @@ export interface PlaydateStreamController {
   streamState: PlaydateStreamState;
   streamStatusLabel: string;
   streamActionDisabled: boolean;
-  session: PlaydateStreamSession | null;
+  streamInfo: PlaydateStreamInfo | null;
   primaryHost: string;
   lastSentRevision: number | null;
   roundTripMs: number | null;
@@ -39,7 +39,7 @@ export interface PlaydateStreamController {
 export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): PlaydateStreamController {
   const [enabled, setEnabled] = useState(false);
   const [streamState, setStreamState] = useState<PlaydateStreamState>("idle");
-  const [session, setSession] = useState<PlaydateStreamSession | null>(null);
+  const [streamInfo, setStreamInfo] = useState<PlaydateStreamInfo | null>(null);
   const [lastSentRevision, setLastSentRevision] = useState<number | null>(null);
   const [roundTripMs, setRoundTripMs] = useState<number | null>(null);
   const [connectedDevices, setConnectedDevices] = useState(0);
@@ -55,14 +55,14 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     latestFrameRef.current = frameSource;
   }, [frameSource]);
 
-  const primaryHost = useMemo(() => session?.hostCandidates[0] ?? "your-computer-ip", [session]);
+  const primaryHost = useMemo(() => streamInfo?.hostCandidates[0] ?? "your-computer-ip", [streamInfo]);
   const streamStatusLabel = statusLabelForState(streamState);
   const streamActionDisabled = streamState === "starting" || streamState === "stopping";
 
   const resetStreamSnapshot = useCallback((): void => {
     setConnectedDevices(0);
     setDevices([]);
-    setSession(null);
+    setStreamInfo(null);
     setLastSentRevision(null);
     setRoundTripMs(null);
     lastPostedRevisionRef.current = null;
@@ -91,23 +91,23 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     let sendInterval: number | null = null;
     let refreshInterval: number | null = null;
 
-    const refreshSession = async (): Promise<void> => {
+    const refreshStreamInfo = async (): Promise<void> => {
       try {
-        const [nextSession, health] = await Promise.all([
-          fetchPlaydateStreamSession(controller.signal),
+        const [nextStreamInfo, health] = await Promise.all([
+          fetchPlaydateStreamInfo(controller.signal),
           fetchPlaydateStreamHealth(controller.signal),
         ]);
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
-        setSession(nextSession);
+        setStreamInfo(nextStreamInfo);
         setConnectedDevices(health.connectedDevices);
-        setDevices(nextSession.devices ?? []);
+        setDevices(nextStreamInfo.devices ?? []);
         setStreamState("online");
       } catch {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         setStreamState("offline");
         setConnectedDevices(0);
         setDevices([]);
-        setSession(null);
+        setStreamInfo(null);
       }
     };
 
@@ -137,7 +137,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
           setStatusText(
             `Streaming document revision ${result.revision} (${result.byteLength.toLocaleString()} bytes).`,
           );
-          void refreshSession();
+          void refreshStreamInfo();
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
@@ -157,13 +157,13 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
         setStatusText("Starting Playdate stream.");
         await startDesktopStream();
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
-        await refreshSession();
+        await refreshStreamInfo();
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         setStatusText("Stream ready. Connect the companion, then edit to send frames.");
         sendLatestFrame();
         sendInterval = window.setInterval(sendLatestFrame, 100);
         refreshInterval = window.setInterval(() => {
-          void refreshSession();
+          void refreshStreamInfo();
         }, 3000);
       } catch (error) {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
@@ -207,7 +207,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     streamState,
     streamStatusLabel,
     streamActionDisabled,
-    session,
+    streamInfo,
     primaryHost,
     lastSentRevision,
     roundTripMs,
