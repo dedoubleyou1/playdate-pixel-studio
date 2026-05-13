@@ -1,13 +1,3 @@
-export const PDPS_STREAM_ID_HEADER = "x-pdps-stream-id";
-
-export const PDPS_FRAME_REQUEST_HEADERS = [
-  "content-type",
-  "x-pdps-revision",
-  "x-pdps-flags",
-  "x-pdps-crc32",
-  PDPS_STREAM_ID_HEADER,
-] as const;
-
 export interface FrameRevisionIdentity {
   revision: number;
   streamId: string;
@@ -41,5 +31,5 @@ export function shouldAcceptFrameRevision(
 export function normalizeStreamId(value: string | string[] | undefined): string {
   const rawValue = Array.isArray(value) ? value[0] : value;
   const trimmed = rawValue?.trim();
-  return trimmed ? trimmed.slice(0, 96) : "legacy-browser-stream";
+  return trimmed ? trimmed.slice(0, 96) : "electron-stream";
 }

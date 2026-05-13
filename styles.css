@@ -263,6 +263,12 @@ body {
   color: var(--green);
 }
 
+.bridge-status.is-checking,
+.bridge-status.is-restarting {
+  border-color: rgba(124, 103, 45, 0.34);
+  color: #75632c;
+}
+
 .bridge-status.is-offline {
   border-color: rgba(179, 38, 30, 0.32);
   color: var(--destructive);
@@ -286,6 +292,7 @@ body {
 
 .stream-menu-actions {
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .stream-device-list {

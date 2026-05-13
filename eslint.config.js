@@ -7,6 +7,9 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-electron",
+      "release",
+      "scripts/build-electron.mjs",
       "node_modules",
       "eslint.config.js",
       "companion/playdate-preview/build",
@@ -19,7 +22,9 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ["electron/*.ts", "electron/*.cts", "scripts/*.mjs", "companion/bridge/server.test.ts"],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

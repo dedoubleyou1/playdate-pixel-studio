@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PDPS_FRAME_REQUEST_HEADERS,
-  PDPS_STREAM_ID_HEADER,
-  normalizeStreamId,
-  shouldAcceptFrameRevision,
-} from "./streamMetadata";
+import { normalizeStreamId, shouldAcceptFrameRevision } from "./streamMetadata";
 
 describe("stream metadata", () => {
   it("rejects lower revisions within the same stream", () => {
@@ -33,12 +28,8 @@ describe("stream metadata", () => {
     });
   });
 
-  it("declares the stream id CORS request header", () => {
-    expect(PDPS_FRAME_REQUEST_HEADERS).toContain(PDPS_STREAM_ID_HEADER);
-  });
-
   it("normalizes missing stream ids to a legacy producer", () => {
-    expect(normalizeStreamId(undefined)).toBe("legacy-browser-stream");
-    expect(normalizeStreamId(" browser-stream ")).toBe("browser-stream");
+    expect(normalizeStreamId(undefined)).toBe("electron-stream");
+    expect(normalizeStreamId(" electron-stream ")).toBe("electron-stream");
   });
 });
