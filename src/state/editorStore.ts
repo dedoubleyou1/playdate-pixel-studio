@@ -7,6 +7,7 @@ import { createInteractionActions } from "./actions/interactionActions";
 import { createLayerActions } from "./actions/layerActions";
 import { createObjectActions } from "./actions/objectActions";
 import { createProjectActions } from "./actions/projectActions";
+import { createSelectionActions } from "./actions/selectionActions";
 import {
   activeSelection,
   contextLabel,
@@ -55,7 +56,8 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   canUndo: false,
   canRedo: false,
   hasUnsavedChanges: false,
-  ...createInteractionActions(set, get),
+  ...createInteractionActions(set),
+  ...createSelectionActions(set, get),
   ...createHistoryActions(set, get),
   ...createObjectActions(set, get),
   ...createLayerActions(set, get),

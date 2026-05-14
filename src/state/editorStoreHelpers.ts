@@ -16,14 +16,12 @@ import {
 } from "../domain/layers";
 import { cloneSelectionState } from "../domain/masks";
 import type {
-  BinaryMaskSurface,
   EditContext,
   EditorSnapshot,
   Layer,
   LayerStack,
   ObjectDefinition,
   PixelLayer,
-  SelectionCombineMode,
   SelectionState,
   Tool,
 } from "../domain/types";
@@ -97,18 +95,6 @@ export function pushCommand(set: EditorStoreSet, command: EditorCommand): void {
       status: command.label,
     };
   });
-}
-
-export function selectionCommandLabel(mode: SelectionCombineMode, shape: string): string {
-  if (mode === "add") return `Add ${shape}`;
-  if (mode === "subtract") return `Subtract ${shape}`;
-  return shape === "ellipse selection" ? "Set ellipse selection" : "Set selection";
-}
-
-export function selectionStatus(mode: SelectionCombineMode): string {
-  if (mode === "add") return "Selection added";
-  if (mode === "subtract") return "Selection subtracted";
-  return "Selection created";
 }
 
 export type SelectionStateHost = {
@@ -247,5 +233,3 @@ export const TOOL_LABELS: Record<Tool, string> = {
   ellipse: "Ellipse",
   fill: "Fill",
 };
-
-export type MaskFactory = (width: number, height: number) => BinaryMaskSurface;

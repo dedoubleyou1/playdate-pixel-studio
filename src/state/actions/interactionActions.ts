@@ -1,25 +1,7 @@
-import { createEditorCommand } from "../../domain/commands";
-import { activeLayer, activeStack, isPixelEditableLayer } from "../../domain/layers";
-import {
-  combineBinaryMaskSurface,
-  createEllipseMask,
-  createRectMask,
-  createSelectionStateFromMask,
-} from "../../domain/masks";
+import { activeLayer, isPixelEditableLayer } from "../../domain/layers";
 import { paletteEntryLabel } from "../../domain/palette";
-import type { SelectionCombineMode } from "../../domain/types";
-import {
-  activeSelection,
-  pushCommand,
-  selectionCommandLabel,
-  selectionSnapshot,
-  selectionStatus,
-  setActiveSelectionState,
-  snapshotFrom,
-  TOOL_LABELS,
-  type MaskFactory,
-} from "../editorStoreHelpers";
-import type { EditorStoreGet, EditorStoreSet, EditorStoreState } from "../editorStoreTypes";
+import { TOOL_LABELS } from "../editorStoreHelpers";
+import type { EditorStoreSet, EditorStoreState } from "../editorStoreTypes";
 
 type InteractionActions = Pick<
   EditorStoreState,
@@ -36,41 +18,13 @@ type InteractionActions = Pick<
   | "setStatus"
   | "setCursorLabel"
   | "setCanvasToolPreview"
-  | "setActiveSelectionCombineMode"
   | "setPreviewMode"
   | "setEditTarget"
-  | "setSelectionFromRect"
-  | "setSelectionFromEllipse"
-  | "clearSelection"
   | "openPreview"
   | "closePreview"
 >;
 
-export function createInteractionActions(set: EditorStoreSet, get: EditorStoreGet): InteractionActions {
-  const setSelectionFromMask = (
-    label: string,
-    status: string,
-    mode: SelectionCombineMode,
-    createMask: MaskFactory,
-  ): void => {
-    const before = snapshotFrom(get());
-    const beforeSelection = selectionSnapshot(get());
-    set((state) => {
-      const stack = activeStack(state);
-      const combinedMask = combineBinaryMaskSurface(activeSelection(state)?.mask, createMask(stack.width, stack.height), mode);
-      const selection = createSelectionStateFromMask(combinedMask);
-      return setActiveSelectionState(state, selection.isEmpty ? null : selection, status);
-    });
-    const afterSelection = selectionSnapshot(get());
-    pushCommand(
-      set,
-      createEditorCommand(label, before, snapshotFrom(get()), {
-        afterSelection,
-        beforeSelection,
-      }),
-    );
-  };
-
+export function createInteractionActions(set: EditorStoreSet): InteractionActions {
   return {
     setTool: (tool) =>
       set((state) => {
@@ -126,8 +80,6 @@ export function createInteractionActions(set: EditorStoreSet, get: EditorStoreGe
     setCanvasToolPreview: (canvasToolPreview) =>
       set((state) => ({ canvasToolPreview, viewRevision: state.viewRevision + 1 })),
 
-    setActiveSelectionCombineMode: (activeSelectionCombineMode) => set({ activeSelectionCombineMode }),
-
     setEditTarget: (editTarget) =>
       set((state) =>
         state.editTarget === editTarget
@@ -139,31 +91,6 @@ export function createInteractionActions(set: EditorStoreSet, get: EditorStoreGe
               viewRevision: state.viewRevision + 1,
             },
       ),
-
-    setSelectionFromRect: (start, end, mode = "replace") => {
-      setSelectionFromMask(selectionCommandLabel(mode, "selection"), selectionStatus(mode), mode, (width, height) =>
-        createRectMask(width, height, start, end),
-      );
-    },
-
-    setSelectionFromEllipse: (start, end, mode = "replace") => {
-      setSelectionFromMask(selectionCommandLabel(mode, "ellipse selection"), selectionStatus(mode), mode, (width, height) =>
-        createEllipseMask(width, height, start, end),
-      );
-    },
-
-    clearSelection: () => {
-      const before = snapshotFrom(get());
-      const beforeSelection = selectionSnapshot(get());
-      set((state) => (activeSelection(state) ? setActiveSelectionState(state, null, "Selection cleared") : {}));
-      pushCommand(
-        set,
-        createEditorCommand("Clear selection", before, snapshotFrom(get()), {
-          afterSelection: selectionSnapshot(get()),
-          beforeSelection,
-        }),
-      );
-    },
 
     openPreview: () => set({ previewOpen: true }),
     closePreview: () => set({ previewOpen: false }),
