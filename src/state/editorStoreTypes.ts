@@ -11,7 +11,6 @@ import type {
   PixelLayer,
   PixelValue,
   SelectionCombineMode,
-  SelectionPreview,
   SelectionState,
   Tool,
 } from "../domain/types";
@@ -62,7 +61,6 @@ export interface EditorSessionState {
   previewOpen: boolean;
   previewMode: PreviewMode;
   canvasToolPreview: CanvasToolPreview | null;
-  selectionPreview: SelectionPreview | null;
   activeSelectionCombineMode: SelectionCombineMode | null;
   editTarget: EditTarget;
   rootSelection: SelectionState | null;
@@ -97,7 +95,6 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   setStatus: (status: string) => void;
   setCursorLabel: (label: string) => void;
   setCanvasToolPreview: (preview: CanvasToolPreview | null) => void;
-  setSelectionPreview: (preview: SelectionPreview | null) => void;
   setActiveSelectionCombineMode: (mode: SelectionCombineMode | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
   setEditTarget: (target: EditTarget) => void;

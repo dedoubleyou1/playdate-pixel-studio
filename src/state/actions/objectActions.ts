@@ -25,7 +25,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
         if (state.activeContext.type === "root") {
           return {
             canvasToolPreview: null,
-            selectionPreview: null,
             activeSelectionCombineMode: null,
             pendingMove: null,
             pendingSelectionMove: null,
@@ -37,7 +36,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
         return {
           activeContext: { type: "root" },
           canvasToolPreview: null,
-          selectionPreview: null,
           activeSelectionCombineMode: null,
           pendingMove: null,
           pendingSelectionMove: null,
@@ -55,7 +53,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
         return {
           activeContext: { type: "object", objectId },
           canvasToolPreview: null,
-          selectionPreview: null,
           activeSelectionCombineMode: null,
           pendingMove: null,
           pendingSelectionMove: null,
@@ -76,7 +73,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
         objects: [...state.objects, object],
         activeContext: { type: "object", objectId: object.id },
         canvasToolPreview: null,
-        selectionPreview: null,
         activeSelectionCombineMode: null,
         editTarget: "pixels",
         objectSelection: null,
@@ -110,7 +106,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
           objects,
           activeContext: { type: "object", objectId: object.id },
           canvasToolPreview: null,
-          selectionPreview: null,
           activeSelectionCombineMode: null,
           editTarget: "pixels",
           objectSelection: null,
@@ -147,7 +142,6 @@ export function createObjectActions(set: EditorStoreSet, get: EditorStoreGet): O
               ? { type: "root" }
               : state.activeContext,
           canvasToolPreview: null,
-          selectionPreview: null,
           activeSelectionCombineMode: null,
           editTarget: "pixels",
           objectSelection:

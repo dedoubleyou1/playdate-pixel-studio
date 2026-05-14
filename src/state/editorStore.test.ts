@@ -116,24 +116,6 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
   });
 
-  it("does not invalidate the art canvas for selection overlay previews", () => {
-    const state = useEditorStore.getState();
-
-    state.setSelectionPreview({
-      brushSize: 1,
-      combineMode: "replace",
-      end: { x: 4, y: 4 },
-      mirrorX: false,
-      mirrorY: false,
-      start: { x: 2, y: 2 },
-      type: "rect",
-    });
-
-    expect(useEditorStore.getState().documentRevision).toBe(0);
-    expect(useEditorStore.getState().viewRevision).toBe(0);
-    expect(useEditorStore.getState().selectionPreview?.end).toEqual({ x: 4, y: 4 });
-  });
-
   it("increments only view revision for grid changes", () => {
     const state = useEditorStore.getState();
 

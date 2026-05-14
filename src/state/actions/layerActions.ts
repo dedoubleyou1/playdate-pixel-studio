@@ -283,7 +283,6 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
           pendingCommand: null,
           pendingSelectionMove: null,
           canvasToolPreview: null,
-          selectionPreview: null,
           activeSelectionCombineMode: null,
           status: "Move cancelled",
         });
@@ -296,7 +295,6 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
         pendingCommand: null,
         pendingMove: null,
         canvasToolPreview: null,
-        selectionPreview: null,
         activeSelectionCombineMode: null,
         status: "Move cancelled",
       });

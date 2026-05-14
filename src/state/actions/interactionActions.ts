@@ -36,7 +36,6 @@ type InteractionActions = Pick<
   | "setStatus"
   | "setCursorLabel"
   | "setCanvasToolPreview"
-  | "setSelectionPreview"
   | "setActiveSelectionCombineMode"
   | "setPreviewMode"
   | "setEditTarget"
@@ -127,7 +126,6 @@ export function createInteractionActions(set: EditorStoreSet, get: EditorStoreGe
     setCanvasToolPreview: (canvasToolPreview) =>
       set((state) => ({ canvasToolPreview, viewRevision: state.viewRevision + 1 })),
 
-    setSelectionPreview: (selectionPreview) => set({ selectionPreview }),
     setActiveSelectionCombineMode: (activeSelectionCombineMode) => set({ activeSelectionCombineMode }),
 
     setEditTarget: (editTarget) =>

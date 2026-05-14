@@ -28,7 +28,6 @@ describe("editor gesture controller", () => {
       pendingSelectionMove: null,
       redoStack: [],
       rootSelection: null,
-      selectionPreview: null,
       undoStack: [],
       viewRevision: 0,
     });
@@ -82,13 +81,11 @@ describe("editor gesture controller", () => {
     useEditorStore.setState({ activeTool: "marquee" });
     let gesture: EditorGestureState = beginEditorGesture({ point: { x: 1, y: 1 }, shiftKey: false }, bridge);
     expect(useEditorStore.getState().activeSelectionCombineMode).toBe("replace");
-    expect(useEditorStore.getState().selectionPreview).toBeNull();
     const firstOverlayModel = vi.mocked(bridge.requestSelectionOverlayRender).mock.calls[0]?.[0];
     expect(firstOverlayModel).toMatchObject({ dx: 0, dy: 0 });
     expect(firstOverlayModel?.mask).not.toBeNull();
 
     gesture = updateEditorGesture(gesture, { point: { x: 2, y: 2 }, shiftKey: false }, bridge);
-    expect(useEditorStore.getState().selectionPreview).toBeNull();
     gesture = finishEditorGesture(gesture, { point: { x: 2, y: 2 }, shiftKey: false }, bridge);
 
     expect(gesture).toBe(idleGestureState);
@@ -119,7 +116,6 @@ describe("editor gesture controller", () => {
     let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: true }, bridge);
 
     gesture = updateEditorGesture(gesture, { point: { x: 4, y: 2 }, shiftKey: true }, bridge);
-    expect(useEditorStore.getState().selectionPreview).toBeNull();
     const previewOverlayModel = vi.mocked(bridge.requestSelectionOverlayRender).mock.calls.at(-1)?.[0];
     expect(previewOverlayModel).toMatchObject({ dx: 0, dy: 0 });
     expect(previewOverlayModel?.mask).not.toBeNull();
