@@ -196,6 +196,8 @@ interface EditorStoreState extends EditorDocument, EditorSessionState {
   switchToRoot: () => void;
   switchToObject: (objectId: string) => void;
   addObject: () => void;
+  duplicateObject: (objectId: string) => void;
+  deleteObject: (objectId: string) => void;
   renameObject: (objectId: string, name: string) => void;
   resizeObject: (objectId: string, width: number, height: number) => void;
   placeObjectOnRoot: (objectId: string, point?: { x: number; y: number }) => void;
@@ -739,6 +741,79 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
       hasUnsavedChanges: true,
     }));
     pushCurrentCommand(set, `Create ${object.name}`, before);
+  },
+
+  duplicateObject: (objectId) => {
+    const sourceObject = get().objects.find((object) => object.id === objectId);
+    if (!sourceObject) {
+      set({ status: "Object was not found" });
+      return;
+    }
+
+    const before = currentSnapshot();
+    const object = {
+      ...cloneObjectDefinition(sourceObject),
+      id: crypto.randomUUID(),
+      name: `${sourceObject.name} Copy`,
+    };
+    set((state) => {
+      const sourceIndex = state.objects.findIndex((candidate) => candidate.id === objectId);
+      const objects = [...state.objects];
+      objects.splice(sourceIndex + 1, 0, object);
+
+      return {
+        objects,
+        activeContext: { type: "object", objectId: object.id },
+        canvasToolPreview: null,
+        selectionPreview: null,
+        activeSelectionCombineMode: null,
+        editTarget: "pixels",
+        objectSelection: null,
+        status: `Duplicated ${sourceObject.name}`,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, `Duplicate ${sourceObject.name}`, before);
+  },
+
+  deleteObject: (objectId) => {
+    const object = get().objects.find((candidate) => candidate.id === objectId);
+    if (!object) {
+      set({ status: "Object was not found" });
+      return;
+    }
+
+    const before = currentSnapshot();
+    set((state) => {
+      const rootLayers = state.root.layers.filter((layer) => layer.type !== "object" || layer.objectId !== objectId);
+      const activeLayerIndex = clampLayerIndex(state.root.activeLayerIndex, rootLayers.length);
+
+      return {
+        objects: state.objects.filter((candidate) => candidate.id !== objectId),
+        root: {
+          ...state.root,
+          activeLayerIndex,
+          layers: rootLayers,
+        },
+        activeContext: state.activeContext.type === "object" && state.activeContext.objectId === objectId
+          ? { type: "root" }
+          : state.activeContext,
+        canvasToolPreview: null,
+        selectionPreview: null,
+        activeSelectionCombineMode: null,
+        editTarget: "pixels",
+        objectSelection: state.activeContext.type === "object" && state.activeContext.objectId === objectId
+          ? null
+          : state.objectSelection,
+        status: `${object.name} removed`,
+        documentRevision: state.documentRevision + 1,
+        viewRevision: state.viewRevision + 1,
+        hasUnsavedChanges: true,
+      };
+    });
+    pushCurrentCommand(set, `Remove ${object.name}`, before);
   },
 
   renameObject: (objectId, name) => {

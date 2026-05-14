@@ -1,5 +1,5 @@
 import { DragOverlay, useDraggable, useDragOperation } from "@dnd-kit/react";
-import { Plus } from "lucide-react";
+import { Copy, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
@@ -16,6 +16,8 @@ export function ObjectLibrary(): React.JSX.Element {
   const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
   const addObject = useEditorStore((state) => state.addObject);
+  const deleteObject = useEditorStore((state) => state.deleteObject);
+  const duplicateObject = useEditorStore((state) => state.duplicateObject);
   const renameObject = useEditorStore((state) => state.renameObject);
   const switchToObject = useEditorStore((state) => state.switchToObject);
   const { target } = useDragOperation();
@@ -46,6 +48,8 @@ export function ObjectLibrary(): React.JSX.Element {
               key={object.id}
               object={object}
               palette={palette}
+              onDelete={deleteObject}
+              onDuplicate={duplicateObject}
               onRename={renameObject}
               onSelect={switchToObject}
             />
@@ -85,6 +89,8 @@ function ObjectRow({
   draggable,
   object,
   palette,
+  onDelete,
+  onDuplicate,
   onRename,
   onSelect,
 }: {
@@ -92,6 +98,8 @@ function ObjectRow({
   draggable: boolean;
   object: ObjectDefinition;
   palette: ProjectPalette;
+  onDelete: (objectId: string) => void;
+  onDuplicate: (objectId: string) => void;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
 }): React.JSX.Element {
@@ -117,6 +125,28 @@ function ObjectRow({
       nameLabel="Object name"
       onClick={() => onSelect(object.id)}
       onRename={(name) => onRename(object.id, name)}
+      actions={
+        <div className="flex items-center gap-2">
+          <ObjectAction
+            label={`Duplicate ${object.name}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDuplicate(object.id);
+            }}
+          >
+            <Copy />
+          </ObjectAction>
+          <ObjectAction
+            label={`Remove ${object.name}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(object.id);
+            }}
+          >
+            <Trash2 />
+          </ObjectAction>
+        </div>
+      }
       thumbnail={
         <ObjectPreviewCanvas
           canvasHeight={thumbnailSize.height}
@@ -132,6 +162,23 @@ function ObjectRow({
         />
       }
     />
+  );
+}
+
+function ObjectAction({
+  label,
+  children,
+  ...props
+}: React.ComponentProps<typeof Button> & { label: string }): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button variant="outline" size="icon" aria-label={label} {...props}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
 

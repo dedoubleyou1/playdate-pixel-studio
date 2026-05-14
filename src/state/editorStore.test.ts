@@ -176,6 +176,55 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().viewRevision).toBe(6);
   });
 
+  it("duplicates object definitions with cloned layer data", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 8, 8);
+    object.layers[0].surface.data[indexFor(2, 3, object.width)] = BLACK_PIXEL;
+    useEditorStore.setState({ objects: [object], viewRevision: 4 });
+
+    useEditorStore.getState().duplicateObject(object.id);
+
+    const state = useEditorStore.getState();
+    expect(state.objects).toHaveLength(2);
+    expect(state.objects[1]).toMatchObject({ name: "Object 1 Copy", width: 8, height: 8 });
+    expect(state.objects[1].id).not.toBe(object.id);
+    expect(state.objects[1].layers[0].surface.data[indexFor(2, 3, object.width)]).toBe(BLACK_PIXEL);
+    expect(state.objects[1].layers[0].surface.data).not.toBe(object.layers[0].surface.data);
+    expect(state.activeContext).toEqual({ type: "object", objectId: state.objects[1].id });
+    expect(state.documentRevision).toBe(1);
+    expect(state.viewRevision).toBe(5);
+    expect(state.hasUnsavedChanges).toBe(true);
+    expect(state.undoStack).toHaveLength(1);
+  });
+
+  it("removes object definitions and their root instances", () => {
+    const object = createObjectDefinition("object-1", "Object 1", 8, 8);
+    const instance = createObjectInstanceLayer(2, object.name, object.id);
+    useEditorStore.setState((state) => ({
+      activeContext: { type: "object", objectId: object.id },
+      objects: [object],
+      root: {
+        ...state.root,
+        activeLayerIndex: 1,
+        layers: [state.root.layers[0], instance],
+        nextLayerId: 3,
+      },
+      viewRevision: 4,
+    }));
+
+    useEditorStore.getState().deleteObject(object.id);
+
+    const state = useEditorStore.getState();
+    expect(state.objects).toHaveLength(0);
+    expect(state.root.layers).toHaveLength(1);
+    expect(state.root.layers.some((layer) => layer.type === "object" && layer.objectId === object.id)).toBe(false);
+    expect(state.root.activeLayerIndex).toBe(0);
+    expect(state.activeContext).toEqual({ type: "root" });
+    expect(state.documentRevision).toBe(1);
+    expect(state.viewRevision).toBe(5);
+    expect(state.hasUnsavedChanges).toBe(true);
+    expect(state.undoStack).toHaveLength(1);
+  });
+
   it("does not revise document or view for tool, cursor, and zoom changes", () => {
     const state = useEditorStore.getState();
 
