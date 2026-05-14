@@ -74,6 +74,46 @@ export interface DesktopStreamFrameResult {
   error?: string;
 }
 
+export type DesktopMenuCommandId =
+  | "project:new"
+  | "project:save"
+  | "project:open-recent"
+  | "project:import"
+  | "project:export-png"
+  | "project:export-json"
+  | "project:export-bundle"
+  | "edit:undo"
+  | "edit:redo"
+  | "edit:clear-selection"
+  | "edit:clear-layer"
+  | "edit:invert-layer"
+  | "view:toggle-grid"
+  | "view:toggle-colorized-patterns"
+  | "view:set-grid-size";
+
+export interface DesktopMenuCommand {
+  id: DesktopMenuCommandId;
+  projectId?: string;
+  gridSize?: number;
+}
+
+export interface DesktopMenuProjectSummary {
+  id: string;
+  name: string;
+}
+
+export interface DesktopMenuState {
+  activeLayerPixelEditable: boolean;
+  canRedo: boolean;
+  canUndo: boolean;
+  colorizedPatternsVisible: boolean;
+  gridSize: number;
+  gridVisible: boolean;
+  hasSelection: boolean;
+  hasUnsavedChanges: boolean;
+  recentProjects: DesktopMenuProjectSummary[];
+}
+
 export interface PlaydatePixelDesktopApi {
   isElectron: true;
   files: {
@@ -89,6 +129,10 @@ export interface PlaydatePixelDesktopApi {
     getInfo: () => Promise<DesktopStreamInfo>;
     getDevices: () => Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }>;
     sendFrame: (request: DesktopStreamFrameRequest) => Promise<DesktopStreamFrameResult>;
+  };
+  menu: {
+    onCommand: (handler: (command: DesktopMenuCommand) => void) => () => void;
+    setState: (state: DesktopMenuState) => Promise<void>;
   };
 }
 

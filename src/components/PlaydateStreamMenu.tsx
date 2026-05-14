@@ -2,11 +2,17 @@ import { useState } from "react";
 import { Download, MonitorPlay, RadioTower, Square, Wifi } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { openCompanionPdxInSimulator, saveCompanionPdxWithDesktopDialog } from "../desktop/desktopApi";
 import { usePlaydateStream } from "../hooks/usePlaydateStream";
 import { useEditorStore } from "../state/editorStore";
 
-export function PlaydateStreamMenu(): React.JSX.Element {
+interface PlaydateStreamMenuProps {
+  align?: "center" | "end" | "start";
+  className?: string;
+}
+
+export function PlaydateStreamMenu({ align = "end", className }: PlaydateStreamMenuProps): React.JSX.Element {
   const layers = useEditorStore((state) => state.root.layers);
   const background = useEditorStore((state) => state.root.background);
   const objects = useEditorStore((state) => state.objects);
@@ -44,12 +50,12 @@ export function PlaydateStreamMenu(): React.JSX.Element {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant={stream.enabled ? "secondary" : "default"}>
+        <Button className={cn(className)} variant={stream.enabled ? "secondary" : "default"}>
           <RadioTower />
           {stream.enabled ? "Streaming" : "Stream to Playdate"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="playdate-stream-menu" align="end">
+      <PopoverContent className="playdate-stream-menu" align={align}>
         <div className="stream-menu-header">
           <h2 className="text-sm font-medium">Playdate Stream</h2>
         </div>

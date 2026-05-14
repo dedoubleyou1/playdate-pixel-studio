@@ -5,7 +5,7 @@ function EditorShell({ className, ...props }: React.ComponentProps<"div">): Reac
   return (
     <div
       data-slot="editor-shell"
-      className={cn("grid h-screen grid-rows-[auto_minmax(0,1fr)]", className)}
+      className={cn("grid h-screen grid-rows-[minmax(0,1fr)]", className)}
       {...props}
     />
   );

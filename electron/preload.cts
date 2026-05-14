@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+interface DesktopMenuCommand {
+  id: string;
+  projectId?: string;
+  gridSize?: number;
+}
+
 contextBridge.exposeInMainWorld("pdps", {
   isElectron: true,
   files: {
@@ -22,5 +28,13 @@ contextBridge.exposeInMainWorld("pdps", {
       payload: ArrayBuffer;
       crc32: number;
     }) => ipcRenderer.invoke("pdps:stream-frame", request),
+  },
+  menu: {
+    onCommand: (handler: (command: DesktopMenuCommand) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, command: DesktopMenuCommand) => handler(command);
+      ipcRenderer.on("pdps:menu-command", listener);
+      return () => ipcRenderer.removeListener("pdps:menu-command", listener);
+    },
+    setState: (state: unknown) => ipcRenderer.invoke("pdps:menu-state", state),
   },
 });

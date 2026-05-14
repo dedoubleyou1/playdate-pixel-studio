@@ -1,5 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
-import type { FileFilter, MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from "electron";
+import type {
+  FileFilter,
+  MenuItemConstructorOptions,
+  MessageBoxOptions,
+  OpenDialogOptions,
+  SaveDialogOptions,
+} from "electron";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -27,14 +33,59 @@ interface DesktopActionResult {
   error?: string;
 }
 
+interface DesktopMenuCommand {
+  id:
+    | "project:new"
+    | "project:save"
+    | "project:open-recent"
+    | "project:import"
+    | "project:export-png"
+    | "project:export-json"
+    | "project:export-bundle"
+    | "edit:undo"
+    | "edit:redo"
+    | "edit:clear-selection"
+    | "edit:clear-layer"
+    | "edit:invert-layer"
+    | "view:toggle-grid"
+    | "view:toggle-colorized-patterns"
+    | "view:set-grid-size";
+  projectId?: string;
+  gridSize?: number;
+}
+
+interface DesktopMenuState {
+  activeLayerPixelEditable: boolean;
+  canRedo: boolean;
+  canUndo: boolean;
+  colorizedPatternsVisible: boolean;
+  gridSize: number;
+  gridVisible: boolean;
+  hasSelection: boolean;
+  hasUnsavedChanges: boolean;
+  recentProjects: Array<{ id: string; name: string }>;
+}
+
 let mainWindow: BrowserWindow | null = null;
 let streamHandle: PlaydateStreamServerHandle | null = null;
 let streamError: string | null = null;
 let streamStarting: Promise<void> | null = null;
 let streamStopping: Promise<void> | null = null;
+let rendererMenuState: DesktopMenuState = {
+  activeLayerPixelEditable: false,
+  canRedo: false,
+  canUndo: false,
+  colorizedPatternsVisible: false,
+  gridSize: 1,
+  gridVisible: false,
+  hasSelection: false,
+  hasUnsavedChanges: false,
+  recentProjects: [],
+};
 
 const electronDir = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
+const GRID_SIZE_STEPS = [1, 2, 4, 8, 16, 32, 64] as const;
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -203,9 +254,21 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle("pdps:menu-state", (_event, state: DesktopMenuState) => {
+    rendererMenuState = normalizeDesktopMenuState(state);
+    createApplicationMenu();
+  });
 }
 
 function createApplicationMenu(): void {
+  const recentProjectsSubmenu: MenuItemConstructorOptions[] =
+    rendererMenuState.recentProjects.length > 0
+      ? rendererMenuState.recentProjects.map((project) => ({
+          label: project.name,
+          click: () => sendMenuCommand({ id: "project:open-recent", projectId: project.id }),
+        }))
+      : [{ label: "No Recent Projects", enabled: false }];
+
   Menu.setApplicationMenu(
     Menu.buildFromTemplate([
       {
@@ -214,13 +277,75 @@ function createApplicationMenu(): void {
       },
       {
         label: "File",
-        submenu: [{ role: "close" }],
+        submenu: [
+          {
+            label: "New Project",
+            accelerator: "Shift+CmdOrCtrl+N",
+            click: () => sendMenuCommand({ id: "project:new" }),
+          },
+          {
+            label: rendererMenuState.hasUnsavedChanges ? "Save Project*" : "Save Project",
+            accelerator: "CmdOrCtrl+S",
+            click: () => sendMenuCommand({ id: "project:save" }),
+          },
+          {
+            label: "Open Recent",
+            submenu: recentProjectsSubmenu,
+          },
+          {
+            label: "Import Project",
+            click: () => sendMenuCommand({ id: "project:import" }),
+          },
+          { type: "separator" },
+          {
+            label: "Export PNG",
+            click: () => sendMenuCommand({ id: "project:export-png" }),
+          },
+          {
+            label: "Export Project JSON",
+            click: () => sendMenuCommand({ id: "project:export-json" }),
+          },
+          {
+            label: "Export Project Bundle",
+            click: () => sendMenuCommand({ id: "project:export-bundle" }),
+          },
+          { type: "separator" },
+          { role: "close" },
+        ],
       },
       {
         label: "Edit",
         submenu: [
-          { role: "undo" },
-          { role: "redo" },
+          {
+            label: "Undo",
+            accelerator: "CmdOrCtrl+Z",
+            enabled: rendererMenuState.canUndo,
+            click: () => sendMenuCommand({ id: "edit:undo" }),
+          },
+          {
+            label: "Redo",
+            accelerator: "Shift+CmdOrCtrl+Z",
+            enabled: rendererMenuState.canRedo,
+            click: () => sendMenuCommand({ id: "edit:redo" }),
+          },
+          { type: "separator" },
+          {
+            label: "Clear Selection",
+            accelerator: "CmdOrCtrl+D",
+            enabled: rendererMenuState.hasSelection,
+            click: () => sendMenuCommand({ id: "edit:clear-selection" }),
+          },
+          { type: "separator" },
+          {
+            label: "Clear Layer",
+            enabled: rendererMenuState.activeLayerPixelEditable,
+            click: () => sendMenuCommand({ id: "edit:clear-layer" }),
+          },
+          {
+            label: "Invert Layer",
+            enabled: rendererMenuState.activeLayerPixelEditable,
+            click: () => sendMenuCommand({ id: "edit:invert-layer" }),
+          },
           { type: "separator" },
           { role: "cut" },
           { role: "copy" },
@@ -230,7 +355,35 @@ function createApplicationMenu(): void {
       },
       {
         label: "View",
-        submenu: [{ role: "reload" }, { role: "forceReload" }, { role: "toggleDevTools" }, { type: "separator" }, { role: "togglefullscreen" }],
+        submenu: [
+          {
+            label: "Grid",
+            type: "checkbox",
+            checked: rendererMenuState.gridVisible,
+            click: () => sendMenuCommand({ id: "view:toggle-grid" }),
+          },
+          {
+            label: "Colorized Patterns",
+            type: "checkbox",
+            checked: rendererMenuState.colorizedPatternsVisible,
+            click: () => sendMenuCommand({ id: "view:toggle-colorized-patterns" }),
+          },
+          {
+            label: "Grid Size",
+            submenu: GRID_SIZE_STEPS.map((gridSize) => ({
+              label: `${gridSize}px`,
+              type: "radio",
+              checked: rendererMenuState.gridSize === gridSize,
+              click: () => sendMenuCommand({ id: "view:set-grid-size", gridSize }),
+            })),
+          },
+          { type: "separator" },
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
       },
       {
         label: "Window",
@@ -238,6 +391,28 @@ function createApplicationMenu(): void {
       },
     ]),
   );
+}
+
+function sendMenuCommand(command: DesktopMenuCommand): void {
+  mainWindow?.webContents.send("pdps:menu-command", command);
+}
+
+function normalizeDesktopMenuState(state: DesktopMenuState): DesktopMenuState {
+  return {
+    activeLayerPixelEditable: Boolean(state?.activeLayerPixelEditable),
+    canRedo: Boolean(state?.canRedo),
+    canUndo: Boolean(state?.canUndo),
+    colorizedPatternsVisible: Boolean(state?.colorizedPatternsVisible),
+    gridSize: GRID_SIZE_STEPS.includes(state?.gridSize as (typeof GRID_SIZE_STEPS)[number]) ? state.gridSize : 1,
+    gridVisible: Boolean(state?.gridVisible),
+    hasSelection: Boolean(state?.hasSelection),
+    hasUnsavedChanges: Boolean(state?.hasUnsavedChanges),
+    recentProjects: Array.isArray(state?.recentProjects)
+      ? state.recentProjects
+          .filter((project) => typeof project?.id === "string" && typeof project?.name === "string")
+          .map((project) => ({ id: project.id, name: project.name || "Untitled Project" }))
+      : [],
+  };
 }
 
 async function startPlaydateStream(): Promise<void> {

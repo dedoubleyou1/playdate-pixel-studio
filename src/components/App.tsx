@@ -4,9 +4,9 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CanvasStage } from "./CanvasStage";
 import { CommandPalette } from "./CommandPalette";
+import { DesktopMenuBridge } from "./DesktopMenuBridge";
 import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
-import { Topbar } from "./Topbar";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
@@ -123,7 +123,7 @@ export function App(): React.JSX.Element {
   return (
     <TooltipProvider>
       <EditorShell>
-        <Topbar />
+        <DesktopMenuBridge />
         <DragDropProvider>
           <EditorWorkspace>
             <ToolsPanel />

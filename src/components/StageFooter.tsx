@@ -1,7 +1,9 @@
 import type { JSX } from "react";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { EditorBar, EditorBarCenter, EditorBarLeft, EditorBarRight } from "./layout/editor-layout";
+import { useEditorStore } from "../state/editorStore";
 
 interface StageFooterProps {
   cursorLabel: string;
@@ -18,6 +20,10 @@ export function StageFooter({
   setZoomFromSlider,
   zoom,
 }: StageFooterProps): JSX.Element {
+  const hasUnsavedChanges = useEditorStore((state) => state.hasUnsavedChanges);
+  const projectName = useEditorStore((state) => state.projectName);
+  const renameProject = useEditorStore((state) => state.renameProject);
+
   return (
     <EditorBar className="[grid-area:meta] h-(--stage-meta-height) min-h-(--stage-meta-height) border-t border-border border-b-0 max-[980px]:h-auto max-[980px]:grid-cols-1 max-[980px]:items-stretch max-[980px]:px-4 max-[980px]:py-3">
       <EditorBarLeft
@@ -34,7 +40,15 @@ export function StageFooter({
         />
         <strong className="text-right text-xs">{zoom}x</strong>
       </EditorBarLeft>
-      <EditorBarCenter aria-hidden="true" />
+      <EditorBarCenter>
+        <Input
+          className="h-8 w-full max-w-[280px] text-center"
+          aria-label="Project name"
+          title={hasUnsavedChanges ? "Unsaved changes" : "Project name"}
+          value={projectName}
+          onChange={(event) => renameProject(event.target.value)}
+        />
+      </EditorBarCenter>
       <EditorBarRight className="min-w-[110px] text-right max-[980px]:justify-start max-[980px]:text-left">
         <span className="text-xs text-muted-foreground">{cursorLabel}</span>
       </EditorBarRight>

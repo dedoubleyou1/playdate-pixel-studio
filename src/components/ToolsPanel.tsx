@@ -10,6 +10,7 @@ import type { BrushShape, EditTarget, PaletteEntry, PaletteIndex, ProjectPalette
 import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
+import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
 import { useEditorStore } from "../state/editorStore";
 
 interface ToolButtonConfig {
@@ -82,7 +83,7 @@ export function ToolsPanel(): React.JSX.Element {
   ].filter((group) => group.entries.length > 0);
 
   return (
-    <EditorPanel side="left" aria-label="Drawing tools">
+    <EditorPanel side="left" className="flex flex-col" aria-label="Drawing tools">
       <ToolPropertiesPane
         activeTool={activeTool}
         brushShape={brushShape}
@@ -125,6 +126,9 @@ export function ToolsPanel(): React.JSX.Element {
         setActivePaletteIndex={setActivePaletteIndex}
       />
       <ObjectLibrary />
+      <div className="mt-auto border-t border-border p-4">
+        <PlaydateStreamMenu align="start" className="w-full justify-start" />
+      </div>
     </EditorPanel>
   );
 }

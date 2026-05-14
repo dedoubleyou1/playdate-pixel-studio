@@ -2,7 +2,7 @@ import { memo, useEffect, useRef } from "react";
 import { useDragDropMonitor } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { Box, Copy, Eye, EyeOff, GripVertical, Minus, Plus, Shield, View, X } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -83,23 +83,16 @@ export function LayersPanel(): React.JSX.Element {
             .map((layer, index) => ({ layer, index }))
             .reverse()
             .map(({ layer, index }, visualIndex) => (
-              <div key={layer.id} className="grid gap-1">
-                <LayerRow
-                  layer={layer}
-                  index={index}
-                  visualIndex={visualIndex}
-                  active={index === activeLayerIndex}
-                  objects={objects}
-                  palette={palette}
-                />
-                {layer.alphaMask ? (
-                  <MaskRow
-                    active={index === activeLayerIndex && editTarget === "alphaMask"}
-                    index={index}
-                    mask={layer.alphaMask}
-                  />
-                ) : null}
-              </div>
+              <LayerGroup
+                key={layer.id}
+                layer={layer}
+                index={index}
+                visualIndex={visualIndex}
+                active={index === activeLayerIndex}
+                editTarget={editTarget}
+                objects={objects}
+                palette={palette}
+              />
             ))}
           <BackgroundRow background={stack.background} onChange={setStackBackground} />
         </EditorList>
@@ -150,64 +143,39 @@ function getBackgroundShortLabel(label: string): string {
 function LayerRow({
   layer,
   index,
-  visualIndex,
   active,
   objects,
   palette,
+  dragHandle,
 }: {
   layer: Layer;
   index: number;
-  visualIndex: number;
   active: boolean;
   objects: ObjectDefinition[];
   palette: ProjectPalette;
+  dragHandle: React.ReactNode;
 }): React.JSX.Element {
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const setEditTarget = useEditorStore((state) => state.setEditTarget);
   const renameLayer = useEditorStore((state) => state.renameLayer);
   const setLayerVisible = useEditorStore((state) => state.setLayerVisible);
   const thumbnailKey = `${layerThumbnailKey(layer, objects)}:${projectPaletteKey(palette)}`;
-  const { handleRef, isDragging, ref: sortableRef } = useSortable({
-    id: `layer:${layer.id}`,
-    index: visualIndex,
-    group: "layers",
-    type: "layer",
-    accept: "layer",
-    data: {
-      kind: "layer",
-      layerId: layer.id,
-      stackIndex: index,
-    },
-  });
+  const selectLayer = () => {
+    setActiveLayer(index);
+    setEditTarget("pixels");
+  };
 
   return (
     <EditorAssetItem
       active={active}
-      ref={sortableRef}
       fallbackName={`Layer ${index + 1}`}
-      className={cn("relative", isDragging && "opacity-50")}
-      dragHandle={
-        <button
-          ref={handleRef}
-          type="button"
-          className={cn(
-            buttonVariants({ variant: "ghost", size: "icon" }),
-            "cursor-grab text-muted-foreground active:cursor-grabbing",
-          )}
-          aria-label={`Reorder ${layer.name || `Layer ${index + 1}`}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <GripVertical />
-        </button>
-      }
+      className="relative"
+      dragHandle={dragHandle}
       leadingIcon={layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       name={layer.name}
       nameLabel="Layer name"
       thumbnail={<LayerThumbnail layer={layer} objects={objects} palette={palette} thumbnailKey={thumbnailKey} />}
-      onClick={() => {
-        setActiveLayer(index);
-        setEditTarget("pixels");
-      }}
+      onClick={selectLayer}
       onRename={(name) => renameLayer(index, name)}
       actions={
         <IconAction
@@ -221,6 +189,72 @@ function LayerRow({
         </IconAction>
       }
     />
+  );
+}
+
+function LayerGroup({
+  layer,
+  index,
+  visualIndex,
+  active,
+  editTarget,
+  objects,
+  palette,
+}: {
+  layer: Layer;
+  index: number;
+  visualIndex: number;
+  active: boolean;
+  editTarget: "pixels" | "alphaMask";
+  objects: ObjectDefinition[];
+  palette: ProjectPalette;
+}): React.JSX.Element {
+  const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
+  const setEditTarget = useEditorStore((state) => state.setEditTarget);
+  const { handleRef, isDragging, ref: sortableRef } = useSortable({
+    id: `layer:${layer.id}`,
+    index: visualIndex,
+    group: "layers",
+    type: "layer",
+    accept: "layer",
+    data: {
+      kind: "layer",
+      layerId: layer.id,
+      stackIndex: index,
+    },
+  });
+  const selectLayer = () => {
+    setActiveLayer(index);
+    setEditTarget("pixels");
+  };
+
+  return (
+    <div ref={sortableRef} className={cn("grid gap-1", isDragging && "opacity-50")}>
+      <LayerRow
+        layer={layer}
+        index={index}
+        active={active}
+        objects={objects}
+        palette={palette}
+        dragHandle={
+          <span
+            ref={handleRef}
+            className="flex h-9 w-4 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+            aria-label={`Reorder ${layer.name || `Layer ${index + 1}`}`}
+            onPointerDownCapture={selectLayer}
+            onClick={(event) => {
+              event.stopPropagation();
+              selectLayer();
+            }}
+          >
+            <GripVertical className="size-4" />
+          </span>
+        }
+      />
+      {layer.alphaMask ? (
+        <MaskRow active={active && editTarget === "alphaMask"} index={index} mask={layer.alphaMask} />
+      ) : null}
+    </div>
   );
 }
 
