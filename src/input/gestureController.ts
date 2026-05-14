@@ -23,7 +23,7 @@ export function beginEditorGesture(
   const point = event.point;
 
   if (isSelectionTool(tool)) {
-    return beginSelectionGesture(point, tool, selectionCombineModeForModifiers(event));
+    return beginSelectionGesture(point, tool, selectionCombineModeForModifiers(event), bridge);
   }
 
   if (tool === "move") {
@@ -44,7 +44,7 @@ export function updateEditorGesture(
 ): EditorGestureState {
   if (gesture.type === "idle") return gesture;
   if (gesture.type === "selecting") {
-    return updateSelectionGesture(gesture, event);
+    return updateSelectionGesture(gesture, event, bridge);
   }
 
   if (gesture.type === "movingPixels" || gesture.type === "movingLayer") {
@@ -65,7 +65,7 @@ export function finishEditorGesture(
 ): EditorGestureState {
   if (gesture.type === "idle") return gesture;
   if (gesture.type === "selecting") {
-    return finishSelectionGesture(gesture, event);
+    return finishSelectionGesture(gesture, event, bridge);
   }
 
   if (gesture.type === "movingPixels" || gesture.type === "movingLayer") {
@@ -83,7 +83,7 @@ export function cancelEditorGesture(gesture: EditorGestureState, bridge: Gesture
   const state = useEditorStore.getState();
   if (gesture.type === "idle") return gesture;
   if (gesture.type === "selecting") {
-    return cancelSelectionGesture();
+    return cancelSelectionGesture(bridge);
   }
   if (gesture.type === "movingPixels" || gesture.type === "movingLayer") {
     return cancelMoveGesture(bridge);

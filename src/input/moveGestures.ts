@@ -22,17 +22,23 @@ export function updateMoveGesture(
   event: EditorGestureEvent,
   bridge: GestureRenderBridge,
 ): EditorGestureState {
-  const state = useEditorStore.getState();
   const dx = event.point.x - gesture.start.x;
   const dy = event.point.y - gesture.start.y;
   if (gesture.lastDelta.x === dx && gesture.lastDelta.y === dy) return gesture;
 
   const pendingSelectionMove = useEditorStore.getState().pendingSelectionMove;
   if (pendingSelectionMove) {
-    state.previewSelectionMove(dx, dy);
-    bridge.requestCanvasRender();
+    bridge.requestCanvasRender({
+      selectionMovePreview: {
+        alphaMask: pendingSelectionMove.implicitFullLayer ? pendingSelectionMove.sourceLayer.alphaMask : null,
+        dx,
+        dy,
+        ...pendingSelectionMove.floating,
+      },
+    });
+    bridge.requestSelectionOverlayRender({ dx, dy, mask: pendingSelectionMove.floating.mask });
   } else {
-    bridge.requestCanvasRender({ layerIndex: gesture.layerIndex, dx, dy });
+    bridge.requestCanvasRender({ layerMovePreview: { layerIndex: gesture.layerIndex, dx, dy } });
   }
 
   return { ...gesture, lastDelta: { x: dx, y: dy } };
@@ -47,12 +53,18 @@ export function finishMoveGesture(
   const dx = event.point.x - gesture.start.x;
   const dy = event.point.y - gesture.start.y;
   const changed = state.commitMoveLayer(dx, dy);
-  if (!changed) bridge.requestCanvasRender();
+  if (gesture.type === "movingPixels") {
+    bridge.requestSelectionOverlayRender(null);
+    bridge.requestCanvasRender();
+  } else if (!changed) {
+    bridge.requestCanvasRender();
+  }
   return idleGestureState;
 }
 
 export function cancelMoveGesture(bridge: GestureRenderBridge): EditorGestureState {
   useEditorStore.getState().cancelMoveLayer();
   bridge.requestCanvasRender();
+  bridge.requestSelectionOverlayRender(null);
   return idleGestureState;
 }

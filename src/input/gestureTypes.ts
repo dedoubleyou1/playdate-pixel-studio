@@ -1,4 +1,5 @@
-import type { LayerMovePreview } from "../rendering/frameComposer";
+import type { LayerMovePreview, SelectionMovePreview } from "../rendering/frameComposer";
+import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 import type { Point, SelectionCombineMode, Tool } from "../domain/types";
 
 export interface GestureTransaction {
@@ -61,8 +62,14 @@ export function selectionCombineModeForModifiers({
   return "replace";
 }
 
+export interface CanvasRenderRequest {
+  layerMovePreview?: LayerMovePreview | null;
+  selectionMovePreview?: SelectionMovePreview | null;
+}
+
 export interface GestureRenderBridge {
-  requestCanvasRender: (movePreview?: LayerMovePreview | null) => void;
+  requestCanvasRender: (request?: CanvasRenderRequest) => void;
+  requestSelectionOverlayRender: (model: SelectionOverlaySource | null) => void;
 }
 
 export const idleGestureState: EditorGestureState = { type: "idle" };

@@ -631,7 +631,11 @@ describe("editor store selection and alpha masks", () => {
   it("creates one undo command and document revision for changed mask painting", () => {
     useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
     const startRevision = useEditorStore.getState().documentRevision;
-    const gesture = beginAlphaMaskGesture({ x: 0, y: 0 }, "eraser", { requestCanvasRender: vi.fn() });
+    const gesture = beginAlphaMaskGesture(
+      { x: 0, y: 0 },
+      "eraser",
+      { requestCanvasRender: vi.fn(), requestSelectionOverlayRender: vi.fn() },
+    );
     if (gesture.type !== "drawingAlphaMask") throw new Error("Expected alpha mask gesture");
     finishAlphaMaskGesture(gesture, {
       point: { x: 0, y: 0 },

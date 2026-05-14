@@ -8,6 +8,7 @@ import { useCanvasZoomInput } from "../hooks/useCanvasZoomInput";
 import { useSelectionModifierCursor } from "../hooks/useSelectionModifierCursor";
 import { CanvasOverlays } from "./CanvasOverlays";
 import { CanvasSurface } from "./CanvasSurface";
+import type { SelectionOverlayHandle } from "./SelectionOverlay";
 import { ObjectContextBar } from "./ObjectContextBar";
 import { StageFooter } from "./StageFooter";
 import { useEditorStore } from "../state/editorStore";
@@ -15,6 +16,7 @@ import { useEditorStore } from "../state/editorStore";
 export function CanvasStage(): JSX.Element {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const [canvasWrap, setCanvasWrap] = useState<HTMLDivElement | null>(null);
+  const selectionOverlayRef = useRef<SelectionOverlayHandle | null>(null);
   const { clearSelectionModifierCursor, hoverSelectionCombineMode, updateSelectionModifierCursor } =
     useSelectionModifierCursor();
   const gridVisible = useEditorStore((state) => state.gridVisible);
@@ -25,7 +27,7 @@ export function CanvasStage(): JSX.Element {
   const activeContext = useEditorStore((state) => state.activeContext);
   const selectionOverlay = useCanvasSelectionOverlay({ height: stack.height, width: stack.width });
   const canvasCursor = useCanvasCursor(hoverSelectionCombineMode);
-  const handlers = useCanvasEditor(canvas);
+  const handlers = useCanvasEditor(canvas, selectionOverlayRef);
   const pointerInsideCanvasRef = useRef(false);
   const { maxZoom, minZoom, resetWheelZoomDelta, setZoomFromSlider, zoom } = useCanvasZoomInput({
     canvasWrap,
@@ -88,6 +90,7 @@ export function CanvasStage(): JSX.Element {
             palette={palette}
             previewObject={previewObject}
             selectionOverlay={selectionOverlay}
+            selectionOverlayRef={selectionOverlayRef}
             zoom={zoom}
           />
         </div>

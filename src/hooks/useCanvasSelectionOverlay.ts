@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { selectionOverlaySource, type SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 import { selectActiveSelection, useEditorStore } from "../state/editorStore";
 
@@ -9,14 +10,16 @@ export function useCanvasSelectionOverlay({
   width: number;
 }): SelectionOverlaySource {
   const activeSelection = useEditorStore(selectActiveSelection);
-  const pendingSelectionMove = useEditorStore((state) => state.pendingSelectionMove);
-  const selectionPreview = useEditorStore((state) => state.selectionPreview);
 
-  return selectionOverlaySource({
-    activeSelection,
-    height,
-    pendingSelectionMove,
-    selectionPreview,
-    width,
-  });
+  return useMemo(
+    () =>
+      selectionOverlaySource({
+        activeSelection,
+        height,
+        pendingSelectionMove: null,
+        selectionPreview: null,
+        width,
+      }),
+    [activeSelection, height, width],
+  );
 }

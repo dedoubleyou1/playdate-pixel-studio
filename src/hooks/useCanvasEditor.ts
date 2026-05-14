@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import {
   activeLayerStackSelector,
   beginEditorGesture,
@@ -8,11 +8,20 @@ import {
 } from "../input/gestureController";
 import { activeStack } from "../domain/layers";
 import { EditorCanvas } from "../rendering/editorCanvas";
-import type { LayerMovePreview } from "../rendering/frameComposer";
+import type { SelectionOverlayHandle } from "../components/SelectionOverlay";
 import { useEditorStore } from "../state/editorStore";
-import { idleGestureState, isActiveGesture, type EditorGestureState } from "../input/gestureTypes";
+import {
+  idleGestureState,
+  isActiveGesture,
+  type CanvasRenderRequest,
+  type EditorGestureState,
+} from "../input/gestureTypes";
+import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 
-export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
+export function useCanvasEditor(
+  canvas: HTMLCanvasElement | null,
+  selectionOverlayRef: RefObject<SelectionOverlayHandle | null>,
+): {
   onPointerDown: (event: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove: (event: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: (event: React.PointerEvent<HTMLCanvasElement>) => void;
@@ -21,36 +30,28 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
 } {
   const editorCanvasRef = useRef<EditorCanvas | null>(null);
   const renderFrameRef = useRef<number | null>(null);
+  const renderRequestRef = useRef<CanvasRenderRequest>({});
+  const selectionOverlayFrameRef = useRef<number | null>(null);
+  const selectionOverlayModelRef = useRef<SelectionOverlaySource | null>(null);
   const gestureStateRef = useRef<EditorGestureState>(idleGestureState);
-  const renderMovePreviewRef = useRef<LayerMovePreview | null>(null);
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
   const viewRevision = useEditorStore((state) => state.viewRevision);
 
-  const renderCanvasNow = useCallback((movePreview: LayerMovePreview | null = null) => {
+  const renderCanvasNow = useCallback((request: CanvasRenderRequest = {}) => {
     const current = useEditorStore.getState();
     const currentStack = activeStack(current);
-    const currentPendingSelectionMove = current.pendingSelectionMove;
     editorCanvasRef.current?.render({
       activeLayerIndex: currentStack.activeLayerIndex,
       background: currentStack.background,
       colorizedPatterns: current.colorizedPatternsVisible,
       editTarget: current.editTarget,
       layers: currentStack.layers,
-      movePreview,
+      movePreview: request.layerMovePreview ?? null,
       objects: current.objects,
       palette: current.palette,
       preview: current.canvasToolPreview,
-      selectionMovePreview: currentPendingSelectionMove
-        ? {
-            alphaMask: currentPendingSelectionMove.implicitFullLayer
-              ? currentPendingSelectionMove.sourceLayer.alphaMask
-              : null,
-            dx: currentPendingSelectionMove.dx,
-            dy: currentPendingSelectionMove.dy,
-            ...currentPendingSelectionMove.floating,
-          }
-        : null,
+      selectionMovePreview: request.selectionMovePreview ?? null,
     });
   }, []);
 
@@ -59,24 +60,38 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
     if (renderFrameRef.current !== null) {
       window.cancelAnimationFrame(renderFrameRef.current);
       renderFrameRef.current = null;
-      renderMovePreviewRef.current = null;
+      renderRequestRef.current = {};
     }
     renderCanvasNow();
   }, [canvas, renderCanvasNow, stack.height, stack.width, viewRevision]);
 
   const requestCanvasRender = useCallback(
-    (movePreview: LayerMovePreview | null = null) => {
-      renderMovePreviewRef.current = movePreview;
+    (request: CanvasRenderRequest = {}) => {
+      renderRequestRef.current = request;
       if (renderFrameRef.current !== null) {
         window.cancelAnimationFrame(renderFrameRef.current);
       }
       renderFrameRef.current = window.requestAnimationFrame(() => {
-        renderCanvasNow(renderMovePreviewRef.current);
+        renderCanvasNow(renderRequestRef.current);
         renderFrameRef.current = null;
-        renderMovePreviewRef.current = null;
+        renderRequestRef.current = {};
       });
     },
     [renderCanvasNow],
+  );
+
+  const requestSelectionOverlayRender = useCallback(
+    (model: SelectionOverlaySource | null) => {
+      selectionOverlayModelRef.current = model;
+      if (selectionOverlayFrameRef.current !== null) {
+        window.cancelAnimationFrame(selectionOverlayFrameRef.current);
+      }
+      selectionOverlayFrameRef.current = window.requestAnimationFrame(() => {
+        selectionOverlayRef.current?.renderTransient(selectionOverlayModelRef.current);
+        selectionOverlayFrameRef.current = null;
+      });
+    },
+    [selectionOverlayRef],
   );
 
   useEffect(() => {
@@ -84,6 +99,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (renderFrameRef.current !== null) {
         window.cancelAnimationFrame(renderFrameRef.current);
         renderFrameRef.current = null;
+      }
+      if (selectionOverlayFrameRef.current !== null) {
+        window.cancelAnimationFrame(selectionOverlayFrameRef.current);
+        selectionOverlayFrameRef.current = null;
       }
     };
   }, []);
@@ -94,13 +113,16 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       if (!editorCanvas) return;
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
-      const gesture = beginEditorGesture({ altKey: event.altKey, point, shiftKey: event.shiftKey }, { requestCanvasRender });
+      const gesture = beginEditorGesture(
+        { altKey: event.altKey, point, shiftKey: event.shiftKey },
+        { requestCanvasRender, requestSelectionOverlayRender },
+      );
       gestureStateRef.current = gesture;
       if (isActiveGesture(gesture)) {
         event.currentTarget.setPointerCapture(event.pointerId);
       }
     },
-    [requestCanvasRender],
+    [requestCanvasRender, requestSelectionOverlayRender],
   );
 
   const continueStroke = useCallback(
@@ -113,10 +135,10 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       gestureStateRef.current = updateEditorGesture(
         gestureStateRef.current,
         { altKey: event.altKey, point, shiftKey: event.shiftKey },
-        { requestCanvasRender },
+        { requestCanvasRender, requestSelectionOverlayRender },
       );
     },
-    [requestCanvasRender],
+    [requestCanvasRender, requestSelectionOverlayRender],
   );
 
   const finishStroke = useCallback(
@@ -128,15 +150,18 @@ export function useCanvasEditor(canvas: HTMLCanvasElement | null): {
       gestureStateRef.current = finishEditorGesture(
         gestureStateRef.current,
         { altKey: event.altKey, point, shiftKey: event.shiftKey },
-        { requestCanvasRender },
+        { requestCanvasRender, requestSelectionOverlayRender },
       );
     },
-    [requestCanvasRender],
+    [requestCanvasRender, requestSelectionOverlayRender],
   );
 
   const cancelStroke = useCallback(() => {
-    gestureStateRef.current = cancelEditorGesture(gestureStateRef.current, { requestCanvasRender });
-  }, [requestCanvasRender]);
+    gestureStateRef.current = cancelEditorGesture(gestureStateRef.current, {
+      requestCanvasRender,
+      requestSelectionOverlayRender,
+    });
+  }, [requestCanvasRender, requestSelectionOverlayRender]);
 
   return useMemo(
     () => ({
