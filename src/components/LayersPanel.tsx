@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef } from "react";
 import { useDragDropMonitor } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
-import { Box, Copy, Eye, EyeOff, GripVertical, Minus, Plus, Shield, View, X } from "lucide-react";
+import { Box, Copy, Eye, EyeOff, GripVertical, Plus, Shield, Trash2, View, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -69,7 +69,7 @@ export function LayersPanel(): React.JSX.Element {
               <Copy />
             </IconAction>
             <IconAction label="Delete layer" disabled={layers.length <= 1} onClick={deleteLayer}>
-              <Minus />
+              <Trash2 />
             </IconAction>
             <IconAction
               label={hasSelection ? "Add mask from selection" : "Add mask"}

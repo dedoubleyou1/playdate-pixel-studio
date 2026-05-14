@@ -22,19 +22,37 @@ export function ObjectLibrary(): React.JSX.Element {
   const switchToObject = useEditorStore((state) => state.switchToObject);
   const { target } = useDragOperation();
   const hideDragOverlay = target?.id === CANVAS_DROP_ID;
+  const activeObject = activeContext.type === "object"
+    ? objects.find((object) => object.id === activeContext.objectId)
+    : null;
 
   return (
     <EditorPane className="grid gap-3">
       <div className="flex items-center justify-between gap-2">
         <EditorPaneTitle>Objects</EditorPaneTitle>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Create object" onClick={addObject}>
-              <Plus />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Create object</TooltipContent>
-        </Tooltip>
+        <div className="flex items-center gap-2">
+          <ObjectAction label="Create object" onClick={addObject}>
+            <Plus />
+          </ObjectAction>
+          <ObjectAction
+            label={activeObject ? `Duplicate ${activeObject.name}` : "Duplicate object"}
+            disabled={!activeObject}
+            onClick={() => {
+              if (activeObject) duplicateObject(activeObject.id);
+            }}
+          >
+            <Copy />
+          </ObjectAction>
+          <ObjectAction
+            label={activeObject ? `Remove ${activeObject.name}` : "Remove object"}
+            disabled={!activeObject}
+            onClick={() => {
+              if (activeObject) deleteObject(activeObject.id);
+            }}
+          >
+            <Trash2 />
+          </ObjectAction>
+        </div>
       </div>
 
       <EditorList>
@@ -48,8 +66,6 @@ export function ObjectLibrary(): React.JSX.Element {
               key={object.id}
               object={object}
               palette={palette}
-              onDelete={deleteObject}
-              onDuplicate={duplicateObject}
               onRename={renameObject}
               onSelect={switchToObject}
             />
@@ -89,8 +105,6 @@ function ObjectRow({
   draggable,
   object,
   palette,
-  onDelete,
-  onDuplicate,
   onRename,
   onSelect,
 }: {
@@ -98,8 +112,6 @@ function ObjectRow({
   draggable: boolean;
   object: ObjectDefinition;
   palette: ProjectPalette;
-  onDelete: (objectId: string) => void;
-  onDuplicate: (objectId: string) => void;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
 }): React.JSX.Element {
@@ -125,28 +137,6 @@ function ObjectRow({
       nameLabel="Object name"
       onClick={() => onSelect(object.id)}
       onRename={(name) => onRename(object.id, name)}
-      actions={
-        <div className="flex items-center gap-2">
-          <ObjectAction
-            label={`Duplicate ${object.name}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDuplicate(object.id);
-            }}
-          >
-            <Copy />
-          </ObjectAction>
-          <ObjectAction
-            label={`Remove ${object.name}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(object.id);
-            }}
-          >
-            <Trash2 />
-          </ObjectAction>
-        </div>
-      }
       thumbnail={
         <ObjectPreviewCanvas
           canvasHeight={thumbnailSize.height}
