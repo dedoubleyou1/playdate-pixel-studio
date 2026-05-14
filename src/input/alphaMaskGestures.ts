@@ -1,4 +1,4 @@
-import { activeLayer, activeStack, cloneLayerStack, cloneObjectDefinition } from "../domain/layers";
+import { activeLayer, activeStack } from "../domain/layers";
 import {
   applyMaskToolDrag,
   applyMaskToolFinish,
@@ -12,8 +12,9 @@ import {
   isFillTool,
   isShapeTool,
 } from "../domain/pixelCommands";
-import type { BinaryMaskSurface, EditorSnapshot, Layer, LayerStack, ObjectDefinition, PixelLayer, Point, Tool } from "../domain/types";
+import type { BinaryMaskSurface, Point, Tool } from "../domain/types";
 import { currentActiveLayer, useEditorStore } from "../state/editorStore";
+import { layerAlphaMaskSize, replaceActiveStack } from "../state/editorStoreHelpers";
 import { maskToolSettings } from "./gestureSettings";
 import { beginGestureTransaction } from "./gestureTransaction";
 import { constrainedShapeEndPoint, idleGestureState, type EditorGestureEvent, type EditorGestureState, type GestureRenderBridge } from "./gestureTypes";
@@ -160,33 +161,4 @@ export function activeMaskPoint(point: Point, state: ReturnType<typeof useEditor
   }
   if (point.x < 0 || point.y < 0 || point.x >= layer.surface.width || point.y >= layer.surface.height) return null;
   return point;
-}
-
-function replaceActiveStack(
-  state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">,
-  stack: LayerStack,
-): Pick<EditorSnapshot, "root" | "objects"> {
-  if (state.activeContext.type === "root") {
-    return { root: cloneLayerStack(stack), objects: state.objects };
-  }
-  const context = state.activeContext;
-
-  return {
-    root: state.root,
-    objects: state.objects.map((object) =>
-      object.id === context.objectId
-        ? { ...cloneObjectDefinition(object), ...stack, layers: stack.layers.filter(isPixelLayer) }
-        : object,
-    ),
-  };
-}
-
-function layerAlphaMaskSize(layer: Layer, objects: ObjectDefinition[]): { width: number; height: number } | null {
-  if (layer.type === "pixel") return { width: layer.surface.width, height: layer.surface.height };
-  const object = objects.find((candidate) => candidate.id === layer.objectId);
-  return object ? { width: object.width, height: object.height } : null;
-}
-
-function isPixelLayer(layer: Layer): layer is PixelLayer {
-  return layer.type === "pixel";
 }
