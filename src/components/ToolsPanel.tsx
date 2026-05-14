@@ -7,7 +7,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { toolUsesBrushSize } from "../domain/toolProperties";
 import type { BrushShape, EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
-import { ObjectLibrary } from "./ObjectLibrary";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
@@ -125,7 +124,6 @@ export function ToolsPanel(): React.JSX.Element {
         paletteGroups={paletteGroups}
         setActivePaletteIndex={setActivePaletteIndex}
       />
-      <ObjectLibrary />
       <div className="mt-auto border-t border-border p-4">
         <PlaydateStreamMenu align="start" className="w-full justify-start" />
       </div>

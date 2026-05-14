@@ -20,6 +20,7 @@ import {
   EditorPaneTitle,
 } from "./layout/editor-layout";
 import { EditorAssetItem } from "./EditorAssetItem";
+import { ObjectLibrary } from "./ObjectLibrary";
 import { PixelSwatch } from "./PixelSwatch";
 import { hasActiveSelection, useEditorStore } from "../state/editorStore";
 
@@ -56,6 +57,7 @@ export function LayersPanel(): React.JSX.Element {
 
   return (
     <EditorPanel side="right" aria-label="Layers">
+      <ObjectLibrary />
       <EditorPane>
         <div className="mb-3 flex items-center justify-between gap-3">
           <EditorPaneTitle>Layers</EditorPaneTitle>
