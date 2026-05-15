@@ -55,11 +55,11 @@ export function createClipboardFromSelection(layer: PixelLayer, selection: Selec
 }
 
 export function clearSelectedPixels(layer: PixelLayer, selection: SelectionState): PixelLayer {
-  return liftSelectedPixels(layer, selection.mask).source;
+  return bumpContentRevisionIfPixelsChanged(layer, liftSelectedPixels(layer, selection.mask).source);
 }
 
 export function pasteClipboardPixels(layer: PixelLayer, clipboard: EditorClipboard): PixelLayer {
-  return pasteFloatingPixels(layer, clipboard.surface, clipboard.origin.x, clipboard.origin.y);
+  return bumpContentRevisionIfPixelsChanged(layer, pasteFloatingPixels(layer, clipboard.surface, clipboard.origin.x, clipboard.origin.y));
 }
 
 export function selectionFromClipboardMask(
@@ -99,4 +99,17 @@ export function cloneEditorClipboard(clipboard: EditorClipboard): EditorClipboar
 
 export function surfaceHasNonTransparentPixels(surface: PixelSurface): boolean {
   return surface.data.some((pixel) => pixel !== TRANSPARENT_PIXEL);
+}
+
+function bumpContentRevisionIfPixelsChanged(previous: PixelLayer, next: PixelLayer): PixelLayer {
+  if (surfaceDataEqual(previous.surface.data, next.surface.data)) return next;
+  return { ...next, contentRevision: previous.contentRevision + 1 };
+}
+
+function surfaceDataEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
 }

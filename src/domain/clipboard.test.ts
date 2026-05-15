@@ -39,6 +39,7 @@ describe("editor clipboard domain helpers", () => {
     const cleared = clearSelectedPixels(layer, selection);
 
     expect(cleared.surface.data[indexFor(1, 1, 4)]).toBe(TRANSPARENT_PIXEL);
+    expect(cleared.contentRevision).toBe(layer.contentRevision + 1);
 
     const clipboard = clipboardPayload(1, 1);
     const stamped = pasteClipboardPixels(layer, clipboard);
@@ -46,6 +47,22 @@ describe("editor clipboard domain helpers", () => {
     expect(stamped.surface.data[indexFor(1, 1, 4)]).toBe(BLACK_PIXEL);
     expect(stamped.surface.data[indexFor(2, 1, 4)]).toBe(TRANSPARENT_PIXEL);
     expect(stamped.surface.data[indexFor(1, 2, 4)]).toBe(WHITE_PIXEL);
+    expect(stamped.contentRevision).toBe(layer.contentRevision + 1);
+  });
+
+  it("keeps content revision stable when clear or paste does not change pixels", () => {
+    const layer = pixelLayer(4, 4);
+    const mask = createBinaryMaskSurface(4, 4);
+    mask.data[indexFor(1, 1, 4)] = 1;
+    const selection = createSelectionStateFromMask(mask);
+    const cleared = clearSelectedPixels(layer, selection);
+    const stamped = pasteClipboardPixels(layer, {
+      ...clipboardPayload(1, 1),
+      surface: createSurface(2, 2),
+    });
+
+    expect(cleared.contentRevision).toBe(layer.contentRevision);
+    expect(stamped.contentRevision).toBe(layer.contentRevision);
   });
 
   it("clips pasted selection masks to the target bounds", () => {

@@ -544,6 +544,7 @@ describe("editor store selection and alpha masks", () => {
     const state = useEditorStore.getState();
     const layer = currentActivePixelLayer();
     if (!layer) throw new Error("Expected active pixel layer");
+    const initialContentRevision = layer.contentRevision;
     layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
     state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
 
@@ -551,6 +552,7 @@ describe("editor store selection and alpha masks", () => {
 
     expect(desktopApiMock.writeSelectionToDesktopClipboard).toHaveBeenCalledOnce();
     expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(TRANSPARENT_PIXEL);
+    expect(currentActivePixelLayer()?.contentRevision).toBe(initialContentRevision + 1);
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
@@ -559,6 +561,29 @@ describe("editor store selection and alpha masks", () => {
     useEditorStore.getState().undo();
     expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+  });
+
+  it("does not cut pixels if selection changes while the desktop clipboard write is pending", async () => {
+    let resolveClipboardWrite: () => void = () => undefined;
+    desktopApiMock.writeSelectionToDesktopClipboard.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveClipboardWrite = () => resolve(true);
+      }),
+    );
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+
+    const cutPromise = state.cutSelection();
+    state.clearSelection();
+    resolveClipboardWrite();
+
+    await expect(cutPromise).resolves.toBe(false);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().undoStack.map((command) => command.label)).not.toContain("Cut selection");
+    expect(useEditorStore.getState().status).toBe("Selection changed before cut");
   });
 
   it("does not mutate the document when cut cannot write the desktop clipboard", async () => {
@@ -590,6 +615,7 @@ describe("editor store selection and alpha masks", () => {
     desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(serializeEditorClipboard(clipboard));
     const layer = currentActivePixelLayer();
     if (!layer) throw new Error("Expected active pixel layer");
+    const initialContentRevision = layer.contentRevision;
     layer.surface.data[indexFor(2, 1, layer.surface.width)] = WHITE_PIXEL;
 
     await expect(useEditorStore.getState().pasteClipboard()).resolves.toBe(true);
@@ -597,6 +623,7 @@ describe("editor store selection and alpha masks", () => {
     expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(currentActivePixelLayer()?.surface.data[indexFor(2, 1, layer.surface.width)]).toBe(WHITE_PIXEL);
     expect(currentActivePixelLayer()?.surface.data[indexFor(1, 2, layer.surface.width)]).toBe(WHITE_PIXEL);
+    expect(currentActivePixelLayer()?.contentRevision).toBe(initialContentRevision + 1);
     expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 1, top: 1, right: 2, bottom: 2 });
     expect(useEditorStore.getState().documentRevision).toBe(1);
     expect(useEditorStore.getState().undoStack).toHaveLength(1);

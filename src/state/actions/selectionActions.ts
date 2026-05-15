@@ -1,4 +1,4 @@
-import { createEditorCommand } from "../../domain/commands";
+import { commandSelectionSnapshotsEqual, createEditorCommand, snapshotsEqual } from "../../domain/commands";
 import {
   clearSelectedPixels,
   createClipboardFromSelection,
@@ -122,6 +122,8 @@ export function createSelectionActions(set: EditorStoreSet, get: EditorStoreGet)
     cutSelection: async () => {
       const clipboard = clipboardFromCurrentSelection(get, set, "cut");
       if (!clipboard) return false;
+      const before = snapshotFrom(get());
+      const beforeSelection = selectionSnapshot(get());
       try {
         const json = serializeEditorClipboard(clipboard);
         await writeSelectionToDesktopClipboard(json);
@@ -130,8 +132,11 @@ export function createSelectionActions(set: EditorStoreSet, get: EditorStoreGet)
         return false;
       }
 
-      const before = snapshotFrom(get());
-      const beforeSelection = selectionSnapshot(get());
+      if (!snapshotsEqual(before, snapshotFrom(get())) || !commandSelectionSnapshotsEqual(beforeSelection, selectionSnapshot(get()))) {
+        set({ status: "Selection changed before cut" });
+        return false;
+      }
+
       let changed = false;
       set((state) => {
         const selection = activeSelection(state);
