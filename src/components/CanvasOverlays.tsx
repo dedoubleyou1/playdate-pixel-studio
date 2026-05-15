@@ -1,6 +1,5 @@
 import type { CSSProperties, JSX, Ref } from "react";
-import { objectThumbnailKey } from "../domain/thumbnailKeys";
-import type { ObjectDefinition, ProjectPalette } from "../domain/types";
+import type { ObjectDefinition } from "../domain/types";
 import type { ObjectDropPreview } from "../hooks/useCanvasObjectDrop";
 import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
 import { GridOverlay } from "./GridOverlay";
@@ -12,7 +11,6 @@ interface CanvasOverlaysProps {
   gridVisible: boolean;
   height: number;
   objectDropPreview: ObjectDropPreview | null;
-  palette: ProjectPalette;
   previewObject: ObjectDefinition | null;
   selectionOverlay: SelectionOverlaySource;
   selectionOverlayRef: Ref<SelectionOverlayHandle>;
@@ -25,7 +23,6 @@ export function CanvasOverlays({
   gridVisible,
   height,
   objectDropPreview,
-  palette,
   previewObject,
   selectionOverlay,
   selectionOverlayRef,
@@ -38,10 +35,11 @@ export function CanvasOverlays({
       <SelectionOverlay ref={selectionOverlayRef} height={height} model={selectionOverlay} width={width} zoom={zoom} />
       {previewObject && objectDropPreview ? (
         <ObjectPreviewCanvas
+          canvasHeight={previewObject.height}
+          canvasWidth={previewObject.width}
           className="canvas-object-drop-preview"
-          object={previewObject}
-          palette={palette}
-          thumbnailKey={objectThumbnailKey(previewObject)}
+          objectId={previewObject.id}
+          objectName={previewObject.name}
           style={objectDropPreviewStyle(previewObject, objectDropPreview, zoom)}
         />
       ) : null}

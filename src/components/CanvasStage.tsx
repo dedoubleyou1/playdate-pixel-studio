@@ -23,7 +23,6 @@ export function CanvasStage(): JSX.Element {
   const gridSize = useEditorStore((state) => state.gridSize);
   const cursorLabel = useEditorStore((state) => state.cursorLabel);
   const stack = useEditorStore((state) => activeStack(state));
-  const palette = useEditorStore((state) => state.palette);
   const activeContext = useEditorStore((state) => state.activeContext);
   const selectionOverlay = useCanvasSelectionOverlay({ height: stack.height, width: stack.width });
   const canvasCursor = useCanvasCursor(hoverSelectionCombineMode);
@@ -87,7 +86,6 @@ export function CanvasStage(): JSX.Element {
             gridVisible={gridVisible}
             gridSize={gridSize}
             objectDropPreview={objectDropPreview}
-            palette={palette}
             previewObject={previewObject}
             selectionOverlay={selectionOverlay}
             selectionOverlayRef={selectionOverlayRef}

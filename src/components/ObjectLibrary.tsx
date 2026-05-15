@@ -1,20 +1,21 @@
 import { DragOverlay, useDraggable, useDragOperation } from "@dnd-kit/react";
 import { Copy, Plus, Trash2 } from "lucide-react";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CANVAS_DROP_ID } from "../dragDropIds";
-import { projectPaletteKey } from "../domain/palette";
-import { objectThumbnailKey } from "../domain/thumbnailKeys";
-import type { ObjectDefinition, ProjectPalette } from "../domain/types";
 import { useEditorStore } from "../state/editorStore";
 import { EditorAssetItem } from "./EditorAssetItem";
 import { EditorList, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { ObjectPreviewCanvas } from "./ObjectPreviewCanvas";
+import {
+  areObjectLibraryModelsEqual,
+  selectObjectLibraryModel,
+  type ObjectLibraryObjectMeta,
+} from "./panelSelectors";
 
 export function ObjectLibrary(): React.JSX.Element {
-  const objects = useEditorStore((state) => state.objects);
-  const palette = useEditorStore((state) => state.palette);
-  const activeContext = useEditorStore((state) => state.activeContext);
+  const model = useStoreWithEqualityFn(useEditorStore, selectObjectLibraryModel, areObjectLibraryModelsEqual);
   const addObject = useEditorStore((state) => state.addObject);
   const deleteObject = useEditorStore((state) => state.deleteObject);
   const duplicateObject = useEditorStore((state) => state.duplicateObject);
@@ -22,9 +23,6 @@ export function ObjectLibrary(): React.JSX.Element {
   const switchToObject = useEditorStore((state) => state.switchToObject);
   const { target } = useDragOperation();
   const hideDragOverlay = target?.id === CANVAS_DROP_ID;
-  const activeObject = activeContext.type === "object"
-    ? objects.find((object) => object.id === activeContext.objectId)
-    : null;
 
   return (
     <EditorPane className="grid gap-3">
@@ -35,19 +33,19 @@ export function ObjectLibrary(): React.JSX.Element {
             <Plus />
           </ObjectAction>
           <ObjectAction
-            label={activeObject ? `Duplicate ${activeObject.name}` : "Duplicate object"}
-            disabled={!activeObject}
+            label={model.activeObjectName ? `Duplicate ${model.activeObjectName}` : "Duplicate object"}
+            disabled={!model.activeObjectId}
             onClick={() => {
-              if (activeObject) duplicateObject(activeObject.id);
+              if (model.activeObjectId) duplicateObject(model.activeObjectId);
             }}
           >
             <Copy />
           </ObjectAction>
           <ObjectAction
-            label={activeObject ? `Remove ${activeObject.name}` : "Remove object"}
-            disabled={!activeObject}
+            label={model.activeObjectName ? `Remove ${model.activeObjectName}` : "Remove object"}
+            disabled={!model.activeObjectId}
             onClick={() => {
-              if (activeObject) deleteObject(activeObject.id);
+              if (model.activeObjectId) deleteObject(model.activeObjectId);
             }}
           >
             <Trash2 />
@@ -56,16 +54,15 @@ export function ObjectLibrary(): React.JSX.Element {
       </div>
 
       <EditorList>
-        {objects.length === 0 ? (
+        {model.objects.length === 0 ? (
           <p className="text-sm text-muted-foreground">No reusable objects yet.</p>
         ) : (
-          objects.map((object) => (
+          model.objects.map((object) => (
             <ObjectRow
-              active={activeContext.type === "object" && activeContext.objectId === object.id}
-              draggable={activeContext.type === "root"}
+              active={model.activeObjectId === object.id}
+              draggable={model.draggable}
               key={object.id}
               object={object}
-              palette={palette}
               onRename={renameObject}
               onSelect={switchToObject}
             />
@@ -75,19 +72,17 @@ export function ObjectLibrary(): React.JSX.Element {
       <DragOverlay className="object-drag-overlay" disabled={hideDragOverlay} dropAnimation={null}>
         {(source) => {
           const objectId = getDraggedObjectId(source.data);
-          const object = objects.find((candidate) => candidate.id === objectId);
+          const object = model.objects.find((candidate) => candidate.id === objectId);
           if (!object) return null;
 
           const thumbnailSize = getObjectThumbnailSize(object.width, object.height, 96, 72);
-          const thumbnailKey = `${objectThumbnailKey(object)}:${projectPaletteKey(palette)}`;
           return (
             <ObjectPreviewCanvas
               canvasHeight={thumbnailSize.height}
               canvasWidth={thumbnailSize.width}
               className="object-thumb object-drag-preview"
-              object={object}
-              palette={palette}
-              thumbnailKey={thumbnailKey}
+              objectId={object.id}
+              objectName={object.name}
               style={{
                 height: `${thumbnailSize.height}px`,
                 width: `${thumbnailSize.width}px`,
@@ -104,19 +99,16 @@ function ObjectRow({
   active,
   draggable,
   object,
-  palette,
   onRename,
   onSelect,
 }: {
   active: boolean;
   draggable: boolean;
-  object: ObjectDefinition;
-  palette: ProjectPalette;
+  object: ObjectLibraryObjectMeta;
   onRename: (objectId: string, name: string) => void;
   onSelect: (objectId: string) => void;
 }): React.JSX.Element {
   const thumbnailSize = getObjectThumbnailSize(object.width, object.height);
-  const thumbnailKey = `${objectThumbnailKey(object)}:${projectPaletteKey(palette)}`;
   const { isDragging, ref: draggableRef } = useDraggable({
     id: `object:${object.id}`,
     type: "object",
@@ -142,9 +134,8 @@ function ObjectRow({
           canvasHeight={thumbnailSize.height}
           canvasWidth={thumbnailSize.width}
           className="object-thumb"
-          object={object}
-          palette={palette}
-          thumbnailKey={thumbnailKey}
+          objectId={object.id}
+          objectName={object.name}
           style={{
             height: `${thumbnailSize.height}px`,
             width: `${thumbnailSize.width}px`,

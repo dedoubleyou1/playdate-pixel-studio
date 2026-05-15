@@ -2,15 +2,13 @@ import { memo, useEffect, useRef } from "react";
 import { useDragDropMonitor } from "@dnd-kit/react";
 import { isSortable, useSortable } from "@dnd-kit/react/sortable";
 import { Box, Copy, Eye, EyeOff, GripVertical, Plus, Shield, Trash2, View, X } from "lucide-react";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { activeStack } from "../domain/layers";
-import { projectPaletteKey } from "../domain/palette";
-import { layerThumbnailKey, maskThumbnailKey } from "../domain/thumbnailKeys";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
-import type { BinaryMaskSurface, Layer, ObjectDefinition, PixelValue, ProjectPalette } from "../domain/types";
+import type { PixelValue } from "../domain/types";
 import { renderLayerThumbnail, renderMaskThumbnail } from "../rendering/compositor";
 import {
   EditorList,
@@ -21,22 +19,26 @@ import {
 } from "./layout/editor-layout";
 import { EditorAssetItem } from "./EditorAssetItem";
 import { ObjectLibrary } from "./ObjectLibrary";
+import {
+  areLayerPanelModelsEqual,
+  contextQualifiedLayerKey,
+  selectLayerPanelModel,
+  selectLayerThumbnailKey,
+  selectMaskThumbnailKey,
+  stackForContextKey,
+  type LayerPanelLayerMeta,
+  type PanelContextKey,
+} from "./panelSelectors";
 import { PixelSwatch } from "./PixelSwatch";
 import { hasActiveSelection, useEditorStore } from "../state/editorStore";
 
 export function LayersPanel(): React.JSX.Element {
-  const stack = useEditorStore((state) => activeStack(state));
-  const layers = stack.layers;
-  const activeLayerIndex = stack.activeLayerIndex;
-  const activeLayer = layers[activeLayerIndex];
-  const objects = useEditorStore((state) => state.objects);
-  const palette = useEditorStore((state) => state.palette);
+  const panel = useStoreWithEqualityFn(useEditorStore, selectLayerPanelModel, areLayerPanelModelsEqual);
   const addLayer = useEditorStore((state) => state.addLayer);
   const duplicateLayer = useEditorStore((state) => state.duplicateLayer);
   const deleteLayer = useEditorStore((state) => state.deleteLayer);
   const reorderLayer = useEditorStore((state) => state.reorderLayer);
   const setStackBackground = useEditorStore((state) => state.setStackBackground);
-  const editTarget = useEditorStore((state) => state.editTarget);
   const addActiveLayerAlphaMask = useEditorStore((state) => state.addActiveLayerAlphaMask);
   const hasSelection = useEditorStore(hasActiveSelection);
 
@@ -49,8 +51,8 @@ export function LayersPanel(): React.JSX.Element {
       if (source.initialIndex === source.index) return;
 
       reorderLayer(
-        visualLayerIndexToStackIndex(layers.length, source.initialIndex),
-        visualLayerIndexToStackIndex(layers.length, source.index),
+        visualLayerIndexToStackIndex(panel.layerCount, source.initialIndex),
+        visualLayerIndexToStackIndex(panel.layerCount, source.index),
       );
     },
   });
@@ -68,12 +70,12 @@ export function LayersPanel(): React.JSX.Element {
             <IconAction label="Duplicate layer" onClick={duplicateLayer}>
               <Copy />
             </IconAction>
-            <IconAction label="Delete layer" disabled={layers.length <= 1} onClick={deleteLayer}>
+            <IconAction label="Delete layer" disabled={panel.layerCount <= 1} onClick={deleteLayer}>
               <Trash2 />
             </IconAction>
             <IconAction
               label={hasSelection ? "Add mask from selection" : "Add mask"}
-              disabled={!activeLayer || Boolean(activeLayer.alphaMask)}
+              disabled={panel.layerCount === 0 || panel.activeLayerHasAlphaMask}
               onClick={addActiveLayerAlphaMask}
             >
               <View />
@@ -81,22 +83,18 @@ export function LayersPanel(): React.JSX.Element {
           </div>
         </div>
         <EditorList>
-          {layers
-            .map((layer, index) => ({ layer, index }))
+          {[...panel.layers]
             .reverse()
-            .map(({ layer, index }, visualIndex) => (
+            .map((layer, visualIndex) => (
               <LayerGroup
-                key={layer.id}
+                key={contextQualifiedLayerKey(layer.contextKey, layer.id)}
                 layer={layer}
-                index={index}
                 visualIndex={visualIndex}
-                active={index === activeLayerIndex}
-                editTarget={editTarget}
-                objects={objects}
-                palette={palette}
+                active={layer.stackIndex === panel.activeLayerIndex}
+                editTarget={panel.editTarget}
               />
             ))}
-          <BackgroundRow background={stack.background} onChange={setStackBackground} />
+          <BackgroundRow background={panel.background} onChange={setStackBackground} />
         </EditorList>
       </EditorPane>
     </EditorPanel>
@@ -144,47 +142,40 @@ function getBackgroundShortLabel(label: string): string {
 
 function LayerRow({
   layer,
-  index,
   active,
-  objects,
-  palette,
   dragHandle,
 }: {
-  layer: Layer;
-  index: number;
+  layer: LayerPanelLayerMeta;
   active: boolean;
-  objects: ObjectDefinition[];
-  palette: ProjectPalette;
   dragHandle: React.ReactNode;
 }): React.JSX.Element {
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const setEditTarget = useEditorStore((state) => state.setEditTarget);
   const renameLayer = useEditorStore((state) => state.renameLayer);
   const setLayerVisible = useEditorStore((state) => state.setLayerVisible);
-  const thumbnailKey = `${layerThumbnailKey(layer, objects)}:${projectPaletteKey(palette)}`;
   const selectLayer = () => {
-    setActiveLayer(index);
+    setActiveLayer(layer.stackIndex);
     setEditTarget("pixels");
   };
 
   return (
     <EditorAssetItem
       active={active}
-      fallbackName={`Layer ${index + 1}`}
+      fallbackName={`Layer ${layer.stackIndex + 1}`}
       className="relative"
       dragHandle={dragHandle}
       leadingIcon={layer.type === "object" ? <Box className="size-4 text-primary" aria-label="Object layer" /> : null}
       name={layer.name}
       nameLabel="Layer name"
-      thumbnail={<LayerThumbnail layer={layer} objects={objects} palette={palette} thumbnailKey={thumbnailKey} />}
+      thumbnail={<LayerThumbnail contextKey={layer.contextKey} layerId={layer.id} />}
       onClick={selectLayer}
-      onRename={(name) => renameLayer(index, name)}
+      onRename={(name) => renameLayer(layer.stackIndex, name)}
       actions={
         <IconAction
           label={layer.visible ? "Hide layer" : "Show layer"}
           onClick={(event) => {
             event.stopPropagation();
-            setLayerVisible(index, !layer.visible);
+            setLayerVisible(layer.stackIndex, !layer.visible);
           }}
         >
           {layer.visible ? <Eye /> : <EyeOff />}
@@ -196,37 +187,32 @@ function LayerRow({
 
 function LayerGroup({
   layer,
-  index,
   visualIndex,
   active,
   editTarget,
-  objects,
-  palette,
 }: {
-  layer: Layer;
-  index: number;
+  layer: LayerPanelLayerMeta;
   visualIndex: number;
   active: boolean;
   editTarget: "pixels" | "alphaMask";
-  objects: ObjectDefinition[];
-  palette: ProjectPalette;
 }): React.JSX.Element {
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const setEditTarget = useEditorStore((state) => state.setEditTarget);
   const { handleRef, isDragging, ref: sortableRef } = useSortable({
-    id: `layer:${layer.id}`,
+    id: contextQualifiedLayerKey(layer.contextKey, layer.id),
     index: visualIndex,
     group: "layers",
     type: "layer",
     accept: "layer",
     data: {
       kind: "layer",
+      contextKey: layer.contextKey,
       layerId: layer.id,
-      stackIndex: index,
+      stackIndex: layer.stackIndex,
     },
   });
   const selectLayer = () => {
-    setActiveLayer(index);
+    setActiveLayer(layer.stackIndex);
     setEditTarget("pixels");
   };
 
@@ -234,15 +220,12 @@ function LayerGroup({
     <div ref={sortableRef} className={cn("grid gap-1", isDragging && "opacity-50")}>
       <LayerRow
         layer={layer}
-        index={index}
         active={active}
-        objects={objects}
-        palette={palette}
         dragHandle={
           <span
             ref={handleRef}
             className="flex h-9 w-4 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
-            aria-label={`Reorder ${layer.name || `Layer ${index + 1}`}`}
+            aria-label={`Reorder ${layer.name || `Layer ${layer.stackIndex + 1}`}`}
             onPointerDownCapture={selectLayer}
             onClick={(event) => {
               event.stopPropagation();
@@ -253,8 +236,13 @@ function LayerGroup({
           </span>
         }
       />
-      {layer.alphaMask ? (
-        <MaskRow active={active && editTarget === "alphaMask"} index={index} mask={layer.alphaMask} />
+      {layer.hasAlphaMask ? (
+        <MaskRow
+          active={active && editTarget === "alphaMask"}
+          contextKey={layer.contextKey}
+          layerId={layer.id}
+          index={layer.stackIndex}
+        />
       ) : null}
     </div>
   );
@@ -262,17 +250,18 @@ function LayerGroup({
 
 function MaskRow({
   active,
+  contextKey,
   index,
-  mask,
+  layerId,
 }: {
   active: boolean;
+  contextKey: PanelContextKey;
   index: number;
-  mask: BinaryMaskSurface;
+  layerId: number;
 }): React.JSX.Element {
   const setActiveLayer = useEditorStore((state) => state.setActiveLayer);
   const setEditTarget = useEditorStore((state) => state.setEditTarget);
   const removeActiveLayerAlphaMask = useEditorStore((state) => state.removeActiveLayerAlphaMask);
-  const thumbnailKey = maskThumbnailKey(mask);
   const selectMask = () => {
     setActiveLayer(index);
     setEditTarget("alphaMask");
@@ -286,7 +275,7 @@ function MaskRow({
       aria-label={`Layer ${index + 1} alpha mask`}
     >
       <div className="asset-thumb-frame h-8">
-        <MaskThumbnail mask={mask} thumbnailKey={thumbnailKey} />
+        <MaskThumbnail contextKey={contextKey} layerId={layerId} />
       </div>
       <div className="flex min-w-0 items-center gap-2 text-sm">
         <Shield className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -311,48 +300,52 @@ function visualLayerIndexToStackIndex(layerCount: number, visualIndex: number): 
 }
 
 const LayerThumbnail = memo(function LayerThumbnail({
-  layer,
-  objects,
-  palette,
-  thumbnailKey,
+  contextKey,
+  layerId,
 }: {
-  layer: Layer;
-  objects: ObjectDefinition[];
-  palette: ProjectPalette;
-  thumbnailKey: string;
+  contextKey: PanelContextKey;
+  layerId: number;
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
+  const thumbnailKey = useStoreWithEqualityFn(useEditorStore, (state) =>
+    selectLayerThumbnailKey(state, contextKey, layerId),
+  );
 
   useEffect(() => {
-    if (thumbnailRef.current) {
-      renderLayerThumbnail(thumbnailRef.current, layer, objects, palette);
+    const state = useEditorStore.getState();
+    const stack = stackForContextKey(state, contextKey);
+    const layer = stack?.layers.find((candidate) => candidate.id === layerId);
+    if (thumbnailRef.current && layer) {
+      renderLayerThumbnail(thumbnailRef.current, layer, state.objects, state.palette);
     }
-  }, [layer, objects, palette, thumbnailKey]);
+  }, [contextKey, layerId, thumbnailKey]);
 
   return <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />;
-}, areThumbnailPropsEqual);
+});
 
 const MaskThumbnail = memo(function MaskThumbnail({
-  mask,
-  thumbnailKey,
+  contextKey,
+  layerId,
 }: {
-  mask: BinaryMaskSurface;
-  thumbnailKey: string;
+  contextKey: PanelContextKey;
+  layerId: number;
 }): React.JSX.Element {
   const thumbnailRef = useRef<HTMLCanvasElement | null>(null);
+  const thumbnailKey = useStoreWithEqualityFn(useEditorStore, (state) =>
+    selectMaskThumbnailKey(state, contextKey, layerId),
+  );
 
   useEffect(() => {
-    if (thumbnailRef.current) {
+    const state = useEditorStore.getState();
+    const stack = stackForContextKey(state, contextKey);
+    const mask = stack?.layers.find((candidate) => candidate.id === layerId)?.alphaMask;
+    if (thumbnailRef.current && mask) {
       renderMaskThumbnail(thumbnailRef.current, mask);
     }
-  }, [mask, thumbnailKey]);
+  }, [contextKey, layerId, thumbnailKey]);
 
   return <canvas ref={thumbnailRef} className="layer-thumb" width={54} height={32} />;
-}, areThumbnailPropsEqual);
-
-function areThumbnailPropsEqual(previous: { thumbnailKey: string }, next: { thumbnailKey: string }): boolean {
-  return previous.thumbnailKey === next.thumbnailKey;
-}
+});
 
 function IconAction({
   label,

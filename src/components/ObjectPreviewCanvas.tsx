@@ -1,47 +1,44 @@
 import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
-import { objectThumbnailKey } from "../domain/thumbnailKeys";
-import type { ObjectDefinition, ProjectPalette } from "../domain/types";
+import { useStoreWithEqualityFn } from "zustand/traditional";
 import { renderObjectThumbnail } from "../rendering/compositor";
+import { useEditorStore } from "../state/editorStore";
+import { selectObjectThumbnailKey } from "./panelSelectors";
 
 export function ObjectPreviewCanvas({
   canvasHeight,
   canvasWidth,
   className,
-  object,
-  palette,
-  thumbnailKey = objectThumbnailKey(object),
+  objectId,
+  objectName,
   style,
 }: {
-  canvasHeight?: number;
-  canvasWidth?: number;
+  canvasHeight: number;
+  canvasWidth: number;
   className?: string;
-  object: ObjectDefinition;
-  palette: ProjectPalette;
-  thumbnailKey?: string;
+  objectId: string;
+  objectName: string;
   style?: CSSProperties;
 }): React.JSX.Element {
   const previewRef = useRef<HTMLCanvasElement | null>(null);
-  const objectRef = useRef(object);
+  const thumbnailKey = useStoreWithEqualityFn(useEditorStore, (state) => selectObjectThumbnailKey(state, objectId));
 
   useEffect(() => {
-    objectRef.current = object;
-  }, [object]);
-
-  useEffect(() => {
-    if (previewRef.current) {
-      renderObjectThumbnail(previewRef.current, objectRef.current, palette);
+    const state = useEditorStore.getState();
+    const object = state.objects.find((candidate) => candidate.id === objectId);
+    if (previewRef.current && object) {
+      renderObjectThumbnail(previewRef.current, object, state.palette);
     }
-  }, [canvasHeight, canvasWidth, palette, thumbnailKey]);
+  }, [canvasHeight, canvasWidth, objectId, thumbnailKey]);
 
   return (
     <canvas
       ref={previewRef}
       className={className}
-      height={canvasHeight ?? object.height}
+      height={canvasHeight}
       style={style}
-      width={canvasWidth ?? object.width}
-      aria-label={`${object.name} preview`}
+      width={canvasWidth}
+      aria-label={`${objectName} preview`}
     />
   );
 }
