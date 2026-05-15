@@ -46,46 +46,6 @@ function EditorBarRight({ className, ...props }: React.ComponentProps<"div">): R
   return <div data-slot="editor-bar-right" className={cn(editorBarRightClassName, className)} {...props} />;
 }
 
-function EditorHeader({ className, ...props }: React.ComponentProps<"header">): React.JSX.Element {
-  return (
-    <header
-      data-slot="editor-header"
-      className={cn(editorBarClassName, className)}
-      {...props}
-    />
-  );
-}
-
-function EditorHeaderLeft({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
-  return (
-    <div
-      data-slot="editor-header-left"
-      className={cn(editorBarLeftClassName, className)}
-      {...props}
-    />
-  );
-}
-
-function EditorHeaderCenter({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
-  return (
-    <div
-      data-slot="editor-header-center"
-      className={cn(editorBarCenterClassName, className)}
-      {...props}
-    />
-  );
-}
-
-function EditorHeaderRight({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element {
-  return (
-    <div
-      data-slot="editor-header-right"
-      className={cn(editorBarRightClassName, className)}
-      {...props}
-    />
-  );
-}
-
 function EditorPanel({
   className,
   side,
@@ -175,10 +135,6 @@ export {
   EditorBarLeft,
   EditorBarRight,
   EditorControlRow,
-  EditorHeader,
-  EditorHeaderCenter,
-  EditorHeaderLeft,
-  EditorHeaderRight,
   EditorList,
   EditorListItem,
   EditorPanel,

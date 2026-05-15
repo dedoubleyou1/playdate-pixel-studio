@@ -1,7 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { normalizeBinaryMaskSurface } from "../domain/masks";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
-import { clampLayerIndex, cloneSnapshot, createSurface } from "../domain/layers";
+import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
 import type {
   EditContext,
   EditorSnapshot,
@@ -11,19 +10,18 @@ import type {
   ObjectInstanceLayer,
   PaletteEntry,
   PixelLayer,
-  PixelSurface,
   PixelValue,
   ProjectPalette,
 } from "../domain/types";
+import {
+  deserializeBinaryMaskSurface,
+  deserializePixelSurface,
+  serializeSurface,
+  type SerializedSurface,
+} from "./serializedSurface";
 
 export const PROJECT_SCHEMA_VERSION = 8;
 const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, PROJECT_SCHEMA_VERSION]);
-
-export interface SerializedSurface {
-  width: number;
-  height: number;
-  data: string;
-}
 
 export interface SerializedBaseLayer {
   id: number;
@@ -225,10 +223,8 @@ function deserializePixelLayer(layer: SerializedPixelLayer): PixelLayer {
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    alphaMask: layer.alphaMask
-      ? normalizeBinaryMaskSurface(layer.alphaMask.width, layer.alphaMask.height, base64ToUint8(layer.alphaMask.data))
-      : undefined,
-    surface: deserializeSurface(layer.surface),
+    alphaMask: layer.alphaMask ? deserializeBinaryMaskSurface(layer.alphaMask) : undefined,
+    surface: deserializePixelSurface(layer.surface),
   };
 }
 
@@ -255,44 +251,13 @@ function deserializeObjectInstanceLayer(layer: SerializedObjectInstanceLayer): O
     visible: layer.visible,
     pixelEditable: layer.pixelEditable,
     contentRevision: layer.contentRevision,
-    alphaMask: layer.alphaMask
-      ? normalizeBinaryMaskSurface(layer.alphaMask.width, layer.alphaMask.height, base64ToUint8(layer.alphaMask.data))
-      : undefined,
+    alphaMask: layer.alphaMask ? deserializeBinaryMaskSurface(layer.alphaMask) : undefined,
     objectId: layer.objectId,
     x: layer.x,
     y: layer.y,
   };
 }
 
-function serializeSurface(surface: PixelSurface): SerializedSurface {
-  return {
-    width: surface.width,
-    height: surface.height,
-    data: uint8ToBase64(surface.data),
-  };
-}
-
-function deserializeSurface(surface: SerializedSurface): PixelSurface {
-  return createSurface(surface.width, surface.height, base64ToUint8(surface.data));
-}
-
 function cloneEditContext(context: EditContext): EditContext {
   return context.type === "root" ? { type: "root" } : { type: "object", objectId: context.objectId };
-}
-
-function uint8ToBase64(data: Uint8Array): string {
-  let binary = "";
-  for (let index = 0; index < data.length; index += 1) {
-    binary += String.fromCharCode(data[index]);
-  }
-  return btoa(binary);
-}
-
-function base64ToUint8(base64: string): Uint8Array {
-  const binary = atob(base64);
-  const data = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    data[index] = binary.charCodeAt(index);
-  }
-  return data;
 }

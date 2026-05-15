@@ -383,16 +383,17 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
       pushCurrentCommand(set, get, "Reorder layer", before);
     },
 
-    setActiveLayer: (activeLayerIndex) =>
+    setActiveLayer: (activeLayerIndex) => {
       set((state) => {
         const stack = activeStack(state);
         const nextActiveLayerIndex = clampLayerIndex(activeLayerIndex, stack.layers.length);
         const layer = stack.layers[nextActiveLayerIndex];
         return {
-          ...replaceActiveStack(state, { ...stack, activeLayerIndex: nextActiveLayerIndex }),
+          ...setActiveStackActiveLayerIndex(state, nextActiveLayerIndex),
           status: layer?.type === "object" ? "Object instances are linked; edit the source object." : state.status,
         };
-      }),
+      });
+    },
 
     renameLayer: (index, name) => {
       const before = snapshotFrom(get());
@@ -479,5 +480,25 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
         before,
       );
     },
+  };
+}
+
+function setActiveStackActiveLayerIndex(
+  state: Pick<EditorStoreState, "activeContext" | "objects" | "root">,
+  activeLayerIndex: number,
+): Pick<EditorStoreState, "objects" | "root"> {
+  if (state.activeContext.type === "root") {
+    return {
+      objects: state.objects,
+      root: { ...state.root, activeLayerIndex },
+    };
+  }
+
+  const context = state.activeContext;
+  return {
+    root: state.root,
+    objects: state.objects.map((object) =>
+      object.id === context.objectId ? { ...object, activeLayerIndex } : object,
+    ),
   };
 }

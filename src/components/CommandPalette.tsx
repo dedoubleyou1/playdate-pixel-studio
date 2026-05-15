@@ -2,6 +2,8 @@ import {
   Archive,
   Circle,
   CircleDashed,
+  ClipboardPaste,
+  Copy,
   Download,
   FileDown,
   FilePlus2,
@@ -10,6 +12,7 @@ import {
   Pencil,
   RotateCcwSquare,
   Save,
+  Scissors,
   Square,
   SquareDashed,
   Trash2,
@@ -46,6 +49,9 @@ export function CommandPalette({
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
   const exportBundle = useEditorStore((state) => state.exportBundle);
+  const copySelection = useEditorStore((state) => state.copySelection);
+  const cutSelection = useEditorStore((state) => state.cutSelection);
+  const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
   const clearSelection = useEditorStore((state) => state.clearSelection);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
@@ -53,7 +59,7 @@ export function CommandPalette({
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const hasSelection = useEditorStore(hasActiveSelection);
 
-  const run = (action: () => void | Promise<void>) => {
+  const run = (action: () => void | Promise<unknown>) => {
     void action();
     onOpenChange(false);
   };
@@ -71,6 +77,24 @@ export function CommandPalette({
           <CommandButton icon={Download} label="Export PNG" onClick={() => run(exportPng)} />
           <CommandButton icon={FileDown} label="Export project JSON" onClick={() => run(exportProjectFile)} />
           <CommandButton icon={Archive} label="Export project bundle" onClick={() => run(exportBundle)} />
+          <CommandButton
+            icon={Copy}
+            label="Copy selection"
+            disabled={!hasSelection || !drawingEnabled}
+            onClick={() => run(copySelection)}
+          />
+          <CommandButton
+            icon={Scissors}
+            label="Cut selection"
+            disabled={!hasSelection || !drawingEnabled}
+            onClick={() => run(cutSelection)}
+          />
+          <CommandButton
+            icon={ClipboardPaste}
+            label="Paste selection"
+            disabled={!drawingEnabled}
+            onClick={() => run(pasteClipboard)}
+          />
           <CommandButton
             icon={SquareDashed}
             label="Clear selection"

@@ -105,6 +105,9 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
     mode?: SelectionCombineMode,
   ) => void;
   clearSelection: () => void;
+  copySelection: () => Promise<boolean>;
+  cutSelection: () => Promise<boolean>;
+  pasteClipboard: () => Promise<boolean>;
   addActiveLayerAlphaMask: () => void;
   removeActiveLayerAlphaMask: () => void;
   markViewChanged: () => void;

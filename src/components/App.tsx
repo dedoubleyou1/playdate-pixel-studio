@@ -26,6 +26,9 @@ export function App(): React.JSX.Element {
   const newProject = useEditorStore((state) => state.newProject);
   const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
   const clearSelection = useEditorStore((state) => state.clearSelection);
+  const copySelection = useEditorStore((state) => state.copySelection);
+  const cutSelection = useEditorStore((state) => state.cutSelection);
+  const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
 
   useEffect(() => {
     let canceled = false;
@@ -64,6 +67,24 @@ export function App(): React.JSX.Element {
       if ((event.metaKey || event.ctrlKey) && key === "s") {
         event.preventDefault();
         void saveProject();
+        return;
+      }
+
+      if (shouldHandleRendererClipboardShortcut(event, key, "c")) {
+        event.preventDefault();
+        void copySelection();
+        return;
+      }
+
+      if (shouldHandleRendererClipboardShortcut(event, key, "x")) {
+        event.preventDefault();
+        void cutSelection();
+        return;
+      }
+
+      if (shouldHandleRendererClipboardShortcut(event, key, "v")) {
+        event.preventDefault();
+        void pasteClipboard();
         return;
       }
 
@@ -114,7 +135,7 @@ export function App(): React.JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearSelection, newProject, redo, saveProject, setActivePaletteIndex, setTool, undo]);
+  }, [clearSelection, copySelection, cutSelection, newProject, pasteClipboard, redo, saveProject, setActivePaletteIndex, setTool, undo]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;
@@ -135,4 +156,16 @@ export function App(): React.JSX.Element {
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
     </TooltipProvider>
   );
+}
+
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    return true;
+  }
+  return target.isContentEditable;
+}
+
+function shouldHandleRendererClipboardShortcut(event: KeyboardEvent, key: string, shortcut: "c" | "x" | "v"): boolean {
+  return (event.metaKey || event.ctrlKey) && key === shortcut && !isTextEditingTarget(event.target);
 }

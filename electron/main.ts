@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu } from "electron";
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu } from "electron";
 import type {
   FileFilter,
   MenuItemConstructorOptions,
@@ -33,6 +33,25 @@ interface DesktopActionResult {
   error?: string;
 }
 
+interface ClipboardWriteSelectionRequest {
+  json: string;
+}
+
+interface ClipboardWriteSelectionResult {
+  ok: boolean;
+  error?: string;
+}
+
+interface ClipboardReadSelectionResult {
+  ok: boolean;
+  json: string | null;
+  error?: string;
+}
+
+interface NativeEditRequest {
+  role: "copy" | "cut" | "paste";
+}
+
 interface DesktopMenuCommand {
   id:
     | "project:new"
@@ -44,6 +63,9 @@ interface DesktopMenuCommand {
     | "project:export-bundle"
     | "edit:undo"
     | "edit:redo"
+    | "edit:copy"
+    | "edit:cut"
+    | "edit:paste"
     | "edit:clear-selection"
     | "edit:clear-layer"
     | "edit:invert-layer"
@@ -71,6 +93,8 @@ let streamHandle: PlaydateStreamServerHandle | null = null;
 let streamError: string | null = null;
 let streamStarting: Promise<void> | null = null;
 let streamStopping: Promise<void> | null = null;
+const PIXEL_SELECTION_CLIPBOARD_FORMAT = "application/x-playdate-pixel-studio-selection+json";
+let recentProjectsMenuKey = "";
 let rendererMenuState: DesktopMenuState = {
   activeLayerPixelEditable: false,
   canRedo: false,
@@ -254,13 +278,52 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(
+    "pdps:clipboard-write-selection",
+    (_event, request: ClipboardWriteSelectionRequest): ClipboardWriteSelectionResult => {
+      try {
+        if (!request || typeof request.json !== "string") {
+          return { ok: false, error: "Invalid clipboard payload." };
+        }
+        clipboard.clear();
+        clipboard.writeBuffer(PIXEL_SELECTION_CLIPBOARD_FORMAT, Buffer.from(request.json, "utf8"));
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, error: errorMessage(error) };
+      }
+    },
+  );
+
+  ipcMain.handle("pdps:clipboard-read-selection", (): ClipboardReadSelectionResult => {
+    try {
+      const buffer = clipboard.readBuffer(PIXEL_SELECTION_CLIPBOARD_FORMAT);
+      if (buffer.length === 0) {
+        return { ok: true, json: null };
+      }
+      return { ok: true, json: buffer.toString("utf8") };
+    } catch (error) {
+      return { ok: false, json: null, error: errorMessage(error) };
+    }
+  });
+
   ipcMain.handle("pdps:menu-state", (_event, state: DesktopMenuState) => {
+    const previousRecentProjectsKey = recentProjectsMenuKey;
     rendererMenuState = normalizeDesktopMenuState(state);
-    createApplicationMenu();
+    const nextRecentProjectsKey = recentProjectsKey(rendererMenuState.recentProjects);
+    if (nextRecentProjectsKey !== previousRecentProjectsKey) {
+      createApplicationMenu();
+    }
+  });
+
+  ipcMain.handle("pdps:menu-native-edit", (_event, request: NativeEditRequest) => {
+    if (request?.role === "copy") mainWindow?.webContents.copy();
+    if (request?.role === "cut") mainWindow?.webContents.cut();
+    if (request?.role === "paste") mainWindow?.webContents.paste();
   });
 }
 
 function createApplicationMenu(): void {
+  recentProjectsMenuKey = recentProjectsKey(rendererMenuState.recentProjects);
   const recentProjectsSubmenu: MenuItemConstructorOptions[] =
     rendererMenuState.recentProjects.length > 0
       ? rendererMenuState.recentProjects.map((project) => ({
@@ -284,7 +347,8 @@ function createApplicationMenu(): void {
             click: () => sendMenuCommand({ id: "project:new" }),
           },
           {
-            label: rendererMenuState.hasUnsavedChanges ? "Save Project*" : "Save Project",
+            id: "file:save",
+            label: "Save Project",
             accelerator: "CmdOrCtrl+S",
             click: () => sendMenuCommand({ id: "project:save" }),
           },
@@ -317,39 +381,52 @@ function createApplicationMenu(): void {
         label: "Edit",
         submenu: [
           {
+            id: "edit:undo",
             label: "Undo",
             accelerator: "CmdOrCtrl+Z",
-            enabled: rendererMenuState.canUndo,
             click: () => sendMenuCommand({ id: "edit:undo" }),
           },
           {
+            id: "edit:redo",
             label: "Redo",
             accelerator: "Shift+CmdOrCtrl+Z",
-            enabled: rendererMenuState.canRedo,
             click: () => sendMenuCommand({ id: "edit:redo" }),
           },
           { type: "separator" },
           {
+            id: "edit:cut",
+            label: "Cut",
+            click: () => sendMenuCommand({ id: "edit:cut" }),
+          },
+          {
+            id: "edit:copy",
+            label: "Copy",
+            click: () => sendMenuCommand({ id: "edit:copy" }),
+          },
+          {
+            id: "edit:paste",
+            label: "Paste",
+            click: () => sendMenuCommand({ id: "edit:paste" }),
+          },
+          { type: "separator" },
+          {
+            id: "edit:clear-selection",
             label: "Clear Selection",
             accelerator: "CmdOrCtrl+D",
-            enabled: rendererMenuState.hasSelection,
             click: () => sendMenuCommand({ id: "edit:clear-selection" }),
           },
           { type: "separator" },
           {
+            id: "edit:clear-layer",
             label: "Clear Layer",
-            enabled: rendererMenuState.activeLayerPixelEditable,
             click: () => sendMenuCommand({ id: "edit:clear-layer" }),
           },
           {
+            id: "edit:invert-layer",
             label: "Invert Layer",
-            enabled: rendererMenuState.activeLayerPixelEditable,
             click: () => sendMenuCommand({ id: "edit:invert-layer" }),
           },
           { type: "separator" },
-          { role: "cut" },
-          { role: "copy" },
-          { role: "paste" },
           { role: "selectAll" },
         ],
       },
@@ -357,12 +434,14 @@ function createApplicationMenu(): void {
         label: "View",
         submenu: [
           {
+            id: "view:grid",
             label: "Grid",
             type: "checkbox",
             checked: rendererMenuState.gridVisible,
             click: () => sendMenuCommand({ id: "view:toggle-grid" }),
           },
           {
+            id: "view:colorized-patterns",
             label: "Colorized Patterns",
             type: "checkbox",
             checked: rendererMenuState.colorizedPatternsVisible,
@@ -371,6 +450,7 @@ function createApplicationMenu(): void {
           {
             label: "Grid Size",
             submenu: GRID_SIZE_STEPS.map((gridSize) => ({
+              id: `view:grid-size:${gridSize}`,
               label: `${gridSize}px`,
               type: "radio",
               checked: rendererMenuState.gridSize === gridSize,
@@ -395,6 +475,10 @@ function createApplicationMenu(): void {
 
 function sendMenuCommand(command: DesktopMenuCommand): void {
   mainWindow?.webContents.send("pdps:menu-command", command);
+}
+
+function recentProjectsKey(projects: DesktopMenuState["recentProjects"]): string {
+  return projects.map((project) => `${project.id}\u0000${project.name}`).join("\u0001");
 }
 
 function normalizeDesktopMenuState(state: DesktopMenuState): DesktopMenuState {

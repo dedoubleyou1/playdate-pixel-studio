@@ -74,6 +74,17 @@ export interface DesktopStreamFrameResult {
   error?: string;
 }
 
+export interface DesktopClipboardWriteSelectionResult {
+  ok: boolean;
+  error?: string;
+}
+
+export interface DesktopClipboardReadSelectionResult {
+  ok: boolean;
+  json: string | null;
+  error?: string;
+}
+
 export type DesktopMenuCommandId =
   | "project:new"
   | "project:save"
@@ -84,6 +95,9 @@ export type DesktopMenuCommandId =
   | "project:export-bundle"
   | "edit:undo"
   | "edit:redo"
+  | "edit:copy"
+  | "edit:cut"
+  | "edit:paste"
   | "edit:clear-selection"
   | "edit:clear-layer"
   | "edit:invert-layer"
@@ -96,6 +110,8 @@ export interface DesktopMenuCommand {
   projectId?: string;
   gridSize?: number;
 }
+
+export type DesktopNativeEditRole = "copy" | "cut" | "paste";
 
 export interface DesktopMenuProjectSummary {
   id: string;
@@ -130,9 +146,14 @@ export interface PlaydatePixelDesktopApi {
     getDevices: () => Promise<{ connectedDevices: number; devices: DesktopStreamDevice[] }>;
     sendFrame: (request: DesktopStreamFrameRequest) => Promise<DesktopStreamFrameResult>;
   };
+  clipboard: {
+    writeSelection: (json: string) => Promise<DesktopClipboardWriteSelectionResult>;
+    readSelection: () => Promise<DesktopClipboardReadSelectionResult>;
+  };
   menu: {
     onCommand: (handler: (command: DesktopMenuCommand) => void) => () => void;
     setState: (state: DesktopMenuState) => Promise<void>;
+    performNativeEdit: (role: DesktopNativeEditRole) => Promise<void>;
   };
 }
 
@@ -207,6 +228,20 @@ export async function sendDesktopStreamFrame(
   const result = await desktopApi.stream.sendFrame(request);
   if (!result.ok) throw new Error(result.error ?? "Unable to stream frame.");
   return result;
+}
+
+export async function writeSelectionToDesktopClipboard(json: string): Promise<boolean> {
+  const desktopApi = requireDesktopApi();
+  const result = await desktopApi.clipboard.writeSelection(json);
+  if (!result.ok) throw new Error(result.error ?? "Unable to write selection to clipboard.");
+  return true;
+}
+
+export async function readSelectionFromDesktopClipboard(): Promise<string | null> {
+  const desktopApi = requireDesktopApi();
+  const result = await desktopApi.clipboard.readSelection();
+  if (!result.ok) throw new Error(result.error ?? "Unable to read selection from clipboard.");
+  return result.json;
 }
 
 function requireDesktopApi(): PlaydatePixelDesktopApi {

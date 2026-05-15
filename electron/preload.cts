@@ -6,6 +6,8 @@ interface DesktopMenuCommand {
   gridSize?: number;
 }
 
+type NativeEditRole = "copy" | "cut" | "paste";
+
 contextBridge.exposeInMainWorld("pdps", {
   isElectron: true,
   files: {
@@ -29,6 +31,10 @@ contextBridge.exposeInMainWorld("pdps", {
       crc32: number;
     }) => ipcRenderer.invoke("pdps:stream-frame", request),
   },
+  clipboard: {
+    writeSelection: (json: string) => ipcRenderer.invoke("pdps:clipboard-write-selection", { json }),
+    readSelection: () => ipcRenderer.invoke("pdps:clipboard-read-selection"),
+  },
   menu: {
     onCommand: (handler: (command: DesktopMenuCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: DesktopMenuCommand) => handler(command);
@@ -36,5 +42,6 @@ contextBridge.exposeInMainWorld("pdps", {
       return () => ipcRenderer.removeListener("pdps:menu-command", listener);
     },
     setState: (state: unknown) => ipcRenderer.invoke("pdps:menu-state", state),
+    performNativeEdit: (role: NativeEditRole) => ipcRenderer.invoke("pdps:menu-native-edit", { role }),
   },
 });

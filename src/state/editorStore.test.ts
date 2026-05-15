@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createObjectDefinition, createObjectInstanceLayer } from "../domain/layers";
+import { EDITOR_CLIPBOARD_KIND, EDITOR_CLIPBOARD_SCHEMA_VERSION, type EditorClipboard } from "../domain/clipboard";
+import { createObjectDefinition, createObjectInstanceLayer, createSurface } from "../domain/layers";
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
-import { BLACK_PIXEL } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMaskGesture } from "../input/alphaMaskGestures";
 import { beginGestureTransaction } from "../input/gestureTransaction";
+import { parseEditorClipboardJson, serializeEditorClipboard } from "../persistence/clipboardSchema";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
 import { currentActiveLayer, currentActivePixelLayer, hasActiveSelection, useEditorStore } from "./editorStore";
 
@@ -15,7 +17,15 @@ const projectDbMock = vi.hoisted(() => ({
   saveProjectDocument: vi.fn(),
 }));
 
+const desktopApiMock = vi.hoisted(() => ({
+  openProjectFileWithDesktopDialog: vi.fn(),
+  readSelectionFromDesktopClipboard: vi.fn(),
+  saveBlobWithDesktopDialog: vi.fn(),
+  writeSelectionToDesktopClipboard: vi.fn(),
+}));
+
 vi.mock("../persistence/projectDb", () => projectDbMock);
+vi.mock("../desktop/desktopApi", () => desktopApiMock);
 
 describe("editor store saveProject", () => {
   beforeEach(() => {
@@ -505,6 +515,106 @@ describe("editor store selection and alpha masks", () => {
     ).toBe(true);
   });
 
+  it("copies selected pixels to the desktop clipboard without dirtying the document", async () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    layer.surface.data[indexFor(2, 1, layer.surface.width)] = WHITE_PIXEL;
+    layer.surface.data[indexFor(2, 2, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 2, y: 2 });
+    state.setSelectionFromRect({ x: 2, y: 2 }, { x: 2, y: 2 }, "subtract");
+    const undoCount = useEditorStore.getState().undoStack.length;
+
+    await expect(state.copySelection()).resolves.toBe(true);
+
+    const json = desktopApiMock.writeSelectionToDesktopClipboard.mock.calls[0]?.[0] as string;
+    const clipboard = parseEditorClipboardJson(json);
+    expect(clipboard?.origin).toEqual({ x: 1, y: 1 });
+    expect(clipboard?.surface.width).toBe(2);
+    expect(clipboard?.surface.height).toBe(2);
+    expect(Array.from(clipboard?.surface.data ?? [])).toEqual([BLACK_PIXEL, WHITE_PIXEL, TRANSPARENT_PIXEL, TRANSPARENT_PIXEL]);
+    expect(Array.from(clipboard?.mask.data ?? [])).toEqual([1, 1, 1, 0]);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+    expect(useEditorStore.getState().undoStack).toHaveLength(undoCount);
+  });
+
+  it("cuts selected pixels after the desktop clipboard write succeeds", async () => {
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+
+    await expect(state.cutSelection()).resolves.toBe(true);
+
+    expect(desktopApiMock.writeSelectionToDesktopClipboard).toHaveBeenCalledOnce();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(TRANSPARENT_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(true);
+    expect(useEditorStore.getState().undoStack).toHaveLength(2);
+
+    useEditorStore.getState().undo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.mask.data[indexFor(1, 1)]).toBe(1);
+  });
+
+  it("does not mutate the document when cut cannot write the desktop clipboard", async () => {
+    desktopApiMock.writeSelectionToDesktopClipboard.mockRejectedValue(new Error("No clipboard"));
+    const state = useEditorStore.getState();
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(1, 1, layer.surface.width)] = BLACK_PIXEL;
+    state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
+    const undoCount = useEditorStore.getState().undoStack.length;
+
+    await expect(state.cutSelection()).resolves.toBe(false);
+
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+    expect(useEditorStore.getState().undoStack).toHaveLength(undoCount);
+  });
+
+  it("pastes clipboard pixels using transparent-skip stamp semantics", async () => {
+    const mask = createBinaryMaskSurface(2, 2, true);
+    const clipboard: EditorClipboard = {
+      kind: EDITOR_CLIPBOARD_KIND,
+      origin: { x: 1, y: 1 },
+      schemaVersion: EDITOR_CLIPBOARD_SCHEMA_VERSION,
+      surface: createSurface(2, 2, new Uint8Array([BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL, TRANSPARENT_PIXEL])),
+      mask,
+    };
+    desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(serializeEditorClipboard(clipboard));
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(2, 1, layer.surface.width)] = WHITE_PIXEL;
+
+    await expect(useEditorStore.getState().pasteClipboard()).resolves.toBe(true);
+
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(2, 1, layer.surface.width)]).toBe(WHITE_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 2, layer.surface.width)]).toBe(WHITE_PIXEL);
+    expect(useEditorStore.getState().rootSelection?.bounds).toEqual({ left: 1, top: 1, right: 2, bottom: 2 });
+    expect(useEditorStore.getState().documentRevision).toBe(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+
+    useEditorStore.getState().undo();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 1, layer.surface.width)]).toBe(TRANSPARENT_PIXEL);
+    expect(useEditorStore.getState().rootSelection).toBeNull();
+  });
+
+  it("fails paste cleanly when the desktop clipboard has no Pixel Studio payload", async () => {
+    desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(null);
+
+    await expect(useEditorStore.getState().pasteClipboard()).resolves.toBe(false);
+
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
   it("undoes and redoes selection clearing", () => {
     const state = useEditorStore.getState();
     state.setSelectionFromRect({ x: 1, y: 1 }, { x: 1, y: 1 });
@@ -691,6 +801,11 @@ describe("editor store selection and alpha masks", () => {
 });
 
 function resetStore(): void {
+  vi.clearAllMocks();
+  desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(null);
+  desktopApiMock.writeSelectionToDesktopClipboard.mockResolvedValue(true);
+  desktopApiMock.openProjectFileWithDesktopDialog.mockResolvedValue({ canceled: true, ok: true });
+  desktopApiMock.saveBlobWithDesktopDialog.mockResolvedValue(false);
   useEditorStore.getState().newProject();
   useEditorStore.setState({
     canRedo: false,

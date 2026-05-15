@@ -78,6 +78,18 @@ function executeDesktopMenuCommand(command: DesktopMenuCommand): void {
     case "edit:redo":
       state.redo();
       break;
+    case "edit:copy":
+      if (performNativeEditWhenTextEditing("copy")) break;
+      void state.copySelection();
+      break;
+    case "edit:cut":
+      if (performNativeEditWhenTextEditing("cut")) break;
+      void state.cutSelection();
+      break;
+    case "edit:paste":
+      if (performNativeEditWhenTextEditing("paste")) break;
+      void state.pasteClipboard();
+      break;
     case "edit:clear-selection":
       state.clearSelection();
       break;
@@ -97,4 +109,18 @@ function executeDesktopMenuCommand(command: DesktopMenuCommand): void {
       if (typeof command.gridSize === "number") state.setGridSize(command.gridSize);
       break;
   }
+}
+
+function performNativeEditWhenTextEditing(role: "copy" | "cut" | "paste"): boolean {
+  if (!isTextEditingTarget(document.activeElement)) return false;
+  void window.pdps?.menu.performNativeEdit(role);
+  return true;
+}
+
+function isTextEditingTarget(target: Element | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+    return true;
+  }
+  return target.isContentEditable;
 }
