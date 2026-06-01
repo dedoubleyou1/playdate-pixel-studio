@@ -1,12 +1,42 @@
-import { Circle, CircleDashed, Eraser, Move, PaintBucket, Pencil, PenTool, Square, SquareDashed } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  Circle,
+  CircleDashed,
+  Copy,
+  Eraser,
+  Move,
+  PaintBucket,
+  Pencil,
+  PenTool,
+  Plus,
+  Settings,
+  Square,
+  SquareDashed,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
+import { nextPatternPreviewHue } from "../domain/palette";
+import { DEFAULT_PATTERN_SAMPLING, PATTERN_LIBRARY_SECTIONS, builtInPattern, type PatternDefinition } from "../domain/patterns";
 import { toolUsesBrushSize } from "../domain/toolProperties";
-import type { BrushShape, EditTarget, PaletteEntry, PaletteIndex, ProjectPalette, Tool } from "../domain/types";
+import type {
+  BrushShape,
+  EditTarget,
+  PaletteEntry,
+  PaletteIndex,
+  PatternPaletteEntry,
+  PatternRotation,
+  PatternSamplingSettings,
+  ProjectPalette,
+  Tool,
+} from "../domain/types";
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
@@ -59,6 +89,10 @@ export function ToolsPanel(): React.JSX.Element {
   const colorizedPatternsVisible = useEditorStore((state) => state.colorizedPatternsVisible);
   const activePaletteIndex = useEditorStore((state) => state.activePaletteIndex);
   const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
+  const addPatternSwatch = useEditorStore((state) => state.addPatternSwatch);
+  const updatePatternSwatch = useEditorStore((state) => state.updatePatternSwatch);
+  const duplicatePatternSwatch = useEditorStore((state) => state.duplicatePatternSwatch);
+  const deletePatternSwatch = useEditorStore((state) => state.deletePatternSwatch);
   const brushSize = useEditorStore((state) => state.brushSize);
   const brushShape = useEditorStore((state) => state.brushShape);
   const setBrushSize = useEditorStore((state) => state.setBrushSize);
@@ -77,7 +111,7 @@ export function ToolsPanel(): React.JSX.Element {
     {
       id: "patterns",
       label: "Patterns",
-      entries: palette.entries.filter((entry) => entry.type === "dither"),
+      entries: palette.entries.filter((entry) => entry.type === "pattern"),
     },
   ].filter((group) => group.entries.length > 0);
 
@@ -122,6 +156,10 @@ export function ToolsPanel(): React.JSX.Element {
         palette={palette}
         paletteEnabled={paletteEnabled}
         paletteGroups={paletteGroups}
+        addPatternSwatch={addPatternSwatch}
+        updatePatternSwatch={updatePatternSwatch}
+        duplicatePatternSwatch={duplicatePatternSwatch}
+        deletePatternSwatch={deletePatternSwatch}
         setActivePaletteIndex={setActivePaletteIndex}
       />
       <div className="mt-auto border-t border-border p-4">
@@ -137,6 +175,10 @@ function SwatchesPane({
   palette,
   paletteEnabled,
   paletteGroups,
+  addPatternSwatch,
+  updatePatternSwatch,
+  duplicatePatternSwatch,
+  deletePatternSwatch,
   setActivePaletteIndex,
 }: {
   activePaletteIndex: PaletteIndex;
@@ -144,11 +186,40 @@ function SwatchesPane({
   palette: ProjectPalette;
   paletteEnabled: boolean;
   paletteGroups: Array<{ id: string; label: string; entries: PaletteEntry[] }>;
+  addPatternSwatch: (patternId: string, sampling?: PatternSamplingSettings) => void;
+  updatePatternSwatch: (
+    index: PaletteIndex,
+    updates: Partial<
+      Pick<PatternPaletteEntry, "offsetX" | "offsetY" | "patternId" | "reflectX" | "reflectY" | "rotation">
+    >,
+  ) => void;
+  duplicatePatternSwatch: (index: PaletteIndex) => void;
+  deletePatternSwatch: (index: PaletteIndex) => void;
   setActivePaletteIndex: (index: PaletteEntry["index"]) => void;
 }): React.JSX.Element {
+  const [editingIndex, setEditingIndex] = useState<PaletteIndex | null | undefined>(undefined);
+  const selectedPattern = palette.entries.find(
+    (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.index === activePaletteIndex,
+  );
+  const editingEntry =
+    editingIndex === null
+      ? null
+      : palette.entries.find((entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.index === editingIndex) ?? null;
+
   return (
     <EditorPane disabled={!paletteEnabled}>
-      <EditorPaneTitle className="mb-3">Swatches</EditorPaneTitle>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <EditorPaneTitle>Swatches</EditorPaneTitle>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size="icon" variant="outline" disabled={!paletteEnabled} onClick={() => setEditingIndex(null)}>
+              <span className="sr-only">Add pattern swatch</span>
+              <Plus />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Add pattern swatch</TooltipContent>
+        </Tooltip>
+      </div>
       <div className="space-y-3">
         {paletteGroups.map((group, groupIndex) => (
           <div key={group.id} className="space-y-3">
@@ -168,7 +239,41 @@ function SwatchesPane({
             </div>
           </div>
         ))}
+        {selectedPattern ? (
+          <div className="flex gap-2">
+            <SwatchActionButton
+              disabled={!paletteEnabled}
+              icon={Settings}
+              label="Edit selected pattern swatch"
+              onClick={() => setEditingIndex(selectedPattern.index)}
+            />
+            <SwatchActionButton
+              disabled={!paletteEnabled}
+              icon={Copy}
+              label="Duplicate selected pattern swatch"
+              onClick={() => duplicatePatternSwatch(selectedPattern.index)}
+            />
+            <SwatchActionButton
+              disabled={!paletteEnabled}
+              icon={Trash2}
+              label="Delete selected pattern swatch"
+              onClick={() => deletePatternSwatch(selectedPattern.index)}
+            />
+          </div>
+        ) : null}
       </div>
+      {editingIndex !== undefined ? (
+        <PatternSwatchDialog
+          entry={editingEntry}
+          open
+          palette={palette}
+          onOpenChange={(open) => {
+            if (!open) setEditingIndex(undefined);
+          }}
+          onCreate={(patternId, sampling) => addPatternSwatch(patternId, sampling)}
+          onUpdate={(index, updates) => updatePatternSwatch(index, updates)}
+        />
+      ) : null}
     </EditorPane>
   );
 }
@@ -301,6 +406,235 @@ function PaletteButton({
         {entry.index === 3 ? " (D)" : ""}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function SwatchActionButton({
+  disabled,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  disabled: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+}): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="icon" variant="outline" aria-label={label} disabled={disabled} onClick={onClick}>
+          <Icon />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function PatternSwatchDialog({
+  entry,
+  onCreate,
+  onOpenChange,
+  onUpdate,
+  open,
+  palette,
+}: {
+  entry: PatternPaletteEntry | null;
+  onCreate: (patternId: string, sampling: PatternSamplingSettings) => void;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: (
+    index: PaletteIndex,
+    updates: Partial<
+      Pick<PatternPaletteEntry, "offsetX" | "offsetY" | "patternId" | "reflectX" | "reflectY" | "rotation">
+    >,
+  ) => void;
+  open: boolean;
+  palette: ProjectPalette;
+}): React.JSX.Element {
+  const [patternId, setPatternId] = useState(entry?.patternId ?? "checker-50");
+  const [offsetX, setOffsetX] = useState(entry?.offsetX ?? DEFAULT_PATTERN_SAMPLING.offsetX);
+  const [offsetY, setOffsetY] = useState(entry?.offsetY ?? DEFAULT_PATTERN_SAMPLING.offsetY);
+  const [rotation, setRotation] = useState<PatternRotation>(entry?.rotation ?? DEFAULT_PATTERN_SAMPLING.rotation);
+  const [reflectX, setReflectX] = useState(entry?.reflectX ?? DEFAULT_PATTERN_SAMPLING.reflectX);
+  const [reflectY, setReflectY] = useState(entry?.reflectY ?? DEFAULT_PATTERN_SAMPLING.reflectY);
+  const previewHue = entry?.previewHue ?? nextPatternPreviewHue(palette);
+
+  const previewPalette = useMemo<ProjectPalette>(
+    () => ({
+      entries: [
+        ...palette.entries.filter((candidate) => candidate.type === "solid"),
+        {
+          id: "preview-pattern",
+          index: 3,
+          name: "Preview",
+          type: "pattern",
+          patternId,
+          previewHue,
+          offsetX,
+          offsetY,
+          rotation,
+          reflectX,
+          reflectY,
+        },
+      ],
+    }),
+    [offsetX, offsetY, palette.entries, patternId, previewHue, reflectX, reflectY, rotation],
+  );
+
+  const submit = () => {
+    if (entry) {
+      onUpdate(entry.index, { offsetX, offsetY, patternId, reflectX, reflectY, rotation });
+    } else {
+      onCreate(patternId, { offsetX, offsetY, reflectX, reflectY, rotation });
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[min(720px,calc(100vh-2rem))] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{entry ? "Edit Pattern Swatch" : "Add Pattern Swatch"}</DialogTitle>
+          <DialogDescription>
+            Choose a library pattern and adjust how this project swatch samples it.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid min-h-0 gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+          <div
+            className="max-h-[min(24rem,calc(100vh-21rem))] min-h-0 space-y-4 overflow-y-auto pb-3 pr-2"
+            aria-label="Pattern library"
+          >
+            {PATTERN_LIBRARY_SECTIONS.map((section, sectionIndex) => {
+              const patterns = section.patternIds.flatMap((sectionPatternId) => {
+                const pattern = builtInPattern(sectionPatternId);
+                return pattern ? [pattern] : [];
+              });
+              if (patterns.length === 0) return null;
+
+              return (
+                <section key={section.id} className={sectionIndex > 0 ? "border-t border-border pt-3" : undefined}>
+                  <h3 className="mb-2 text-xs font-semibold text-muted-foreground">{section.title}</h3>
+                  <div className="grid grid-cols-[repeat(auto-fill,2.75rem)] gap-2">
+                    {patterns.map((pattern) => (
+                      <PatternLibraryButton
+                        key={pattern.id}
+                        active={patternId === pattern.id}
+                        palette={palette}
+                        pattern={pattern}
+                        onSelect={setPatternId}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+          <div className="space-y-3">
+            <div className="flex justify-center">
+              <PixelSwatch
+                className="size-24"
+                colorizedPatterns
+                palette={previewPalette}
+                sampleSize={16}
+                swatchSize={96}
+                value={3}
+              />
+            </div>
+            <Select value={rotation.toString()} onValueChange={(value) => setRotation(Number(value) as PatternRotation)}>
+              <SelectTrigger className="w-full">
+                <SelectValue aria-label="Rotation" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">0 degrees</SelectItem>
+                <SelectItem value="90">90 degrees</SelectItem>
+                <SelectItem value="180">180 degrees</SelectItem>
+                <SelectItem value="270">270 degrees</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <LabeledNumberInput label="X" value={offsetX} onChange={setOffsetX} />
+              <LabeledNumberInput label="Y" value={offsetY} onChange={setOffsetY} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={reflectX} onChange={(event) => setReflectX(event.currentTarget.checked)} />
+              Reflect X
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={reflectY} onChange={(event) => setReflectY(event.currentTarget.checked)} />
+              Reflect Y
+            </label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={submit}>{entry ? "Update" : "Add"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PatternLibraryButton({
+  active,
+  onSelect,
+  palette,
+  pattern,
+}: {
+  active: boolean;
+  onSelect: (patternId: string) => void;
+  palette: ProjectPalette;
+  pattern: PatternDefinition;
+}): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon"
+          variant={active ? "secondary" : "outline"}
+          aria-label={pattern.name}
+          onClick={() => onSelect(pattern.id)}
+        >
+          <PixelSwatch
+            className="size-8"
+            palette={{
+              entries: [
+                ...palette.entries.filter((candidate) => candidate.type === "solid"),
+                {
+                  id: pattern.id,
+                  index: 3,
+                  name: pattern.name,
+                  type: "pattern",
+                  patternId: pattern.id,
+                  previewHue: 300,
+                  ...DEFAULT_PATTERN_SAMPLING,
+                },
+              ],
+            }}
+            sampleSize={12}
+            swatchSize={30}
+            value={3}
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{pattern.name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function LabeledNumberInput({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: number) => void;
+  value: number;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-1">
+      <Label>{label}</Label>
+      <Input type="number" step={1} value={value} onChange={(event) => onChange(Number(event.currentTarget.value) || 0)} />
+    </div>
   );
 }
 

@@ -8,6 +8,8 @@ import type {
   FloatingSelection,
   Layer,
   PaletteIndex,
+  PatternPaletteEntry,
+  PatternSamplingSettings,
   PixelLayer,
   PixelValue,
   SelectionCombineMode,
@@ -84,6 +86,15 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   hasUnsavedChanges: boolean;
   setTool: (tool: Tool) => void;
   setActivePaletteIndex: (index: PaletteIndex) => void;
+  addPatternSwatch: (patternId: string, sampling?: PatternSamplingSettings) => void;
+  updatePatternSwatch: (
+    index: PaletteIndex,
+    updates: Partial<
+      Pick<PatternPaletteEntry, "offsetX" | "offsetY" | "patternId" | "reflectX" | "reflectY" | "rotation">
+    >,
+  ) => void;
+  duplicatePatternSwatch: (index: PaletteIndex) => void;
+  deletePatternSwatch: (index: PaletteIndex) => void;
   setBrushSize: (size: number) => void;
   setBrushShape: (shape: BrushShape) => void;
   setMirrorX: (enabled: boolean) => void;

@@ -97,11 +97,15 @@ function palettesEqual(left: { entries: PaletteEntry[] }, right: { entries: Pale
       return entry.value === other.value;
     }
 
-    if (entry.type === "dither" && other.type === "dither") {
+    if (entry.type === "pattern" && other.type === "pattern") {
       return (
         entry.patternId === other.patternId &&
-        entry.foregroundIndex === other.foregroundIndex &&
-        entry.backgroundIndex === other.backgroundIndex
+        entry.offsetX === other.offsetX &&
+        entry.offsetY === other.offsetY &&
+        entry.rotation === other.rotation &&
+        entry.reflectX === other.reflectX &&
+        entry.reflectY === other.reflectY &&
+        entry.previewHue === other.previewHue
       );
     }
 

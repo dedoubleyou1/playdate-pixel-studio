@@ -5,6 +5,7 @@ import { BLACK_PIXEL } from "../domain/types";
 import { createHistoryActions } from "./actions/historyActions";
 import { createInteractionActions } from "./actions/interactionActions";
 import { createLayerActions } from "./actions/layerActions";
+import { createPaletteActions } from "./actions/paletteActions";
 import { createObjectActions } from "./actions/objectActions";
 import { createProjectActions } from "./actions/projectActions";
 import { createSelectionActions } from "./actions/selectionActions";
@@ -57,6 +58,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   canRedo: false,
   hasUnsavedChanges: false,
   ...createInteractionActions(set),
+  ...createPaletteActions(set, get),
   ...createSelectionActions(set, get),
   ...createHistoryActions(set, get),
   ...createObjectActions(set, get),

@@ -27,14 +27,23 @@ export interface SolidPaletteEntry extends BasePaletteEntry {
   value: SolidPaletteValue;
 }
 
-export interface DitherPaletteEntry extends BasePaletteEntry {
-  type: "dither";
-  patternId: string;
-  foregroundIndex: PaletteIndex;
-  backgroundIndex: PaletteIndex;
+export type PatternRotation = 0 | 90 | 180 | 270;
+
+export interface PatternSamplingSettings {
+  offsetX: number;
+  offsetY: number;
+  rotation: PatternRotation;
+  reflectX: boolean;
+  reflectY: boolean;
 }
 
-export type PaletteEntry = SolidPaletteEntry | DitherPaletteEntry;
+export interface PatternPaletteEntry extends BasePaletteEntry, PatternSamplingSettings {
+  type: "pattern";
+  patternId: string;
+  previewHue: number;
+}
+
+export type PaletteEntry = SolidPaletteEntry | PatternPaletteEntry;
 
 export interface ProjectPalette {
   entries: PaletteEntry[];

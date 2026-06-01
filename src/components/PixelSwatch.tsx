@@ -1,10 +1,10 @@
 import { cn } from "@/lib/utils";
 import {
-  builtInDitherPattern,
   paletteEntryForIndex,
   projectPaletteKey,
   resolvePaletteEntryPreviewColor,
 } from "../domain/palette";
+import { builtInPattern } from "../domain/patterns";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { PixelValue, ProjectPalette } from "../domain/types";
 
@@ -32,7 +32,7 @@ function PixelSwatch({
 }): React.JSX.Element {
   const entry = palette ? paletteEntryForIndex(palette, value) : null;
   const style =
-    entry?.type === "dither" && palette
+    entry?.type === "pattern" && palette
       ? ditherSwatchStyle(palette, entry.patternId, value, sampleSize, swatchSize, colorizedPatterns)
       : undefined;
 
@@ -41,7 +41,7 @@ function PixelSwatch({
       aria-hidden="true"
       className={cn(
         "inline-block size-4 shrink-0 rounded-sm border border-foreground shadow-[inset_0_0_0_1px_rgb(255_255_255_/_55%)]",
-        entry?.type === "dither" ? null : SWATCH_CLASSES[value],
+        entry?.type === "pattern" ? null : SWATCH_CLASSES[value],
         className,
       )}
       style={style}
@@ -80,7 +80,7 @@ function ditherSwatchImage(
 ): string | null {
   if (typeof document === "undefined") return null;
 
-  const pattern = builtInDitherPattern(patternId);
+  const pattern = builtInPattern(patternId);
   if (!pattern) return null;
 
   const size = Math.max(1, Math.floor(sampleSize));

@@ -20,7 +20,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
+import { firstPatternPaletteIndex } from "../domain/palette";
 import { BLACK_PIXEL } from "../domain/types";
 import type { Tool } from "../domain/types";
 import { hasActiveSelection, useEditorStore } from "../state/editorStore";
@@ -55,6 +55,7 @@ export function CommandPalette({
   const clearSelection = useEditorStore((state) => state.clearSelection);
   const clearActiveLayer = useEditorStore((state) => state.clearActiveLayer);
   const invertActiveLayer = useEditorStore((state) => state.invertActiveLayer);
+  const palette = useEditorStore((state) => state.palette);
   const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const hasSelection = useEditorStore(hasActiveSelection);
@@ -136,9 +137,14 @@ export function CommandPalette({
           />
           <CommandButton
             icon={Pencil}
-            label="Select dither palette entry"
-            disabled={!drawingEnabled}
-            onClick={() => run(() => setActivePaletteIndex(FIRST_DITHER_PALETTE_INDEX))}
+            label="Select pattern swatch"
+            disabled={!drawingEnabled || firstPatternPaletteIndex(palette) === null}
+            onClick={() =>
+              run(() => {
+                const patternIndex = firstPatternPaletteIndex(palette);
+                if (patternIndex !== null) setActivePaletteIndex(patternIndex);
+              })
+            }
           />
         </div>
       </DialogContent>

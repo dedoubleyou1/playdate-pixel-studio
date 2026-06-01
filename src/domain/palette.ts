@@ -5,21 +5,20 @@ import {
   WHITE_PIXEL,
   type PaletteEntry,
   type PaletteIndex,
+  type PatternPaletteEntry,
   type Point,
   type ProjectPalette,
   type SolidPaletteValue,
 } from "./types";
+import {
+  DEFAULT_PATTERN_SAMPLING,
+  PATTERN_LIBRARY_VERSION,
+  builtInPattern,
+  samplePatternAt,
+} from "./patterns";
 
-export const FIRST_DITHER_PALETTE_INDEX = 3;
-
-export interface DitherPattern {
-  id: string;
-  name: string;
-  hue: number;
-  width: number;
-  height: number;
-  mask: boolean[];
-}
+export const FIRST_PATTERN_PALETTE_INDEX = 3;
+const PATTERN_PREVIEW_HUES = [210, 300, 120, 25, 180, 260, 55, 330, 150, 230, 10, 285];
 
 export interface PalettePreviewColor {
   r: number;
@@ -31,33 +30,6 @@ interface PalettePreviewOptions {
   colorizedPatterns?: boolean;
 }
 
-export const BUILT_IN_DITHER_PATTERNS: DitherPattern[] = [
-  {
-    id: "checker-25",
-    name: "25%",
-    hue: 210,
-    width: 2,
-    height: 2,
-    mask: [true, false, false, false],
-  },
-  {
-    id: "checker-50",
-    name: "50%",
-    hue: 300,
-    width: 2,
-    height: 2,
-    mask: [true, false, false, true],
-  },
-  {
-    id: "checker-75",
-    name: "75%",
-    hue: 120,
-    width: 2,
-    height: 2,
-    mask: [true, true, true, false],
-  },
-];
-
 export function defaultProjectPalette(): ProjectPalette {
   return {
     entries: [
@@ -68,28 +40,28 @@ export function defaultProjectPalette(): ProjectPalette {
         id: "black-white-25",
         index: 3,
         name: "25% Black",
-        type: "dither",
+        type: "pattern",
         patternId: "checker-25",
-        foregroundIndex: BLACK_PIXEL,
-        backgroundIndex: WHITE_PIXEL,
+        previewHue: 210,
+        ...DEFAULT_PATTERN_SAMPLING,
       },
       {
         id: "black-white-50",
         index: 4,
         name: "50% Black",
-        type: "dither",
+        type: "pattern",
         patternId: "checker-50",
-        foregroundIndex: BLACK_PIXEL,
-        backgroundIndex: WHITE_PIXEL,
+        previewHue: 300,
+        ...DEFAULT_PATTERN_SAMPLING,
       },
       {
         id: "black-white-75",
         index: 5,
         name: "75% Black",
-        type: "dither",
+        type: "pattern",
         patternId: "checker-75",
-        foregroundIndex: BLACK_PIXEL,
-        backgroundIndex: WHITE_PIXEL,
+        previewHue: 120,
+        ...DEFAULT_PATTERN_SAMPLING,
       },
     ],
   };
@@ -113,9 +85,10 @@ export function projectPaletteKey(palette: ProjectPalette): string {
     .map((entry) =>
       entry.type === "solid"
         ? `${entry.index}:${entry.type}:${entry.value}`
-        : `${entry.index}:${entry.type}:${entry.patternId}:${entry.foregroundIndex}:${entry.backgroundIndex}`,
+        : `${entry.index}:${entry.type}:${entry.patternId}:${patternSamplingKey(entry)}:${entry.previewHue}`,
     )
-    .join("|");
+    .join("|")
+    .concat(`:patterns-v${PATTERN_LIBRARY_VERSION}`);
 }
 
 export function resolvePaletteEntry(
@@ -136,10 +109,10 @@ export function resolvePaletteEntryPreviewColor(
   const entry = paletteEntryForIndex(palette, paletteIndex);
   const pixel = resolvePaletteIndex(palette, paletteIndex, point, new Set());
 
-  if (options.colorizedPatterns && entry?.type === "dither") {
-    const pattern = builtInDitherPattern(entry.patternId);
+  if (options.colorizedPatterns && entry?.type === "pattern") {
+    const pattern = builtInPattern(entry.patternId);
     if (pattern && pixel !== TRANSPARENT_PIXEL) {
-      return hsvToRgb(pattern.hue, pixel === WHITE_PIXEL ? 0.25 : 1, pixel === WHITE_PIXEL ? 1 : 0.5);
+      return hsvToRgb(entry.previewHue, pixel === WHITE_PIXEL ? 0.25 : 1, pixel === WHITE_PIXEL ? 1 : 0.5);
     }
   }
 
@@ -156,17 +129,49 @@ export function solidPaletteValueToIndex(
   return TRANSPARENT_PIXEL;
 }
 
-export function ditherPatternAt(patternId: string, point: Point): boolean {
-  const pattern = BUILT_IN_DITHER_PATTERNS.find((candidate) => candidate.id === patternId);
-  if (!pattern) return false;
-
-  const x = positiveModulo(point.x, pattern.width);
-  const y = positiveModulo(point.y, pattern.height);
-  return pattern.mask[y * pattern.width + x] ?? false;
+export function patternSamplingKey(entry: PatternPaletteEntry): string {
+  return `${entry.offsetX},${entry.offsetY},${entry.rotation},${entry.reflectX ? 1 : 0},${entry.reflectY ? 1 : 0}`;
 }
 
-export function builtInDitherPattern(patternId: string): DitherPattern | null {
-  return BUILT_IN_DITHER_PATTERNS.find((candidate) => candidate.id === patternId) ?? null;
+export function nextPatternPaletteIndex(palette: ProjectPalette): PaletteIndex | null {
+  const used = new Set(palette.entries.map((entry) => entry.index));
+  for (let index = FIRST_PATTERN_PALETTE_INDEX; index <= MAX_PALETTE_INDEX; index += 1) {
+    if (!used.has(index)) return index;
+  }
+  return null;
+}
+
+export function firstPatternPaletteIndex(palette: ProjectPalette): PaletteIndex | null {
+  return palette.entries.find((entry) => entry.type === "pattern")?.index ?? null;
+}
+
+export function nextPatternPreviewHue(palette: ProjectPalette): number {
+  const patternCount = palette.entries.filter((entry) => entry.type === "pattern").length;
+  return PATTERN_PREVIEW_HUES[patternCount % PATTERN_PREVIEW_HUES.length] ?? 210;
+}
+
+export function nextDuplicatePatternPreviewHue(palette: ProjectPalette, sourceHue: number): number {
+  const usedHues = new Set(
+    palette.entries.filter((entry): entry is PatternPaletteEntry => entry.type === "pattern").map((entry) => normalizeHue(entry.previewHue)),
+  );
+  for (const hue of PATTERN_PREVIEW_HUES) {
+    const normalizedHue = normalizeHue(hue);
+    if (normalizedHue !== normalizeHue(sourceHue) && !usedHues.has(normalizedHue)) return normalizedHue;
+  }
+  return normalizeHue(sourceHue + 137);
+}
+
+export function normalizedPatternEntry(entry: PatternPaletteEntry): PatternPaletteEntry {
+  return {
+    ...entry,
+    patternId: builtInPattern(entry.patternId) ? entry.patternId : "checker-50",
+    offsetX: normalizeInteger(entry.offsetX),
+    offsetY: normalizeInteger(entry.offsetY),
+    rotation: entry.rotation === 90 || entry.rotation === 180 || entry.rotation === 270 ? entry.rotation : 0,
+    reflectX: Boolean(entry.reflectX),
+    reflectY: Boolean(entry.reflectY),
+    previewHue: normalizeHue(entry.previewHue),
+  };
 }
 
 function resolvePaletteIndex(
@@ -182,12 +187,20 @@ function resolvePaletteIndex(
   if (!entry) return TRANSPARENT_PIXEL;
   if (entry.type === "solid") return solidPaletteValueToIndex(entry.value);
 
-  const nextIndex = ditherPatternAt(entry.patternId, point) ? entry.foregroundIndex : entry.backgroundIndex;
-  return resolvePaletteIndex(palette, normalizePaletteIndex(nextIndex), point, seen);
+  return samplePatternAt(entry.patternId, point, entry) ? BLACK_PIXEL : WHITE_PIXEL;
 }
 
 function positiveModulo(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
+}
+
+function normalizeInteger(value: number): number {
+  return Number.isFinite(value) ? Math.trunc(value) : 0;
+}
+
+function normalizeHue(value: number): number {
+  if (!Number.isFinite(value)) return 210;
+  return positiveModulo(Math.round(value), 360);
 }
 
 function hsvToRgb(hue: number, saturation: number, value: number): PalettePreviewColor {

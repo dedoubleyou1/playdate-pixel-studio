@@ -1,6 +1,8 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
+import { DEFAULT_PATTERN_SAMPLING, builtInPattern } from "../domain/patterns";
+import { normalizedPatternEntry, nextDuplicatePatternPreviewHue, nextPatternPaletteIndex, nextPatternPreviewHue } from "../domain/palette";
 import type {
   EditContext,
   EditorSnapshot,
@@ -9,9 +11,13 @@ import type {
   ObjectDefinition,
   ObjectInstanceLayer,
   PaletteEntry,
+  PaletteIndex,
+  PatternPaletteEntry,
+  PatternRotation,
   PixelLayer,
   PixelValue,
   ProjectPalette,
+  SolidPaletteEntry,
 } from "../domain/types";
 import {
   deserializeBinaryMaskSurface,
@@ -20,8 +26,8 @@ import {
   type SerializedSurface,
 } from "./serializedSurface";
 
-export const PROJECT_SCHEMA_VERSION = 8;
-const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, PROJECT_SCHEMA_VERSION]);
+export const PROJECT_SCHEMA_VERSION = 9;
+const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, 8, PROJECT_SCHEMA_VERSION]);
 
 export interface SerializedBaseLayer {
   id: number;
@@ -55,7 +61,17 @@ export interface SerializedLayerStack {
   layers: SerializedLayer[];
 }
 
-export type SerializedPaletteEntry = PaletteEntry;
+interface SerializedDitherPaletteEntry {
+  id: string;
+  index: PaletteIndex;
+  name: string;
+  type: "dither";
+  patternId: string;
+  foregroundIndex: PaletteIndex;
+  backgroundIndex: PaletteIndex;
+}
+
+export type SerializedPaletteEntry = PaletteEntry | SerializedDitherPaletteEntry;
 
 export interface SerializedProjectPalette {
   entries: SerializedPaletteEntry[];
@@ -68,7 +84,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 6 | 7 | 8;
+  schemaVersion: 6 | 7 | 8 | 9;
   id: string;
   name: string;
   width: number;
@@ -164,9 +180,98 @@ function serializePalette(palette: ProjectPalette): SerializedProjectPalette {
 }
 
 function deserializePalette(palette: SerializedProjectPalette): ProjectPalette {
-  return {
-    entries: palette.entries.map((entry) => ({ ...entry })),
-  };
+  return repairPalette({
+    entries: palette.entries.map(deserializePaletteEntry),
+  });
+}
+
+function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
+  if (entry.type === "solid") return { ...entry };
+  if (entry.type === "pattern") {
+    return normalizedPatternEntry({
+      id: entry.id,
+      index: entry.index,
+      name: entry.name,
+      type: "pattern",
+      patternId: entry.patternId,
+      previewHue: numberOrDefault(entry.previewHue, Number.NaN),
+      offsetX: numberOrZero(entry.offsetX),
+      offsetY: numberOrZero(entry.offsetY),
+      rotation: normalizeRotation(entry.rotation),
+      reflectX: Boolean(entry.reflectX),
+      reflectY: Boolean(entry.reflectY),
+    });
+  }
+
+  return migrateDitherEntry(entry);
+}
+
+// Temporary unreleased-project migration shim.
+// This exists only to move local test projects from the old dither shape to
+// pattern swatches and can be deleted before release once local data is migrated.
+function migrateDitherEntry(entry: SerializedDitherPaletteEntry): PatternPaletteEntry {
+  const patternId = builtInPattern(entry.patternId) ? entry.patternId : "checker-50";
+  return normalizedPatternEntry({
+    id: entry.id,
+    index: entry.index,
+    name: entry.name,
+    type: "pattern",
+    patternId,
+    previewHue: Number.NaN,
+    ...DEFAULT_PATTERN_SAMPLING,
+  });
+}
+
+function repairPalette(palette: ProjectPalette): ProjectPalette {
+  const used = new Set<PaletteIndex>();
+  const repaired: PaletteEntry[] = [];
+  const usedPreviewHues = new Set<number>();
+
+  for (const entry of palette.entries) {
+    const index = used.has(entry.index) ? nextAvailableIndex({ entries: repaired }) : entry.index;
+    used.add(index);
+    if (entry.type === "pattern") {
+      const previewHue = repairPatternPreviewHue(entry.previewHue, { entries: repaired }, usedPreviewHues);
+      usedPreviewHues.add(previewHue);
+      repaired.push(normalizedPatternEntry({ ...entry, index, previewHue }));
+    } else {
+      repaired.push(repairSolidEntry({ ...entry, index }));
+    }
+  }
+
+  return { entries: repaired };
+}
+
+function repairSolidEntry(entry: SolidPaletteEntry): SolidPaletteEntry {
+  if (entry.value === "black" || entry.value === "white" || entry.value === "alpha") return entry;
+  return { ...entry, value: "alpha" };
+}
+
+function nextAvailableIndex(palette: ProjectPalette): PaletteIndex {
+  return nextPatternPaletteIndex(palette) ?? TRANSPARENT_PIXEL;
+}
+
+function repairPatternPreviewHue(
+  previewHue: number,
+  palette: ProjectPalette,
+  usedPreviewHues: ReadonlySet<number>,
+): number {
+  if (!Number.isFinite(previewHue)) return nextPatternPreviewHue(palette);
+  const normalizedHue = ((Math.round(previewHue) % 360) + 360) % 360;
+  if (!usedPreviewHues.has(normalizedHue)) return normalizedHue;
+  return nextDuplicatePatternPreviewHue(palette, normalizedHue);
+}
+
+function normalizeRotation(value: number): PatternRotation {
+  return value === 90 || value === 180 || value === 270 ? value : 0;
+}
+
+function numberOrZero(value: number): number {
+  return Number.isFinite(value) ? Math.trunc(value) : 0;
+}
+
+function numberOrDefault(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
 }
 
 function serializeLayerStack(stack: LayerStack): SerializedLayerStack {

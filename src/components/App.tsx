@@ -9,7 +9,7 @@ import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { FIRST_DITHER_PALETTE_INDEX } from "../domain/palette";
+import { firstPatternPaletteIndex } from "../domain/palette";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -103,7 +103,8 @@ export function App(): React.JSX.Element {
       if (event.target instanceof HTMLInputElement) return;
 
       if (key === "d" && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) {
-        setActivePaletteIndex(FIRST_DITHER_PALETTE_INDEX);
+        const patternIndex = firstPatternPaletteIndex(useEditorStore.getState().palette);
+        if (patternIndex !== null) setActivePaletteIndex(patternIndex);
         return;
       }
 

@@ -3,7 +3,7 @@ import { EDITOR_CLIPBOARD_KIND, EDITOR_CLIPBOARD_SCHEMA_VERSION, type EditorClip
 import { createObjectDefinition, createObjectInstanceLayer, createSurface } from "../domain/layers";
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
-import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
+import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL, type PatternPaletteEntry } from "../domain/types";
 import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMaskGesture } from "../input/alphaMaskGestures";
 import { beginGestureTransaction } from "../input/gestureTransaction";
 import { parseEditorClipboardJson, serializeEditorClipboard } from "../persistence/clipboardSchema";
@@ -237,6 +237,69 @@ describe("editor store revision semantics", () => {
 
     expect(useEditorStore.getState().activeTool).toBe("fill");
     expect(useEditorStore.getState().activePaletteIndex).toBe(3);
+  });
+
+  it("adds, edits, duplicates, and undoes pattern swatches", () => {
+    const state = useEditorStore.getState();
+
+    state.addPatternSwatch("hatch-vertical", { offsetX: 2, offsetY: 1, reflectX: false, reflectY: true, rotation: 90 });
+    let current = useEditorStore.getState();
+    const added = current.palette.entries.find(
+      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "hatch-vertical",
+    );
+    expect(added).toMatchObject({ offsetX: 2, offsetY: 1, reflectY: true, rotation: 90 });
+    expect(current.activePaletteIndex).toBe(added?.index);
+
+    if (!added) throw new Error("Expected added swatch");
+    current.updatePatternSwatch(added.index, { offsetX: 5, patternId: "dots-grid" });
+    expect(useEditorStore.getState().palette.entries.find((entry) => entry.index === added.index)).toMatchObject({
+      offsetX: 5,
+      patternId: "dots-grid",
+      previewHue: added.previewHue,
+    });
+
+    useEditorStore.getState().duplicatePatternSwatch(added.index);
+    current = useEditorStore.getState();
+    const dotSwatches = current.palette.entries.filter(
+      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "dots-grid",
+    );
+    expect(dotSwatches).toHaveLength(2);
+    expect(dotSwatches[0].previewHue).not.toBe(dotSwatches[1].previewHue);
+    expect(current.undoStack).toHaveLength(3);
+
+    current.undo();
+    expect(useEditorStore.getState().palette.entries.filter((entry) => entry.type === "pattern" && entry.patternId === "dots-grid")).toHaveLength(1);
+  });
+
+  it("rasterizes used pixels before deleting a pattern swatch", () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("window", { confirm });
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(0, 0, layer.surface.width)] = 4;
+    useEditorStore.setState({ activePaletteIndex: 4 });
+
+    useEditorStore.getState().deletePatternSwatch(4);
+
+    const state = useEditorStore.getState();
+    const currentLayer = currentActivePixelLayer();
+    expect(confirm).toHaveBeenCalled();
+    expect(currentLayer?.surface.data[indexFor(0, 0, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(state.palette.entries.some((entry) => entry.index === 4)).toBe(false);
+    expect(state.activePaletteIndex).toBe(BLACK_PIXEL);
+    expect(state.undoStack.at(-1)?.label).toBe("Delete pattern swatch");
+  });
+
+  it("can cancel deletion when a pattern swatch is used", () => {
+    vi.stubGlobal("window", { confirm: vi.fn(() => false) });
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(0, 0, layer.surface.width)] = 4;
+
+    useEditorStore.getState().deletePatternSwatch(4);
+
+    expect(useEditorStore.getState().palette.entries.some((entry) => entry.index === 4)).toBe(true);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
 });
 
@@ -828,6 +891,7 @@ describe("editor store selection and alpha masks", () => {
 });
 
 function resetStore(): void {
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
   desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(null);
   desktopApiMock.writeSelectionToDesktopClipboard.mockResolvedValue(true);
