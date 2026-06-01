@@ -87,7 +87,7 @@ function palettesEqual(left: { entries: PaletteEntry[] }, right: { entries: Pale
       !other ||
       entry.type !== other.type ||
       entry.id !== other.id ||
-      entry.index !== other.index ||
+      entry.ref !== other.ref ||
       entry.name !== other.name
     ) {
       return false;

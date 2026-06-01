@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createObjectDefinition, createRootStack, createSurface } from "./layers";
 import { defaultProjectPalette } from "./palette";
 import {
-  layerStackUsesPaletteIndexes,
-  rasterizePaletteIndexesInLayerStack,
-  rasterizePaletteIndexesInSurface,
-  rasterizePalettePoint,
+  layerStackUsesSwatchRefs,
+  rasterizeSwatchRefsInLayerStack,
+  rasterizeSwatchRefsInSurface,
+  rasterizeSwatchRefAtPoint,
 } from "./rasterization";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type { EditorSnapshot } from "./types";
@@ -13,8 +13,8 @@ import { deletePatternSwatch } from "./paletteCommands";
 
 describe("palette rasterization", () => {
   it("rasterizes one palette point through the shared resolver", () => {
-    expect(rasterizePalettePoint(defaultProjectPalette(), 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(rasterizePalettePoint(defaultProjectPalette(), 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(rasterizeSwatchRefAtPoint(defaultProjectPalette(), 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(rasterizeSwatchRefAtPoint(defaultProjectPalette(), 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
   });
 
   it("rasterizes selected palette indexes in a pixel surface", () => {
@@ -22,7 +22,7 @@ describe("palette rasterization", () => {
     surface.data[0] = 4;
     surface.data[1] = 4;
 
-    const result = rasterizePaletteIndexesInSurface(surface, defaultProjectPalette(), new Set([4]));
+    const result = rasterizeSwatchRefsInSurface(surface, defaultProjectPalette(), new Set([4]));
 
     expect(result.changed).toBe(true);
     expect(Array.from(result.value.data.slice(0, 2))).toEqual([BLACK_PIXEL, WHITE_PIXEL]);
@@ -35,7 +35,7 @@ describe("palette rasterization", () => {
     stack.height = 2;
     stack.background = 4;
 
-    const result = rasterizePaletteIndexesInLayerStack(stack, defaultProjectPalette(), new Set([4]));
+    const result = rasterizeSwatchRefsInLayerStack(stack, defaultProjectPalette(), new Set([4]));
 
     expect(result.changed).toBe(true);
     expect(result.value.background).toBe(TRANSPARENT_PIXEL);
@@ -57,11 +57,11 @@ describe("palette rasterization", () => {
     rootLayer.surface.data[0] = 4;
     snapshot.objects[0].background = 4;
 
-    expect(layerStackUsesPaletteIndexes(snapshot.root, new Set([4]))).toBe(true);
+    expect(layerStackUsesSwatchRefs(snapshot.root, new Set([4]))).toBe(true);
 
     const result = deletePatternSwatch(snapshot, 4);
 
-    expect(result?.value.palette.entries.some((entry) => entry.index === 4)).toBe(false);
+    expect(result?.value.palette.entries.some((entry) => entry.ref === 4)).toBe(false);
     const deletedRootLayer = result?.value.root.layers[0];
     if (deletedRootLayer?.type !== "pixel") throw new Error("Expected pixel layer");
     expect(deletedRootLayer.surface.data[0]).toBe(BLACK_PIXEL);

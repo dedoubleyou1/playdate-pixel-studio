@@ -11,14 +11,14 @@ export type Tool =
 export const TRANSPARENT_PIXEL = 0;
 export const BLACK_PIXEL = 1;
 export const WHITE_PIXEL = 2;
-export const MAX_PALETTE_INDEX = 63;
-export type PaletteIndex = number;
-export type PixelValue = PaletteIndex;
+export const MAX_SWATCH_REF = 63;
+export type SwatchRef = number;
+export type PixelValue = SwatchRef;
 export type SolidPaletteValue = "alpha" | "black" | "white";
 
 export interface BasePaletteEntry {
   id: string;
-  index: PaletteIndex;
+  ref: SwatchRef;
   name: string;
 }
 

@@ -5,7 +5,7 @@ import {
 } from "../domain/clipboard";
 import { createSurface } from "../domain/layers";
 import { normalizeBinaryMaskSurface } from "../domain/masks";
-import { MAX_PALETTE_INDEX } from "../domain/types";
+import { MAX_SWATCH_REF } from "../domain/types";
 import type { Point } from "../domain/types";
 import {
   decodeSerializedSurfaceData,
@@ -39,7 +39,7 @@ export function parseEditorClipboardJson(json: string): EditorClipboard | null {
     const surfaceData = decodeSurfaceDataWithExactLength(parsed.surface);
     const maskData = decodeSurfaceDataWithExactLength(parsed.mask);
     if (!surfaceData || !maskData) return null;
-    if (surfaceData.some((pixel) => !Number.isInteger(pixel) || pixel < 0 || pixel > MAX_PALETTE_INDEX)) return null;
+    if (surfaceData.some((pixel) => !Number.isInteger(pixel) || pixel < 0 || pixel > MAX_SWATCH_REF)) return null;
     if (maskData.some((value) => value !== 0 && value !== 1)) return null;
 
     return {

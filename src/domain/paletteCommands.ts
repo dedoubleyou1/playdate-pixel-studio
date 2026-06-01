@@ -1,7 +1,7 @@
 import {
   BLACK_PIXEL,
-  MAX_PALETTE_INDEX,
-  type PaletteIndex,
+  MAX_SWATCH_REF,
+  type SwatchRef,
   type PatternPaletteEntry,
   type PatternSamplingSettings,
   type PixelLayer,
@@ -10,14 +10,14 @@ import {
 import { DEFAULT_PATTERN_SAMPLING, builtInPattern } from "./patterns";
 import {
   nextDuplicatePatternPreviewHue,
-  nextPatternPaletteIndex,
+  nextPatternSwatchRef,
   nextPatternPreviewHue,
   normalizedPatternEntry,
-  paletteEntryForIndex,
+  paletteEntryForRef,
 } from "./palette";
 import {
-  layerStackUsesPaletteIndexes,
-  rasterizePaletteIndexesInLayerStack,
+  layerStackUsesSwatchRefs,
+  rasterizeSwatchRefsInLayerStack,
   type RasterizationResult,
 } from "./rasterization";
 import type { EditorSnapshot } from "./types";
@@ -33,12 +33,12 @@ export function createPatternSwatch(
   patternId: string,
   sampling: PatternSamplingSettings = DEFAULT_PATTERN_SAMPLING,
 ): PaletteMutationResult | null {
-  const index = nextPatternPaletteIndex(palette);
+  const ref = nextPatternSwatchRef(palette);
   const pattern = builtInPattern(patternId);
-  if (index === null || !pattern) return null;
+  if (ref === null || !pattern) return null;
   const entry = normalizedPatternEntry({
     id: crypto.randomUUID(),
-    index,
+    ref,
     name: pattern.name,
     type: "pattern",
     patternId,
@@ -54,10 +54,10 @@ export function createPatternSwatch(
 
 export function updatePatternSwatch(
   palette: ProjectPalette,
-  index: PaletteIndex,
+  ref: SwatchRef,
   updates: Partial<Pick<PatternPaletteEntry, "offsetX" | "offsetY" | "patternId" | "reflectX" | "reflectY" | "rotation">>,
 ): PaletteMutationResult | null {
-  const entry = paletteEntryForIndex(palette, index);
+  const entry = paletteEntryForRef(palette, ref);
   if (entry?.type !== "pattern") return null;
   const pattern = builtInPattern(updates.patternId ?? entry.patternId);
   if (!pattern) return null;
@@ -69,19 +69,19 @@ export function updatePatternSwatch(
   });
   return {
     entry: updated,
-    palette: { entries: palette.entries.map((candidate) => (candidate.index === index ? updated : candidate)) },
+    palette: { entries: palette.entries.map((candidate) => (candidate.ref === ref ? updated : candidate)) },
     status: `${pattern.name} swatch updated`,
   };
 }
 
-export function duplicatePatternSwatch(palette: ProjectPalette, index: PaletteIndex): PaletteMutationResult | null {
-  const entry = paletteEntryForIndex(palette, index);
-  const nextIndex = nextPatternPaletteIndex(palette);
-  if (entry?.type !== "pattern" || nextIndex === null) return null;
+export function duplicatePatternSwatch(palette: ProjectPalette, ref: SwatchRef): PaletteMutationResult | null {
+  const entry = paletteEntryForRef(palette, ref);
+  const nextRef = nextPatternSwatchRef(palette);
+  if (entry?.type !== "pattern" || nextRef === null) return null;
   const duplicate = normalizedPatternEntry({
     ...entry,
     id: crypto.randomUUID(),
-    index: nextIndex,
+    ref: nextRef,
     previewHue: nextDuplicatePatternPreviewHue(palette, entry.previewHue),
   });
   return {
@@ -91,18 +91,18 @@ export function duplicatePatternSwatch(palette: ProjectPalette, index: PaletteIn
   };
 }
 
-export function deletePatternSwatch(snapshot: EditorSnapshot, index: PaletteIndex): RasterizationResult<EditorSnapshot> | null {
-  const entry = paletteEntryForIndex(snapshot.palette, index);
+export function deletePatternSwatch(snapshot: EditorSnapshot, ref: SwatchRef): RasterizationResult<EditorSnapshot> | null {
+  const entry = paletteEntryForRef(snapshot.palette, ref);
   if (entry?.type !== "pattern") return null;
-  const targetIndexes = new Set([index]);
-  const root = rasterizePaletteIndexesInLayerStack(snapshot.root, snapshot.palette, targetIndexes);
+  const targetRefs = new Set([ref]);
+  const root = rasterizeSwatchRefsInLayerStack(snapshot.root, snapshot.palette, targetRefs);
   const objects = snapshot.objects.map((object) => {
-    const rasterized = rasterizePaletteIndexesInLayerStack(object, snapshot.palette, targetIndexes);
+    const rasterized = rasterizeSwatchRefsInLayerStack(object, snapshot.palette, targetRefs);
     return rasterized.changed
       ? { ...object, ...rasterized.value, layers: rasterized.value.layers.filter((layer): layer is PixelLayer => layer.type === "pixel") }
       : object;
   });
-  const palette = { entries: snapshot.palette.entries.filter((candidate) => candidate.index !== index) };
+  const palette = { entries: snapshot.palette.entries.filter((candidate) => candidate.ref !== ref) };
 
   return {
     changed: true,
@@ -115,16 +115,16 @@ export function deletePatternSwatch(snapshot: EditorSnapshot, index: PaletteInde
   };
 }
 
-export function snapshotUsesPaletteIndex(snapshot: EditorSnapshot, index: PaletteIndex): boolean {
-  const targetIndexes = new Set([index]);
+export function snapshotUsesSwatchRef(snapshot: EditorSnapshot, ref: SwatchRef): boolean {
+  const targetRefs = new Set([ref]);
   return (
-    layerStackUsesPaletteIndexes(snapshot.root, targetIndexes) ||
-    snapshot.objects.some((object) => layerStackUsesPaletteIndexes(object, targetIndexes))
+    layerStackUsesSwatchRefs(snapshot.root, targetRefs) ||
+    snapshot.objects.some((object) => layerStackUsesSwatchRefs(object, targetRefs))
   );
 }
 
-export function fallbackActivePaletteIndex(palette: ProjectPalette, deletedIndex: PaletteIndex): PaletteIndex {
-  if (palette.entries.some((entry) => entry.index === deletedIndex)) return deletedIndex;
-  if (palette.entries.some((entry) => entry.index === BLACK_PIXEL)) return BLACK_PIXEL;
-  return palette.entries.find((entry) => entry.index <= MAX_PALETTE_INDEX)?.index ?? BLACK_PIXEL;
+export function fallbackActiveSwatchRef(palette: ProjectPalette, deletedRef: SwatchRef): SwatchRef {
+  if (palette.entries.some((entry) => entry.ref === deletedRef)) return deletedRef;
+  if (palette.entries.some((entry) => entry.ref === BLACK_PIXEL)) return BLACK_PIXEL;
+  return palette.entries.find((entry) => entry.ref <= MAX_SWATCH_REF)?.ref ?? BLACK_PIXEL;
 }

@@ -2,7 +2,7 @@ import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
 import { DEFAULT_PATTERN_SAMPLING, builtInPattern } from "../domain/patterns";
-import { normalizedPatternEntry, nextDuplicatePatternPreviewHue, nextPatternPaletteIndex, nextPatternPreviewHue } from "../domain/palette";
+import { normalizedPatternEntry, nextDuplicatePatternPreviewHue, nextPatternSwatchRef, nextPatternPreviewHue } from "../domain/palette";
 import type {
   EditContext,
   EditorSnapshot,
@@ -11,7 +11,7 @@ import type {
   ObjectDefinition,
   ObjectInstanceLayer,
   PaletteEntry,
-  PaletteIndex,
+  SwatchRef,
   PatternPaletteEntry,
   PatternRotation,
   PixelLayer,
@@ -26,8 +26,8 @@ import {
   type SerializedSurface,
 } from "./serializedSurface";
 
-export const PROJECT_SCHEMA_VERSION = 9;
-const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, 8, PROJECT_SCHEMA_VERSION]);
+export const PROJECT_SCHEMA_VERSION = 10;
+const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, 8, 9, PROJECT_SCHEMA_VERSION]);
 
 export interface SerializedBaseLayer {
   id: number;
@@ -63,15 +63,19 @@ export interface SerializedLayerStack {
 
 interface SerializedDitherPaletteEntry {
   id: string;
-  index: PaletteIndex;
+  index: SwatchRef;
   name: string;
   type: "dither";
   patternId: string;
-  foregroundIndex: PaletteIndex;
-  backgroundIndex: PaletteIndex;
+  foregroundIndex: SwatchRef;
+  backgroundIndex: SwatchRef;
 }
 
-export type SerializedPaletteEntry = PaletteEntry | SerializedDitherPaletteEntry;
+type SerializedPaletteEntry =
+  | PaletteEntry
+  | SerializedDitherPaletteEntry
+  | (Omit<SolidPaletteEntry, "ref"> & { index: SwatchRef; ref?: SwatchRef })
+  | (Omit<PatternPaletteEntry, "ref"> & { index: SwatchRef; ref?: SwatchRef });
 
 export interface SerializedProjectPalette {
   entries: SerializedPaletteEntry[];
@@ -84,7 +88,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 6 | 7 | 8 | 9;
+  schemaVersion: 6 | 7 | 8 | 9 | 10;
   id: string;
   name: string;
   width: number;
@@ -186,11 +190,19 @@ function deserializePalette(palette: SerializedProjectPalette): ProjectPalette {
 }
 
 function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
-  if (entry.type === "solid") return { ...entry };
+  if (entry.type === "solid") {
+    return {
+      id: entry.id,
+      ref: serializedSwatchRef(entry),
+      name: entry.name,
+      type: "solid",
+      value: entry.value,
+    };
+  }
   if (entry.type === "pattern") {
     return normalizedPatternEntry({
       id: entry.id,
-      index: entry.index,
+      ref: serializedSwatchRef(entry),
       name: entry.name,
       type: "pattern",
       patternId: entry.patternId,
@@ -210,10 +222,10 @@ function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
 // This exists only to move local test projects from the old dither shape to
 // pattern swatches and can be deleted before release once local data is migrated.
 function migrateDitherEntry(entry: SerializedDitherPaletteEntry): PatternPaletteEntry {
-  const patternId = builtInPattern(entry.patternId) ? entry.patternId : "checker-50";
+  const patternId = builtInPattern(entry.patternId) ? entry.patternId : "bayer-2x2-2";
   return normalizedPatternEntry({
     id: entry.id,
-    index: entry.index,
+    ref: entry.index,
     name: entry.name,
     type: "pattern",
     patternId,
@@ -223,19 +235,19 @@ function migrateDitherEntry(entry: SerializedDitherPaletteEntry): PatternPalette
 }
 
 function repairPalette(palette: ProjectPalette): ProjectPalette {
-  const used = new Set<PaletteIndex>();
+  const used = new Set<SwatchRef>();
   const repaired: PaletteEntry[] = [];
   const usedPreviewHues = new Set<number>();
 
   for (const entry of palette.entries) {
-    const index = used.has(entry.index) ? nextAvailableIndex({ entries: repaired }) : entry.index;
-    used.add(index);
+    const ref = used.has(entry.ref) ? nextAvailableRef({ entries: repaired }) : entry.ref;
+    used.add(ref);
     if (entry.type === "pattern") {
       const previewHue = repairPatternPreviewHue(entry.previewHue, { entries: repaired }, usedPreviewHues);
       usedPreviewHues.add(previewHue);
-      repaired.push(normalizedPatternEntry({ ...entry, index, previewHue }));
+      repaired.push(normalizedPatternEntry({ ...entry, ref, previewHue }));
     } else {
-      repaired.push(repairSolidEntry({ ...entry, index }));
+      repaired.push(repairSolidEntry({ ...entry, ref }));
     }
   }
 
@@ -247,8 +259,13 @@ function repairSolidEntry(entry: SolidPaletteEntry): SolidPaletteEntry {
   return { ...entry, value: "alpha" };
 }
 
-function nextAvailableIndex(palette: ProjectPalette): PaletteIndex {
-  return nextPatternPaletteIndex(palette) ?? TRANSPARENT_PIXEL;
+function nextAvailableRef(palette: ProjectPalette): SwatchRef {
+  return nextPatternSwatchRef(palette) ?? TRANSPARENT_PIXEL;
+}
+
+function serializedSwatchRef(entry: { index?: SwatchRef; ref?: SwatchRef }): SwatchRef {
+  if (Number.isInteger(entry.ref)) return entry.ref as SwatchRef;
+  return entry.index ?? TRANSPARENT_PIXEL;
 }
 
 function repairPatternPreviewHue(

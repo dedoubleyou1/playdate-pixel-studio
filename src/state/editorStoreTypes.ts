@@ -7,7 +7,7 @@ import type {
   EditTarget,
   FloatingSelection,
   Layer,
-  PaletteIndex,
+  SwatchRef,
   PatternPaletteEntry,
   PatternSamplingSettings,
   PixelLayer,
@@ -49,7 +49,7 @@ export type EditorDocument = EditorSnapshot;
 
 export interface EditorSessionState {
   activeTool: Tool;
-  activePaletteIndex: PaletteIndex;
+  activeSwatchRef: SwatchRef;
   brushSize: number;
   brushShape: BrushShape;
   mirrorX: boolean;
@@ -85,16 +85,16 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   canRedo: boolean;
   hasUnsavedChanges: boolean;
   setTool: (tool: Tool) => void;
-  setActivePaletteIndex: (index: PaletteIndex) => void;
+  setActiveSwatchRef: (ref: SwatchRef) => void;
   addPatternSwatch: (patternId: string, sampling?: PatternSamplingSettings) => void;
   updatePatternSwatch: (
-    index: PaletteIndex,
+    ref: SwatchRef,
     updates: Partial<
       Pick<PatternPaletteEntry, "offsetX" | "offsetY" | "patternId" | "reflectX" | "reflectY" | "rotation">
     >,
   ) => void;
-  duplicatePatternSwatch: (index: PaletteIndex) => void;
-  deletePatternSwatch: (index: PaletteIndex) => void;
+  duplicatePatternSwatch: (ref: SwatchRef) => void;
+  deletePatternSwatch: (ref: SwatchRef) => void;
   setBrushSize: (size: number) => void;
   setBrushShape: (shape: BrushShape) => void;
   setMirrorX: (enabled: boolean) => void;

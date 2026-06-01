@@ -3,8 +3,8 @@ import {
   createPatternSwatch,
   deletePatternSwatch,
   duplicatePatternSwatch,
-  fallbackActivePaletteIndex,
-  snapshotUsesPaletteIndex,
+  fallbackActiveSwatchRef,
+  snapshotUsesSwatchRef,
   updatePatternSwatch,
 } from "../../domain/paletteCommands";
 import { pushCommand, selectionSnapshot, snapshotFrom, snapshotState } from "../editorStoreHelpers";
@@ -25,7 +25,7 @@ export function createPaletteActions(set: EditorStoreSet, get: EditorStoreGet): 
         return;
       }
       set((state) => ({
-        activePaletteIndex: result.entry?.index ?? state.activePaletteIndex,
+        activeSwatchRef: result.entry?.ref ?? state.activeSwatchRef,
         documentRevision: state.documentRevision + 1,
         hasUnsavedChanges: true,
         palette: result.palette,
@@ -35,9 +35,9 @@ export function createPaletteActions(set: EditorStoreSet, get: EditorStoreGet): 
       pushPaletteCommand(set, get, before, "Add pattern swatch");
     },
 
-    updatePatternSwatch: (index, updates) => {
+    updatePatternSwatch: (ref, updates) => {
       const before = snapshotFrom(get());
-      const result = updatePatternSwatch(before.palette, index, updates);
+      const result = updatePatternSwatch(before.palette, ref, updates);
       if (!result) {
         set({ status: "Unable to update pattern swatch" });
         return;
@@ -52,15 +52,15 @@ export function createPaletteActions(set: EditorStoreSet, get: EditorStoreGet): 
       pushPaletteCommand(set, get, before, "Edit pattern swatch");
     },
 
-    duplicatePatternSwatch: (index) => {
+    duplicatePatternSwatch: (ref) => {
       const before = snapshotFrom(get());
-      const result = duplicatePatternSwatch(before.palette, index);
+      const result = duplicatePatternSwatch(before.palette, ref);
       if (!result?.entry) {
         set({ status: "Unable to duplicate pattern swatch" });
         return;
       }
       set((state) => ({
-        activePaletteIndex: result.entry?.index ?? state.activePaletteIndex,
+        activeSwatchRef: result.entry?.ref ?? state.activeSwatchRef,
         documentRevision: state.documentRevision + 1,
         hasUnsavedChanges: true,
         palette: result.palette,
@@ -70,22 +70,22 @@ export function createPaletteActions(set: EditorStoreSet, get: EditorStoreGet): 
       pushPaletteCommand(set, get, before, "Duplicate pattern swatch");
     },
 
-    deletePatternSwatch: (index) => {
+    deletePatternSwatch: (ref) => {
       const before = snapshotFrom(get());
-      const used = snapshotUsesPaletteIndex(before, index);
+      const used = snapshotUsesSwatchRef(before, ref);
       if (used && typeof window !== "undefined" && !window.confirm("Rasterize used pixels and delete this pattern swatch?")) {
         set({ status: "Pattern swatch deletion cancelled" });
         return;
       }
-      const result = deletePatternSwatch(before, index);
+      const result = deletePatternSwatch(before, ref);
       if (!result) {
         set({ status: "Unable to delete pattern swatch" });
         return;
       }
-      const nextActivePaletteIndex = fallbackActivePaletteIndex(result.value.palette, get().activePaletteIndex);
+      const nextActiveSwatchRef = fallbackActiveSwatchRef(result.value.palette, get().activeSwatchRef);
       set((state) => ({
         ...snapshotState(result.value),
-        activePaletteIndex: nextActivePaletteIndex,
+        activeSwatchRef: nextActiveSwatchRef,
         documentRevision: state.documentRevision + 1,
         hasUnsavedChanges: true,
         status: used ? "Pattern swatch rasterized and deleted" : "Pattern swatch deleted",

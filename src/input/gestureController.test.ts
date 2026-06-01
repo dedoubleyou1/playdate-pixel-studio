@@ -16,7 +16,7 @@ describe("editor gesture controller", () => {
   beforeEach(() => {
     useEditorStore.getState().newProject();
     useEditorStore.setState({
-      activePaletteIndex: BLACK_PIXEL,
+      activeSwatchRef: BLACK_PIXEL,
       activeTool: "pencil",
       canvasToolPreview: null,
       documentRevision: 0,

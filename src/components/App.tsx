@@ -9,7 +9,7 @@ import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
-import { firstPatternPaletteIndex } from "../domain/palette";
+import { swatchRefForNumberShortcut } from "../domain/palette";
 import { useAutosave } from "../hooks/useAutosave";
 import { useEditorStore } from "../state/editorStore";
 
@@ -21,7 +21,7 @@ export function App(): React.JSX.Element {
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const setTool = useEditorStore((state) => state.setTool);
-  const setActivePaletteIndex = useEditorStore((state) => state.setActivePaletteIndex);
+  const setActiveSwatchRef = useEditorStore((state) => state.setActiveSwatchRef);
   const saveProject = useEditorStore((state) => state.saveProject);
   const newProject = useEditorStore((state) => state.newProject);
   const loadMostRecentProject = useEditorStore((state) => state.loadMostRecentProject);
@@ -100,12 +100,16 @@ export function App(): React.JSX.Element {
         return;
       }
 
-      if (event.target instanceof HTMLInputElement) return;
+      if (isTextEditingTarget(event.target)) return;
 
-      if (key === "d" && isPixelEditableLayer(activeLayer(useEditorStore.getState()))) {
-        const patternIndex = firstPatternPaletteIndex(useEditorStore.getState().palette);
-        if (patternIndex !== null) setActivePaletteIndex(patternIndex);
-        return;
+      const state = useEditorStore.getState();
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && state.editTarget === "pixels" && isPixelEditableLayer(activeLayer(state))) {
+        const swatchRef = swatchRefForNumberShortcut(state.palette, key);
+        if (swatchRef !== null) {
+          event.preventDefault();
+          setActiveSwatchRef(swatchRef);
+          return;
+        }
       }
 
       const shortcuts = {
@@ -121,7 +125,6 @@ export function App(): React.JSX.Element {
         f: "fill",
       } as const;
       const tool = shortcuts[key as keyof typeof shortcuts];
-      const state = useEditorStore.getState();
       if (
         tool &&
         (tool === "move" ||
@@ -131,12 +134,13 @@ export function App(): React.JSX.Element {
           isPixelEditableLayer(activeLayer(state)))
       ) {
         setTool(tool);
+        return;
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearSelection, copySelection, cutSelection, newProject, pasteClipboard, redo, saveProject, setActivePaletteIndex, setTool, undo]);
+  }, [clearSelection, copySelection, cutSelection, newProject, pasteClipboard, redo, saveProject, setActiveSwatchRef, setTool, undo]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;

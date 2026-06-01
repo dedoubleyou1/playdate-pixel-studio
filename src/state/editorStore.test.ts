@@ -233,42 +233,42 @@ describe("editor store revision semantics", () => {
     const state = useEditorStore.getState();
 
     state.setTool("fill");
-    state.setActivePaletteIndex(3);
+    state.setActiveSwatchRef(3);
 
     expect(useEditorStore.getState().activeTool).toBe("fill");
-    expect(useEditorStore.getState().activePaletteIndex).toBe(3);
+    expect(useEditorStore.getState().activeSwatchRef).toBe(3);
   });
 
   it("adds, edits, duplicates, and undoes pattern swatches", () => {
     const state = useEditorStore.getState();
 
-    state.addPatternSwatch("hatch-vertical", { offsetX: 2, offsetY: 1, reflectX: false, reflectY: true, rotation: 90 });
+    state.addPatternSwatch("hatch-vertical-1", { offsetX: 2, offsetY: 1, reflectX: false, reflectY: true, rotation: 90 });
     let current = useEditorStore.getState();
     const added = current.palette.entries.find(
-      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "hatch-vertical",
+      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "hatch-vertical-1",
     );
     expect(added).toMatchObject({ offsetX: 2, offsetY: 1, reflectY: true, rotation: 90 });
-    expect(current.activePaletteIndex).toBe(added?.index);
+    expect(current.activeSwatchRef).toBe(added?.ref);
 
     if (!added) throw new Error("Expected added swatch");
-    current.updatePatternSwatch(added.index, { offsetX: 5, patternId: "dots-grid" });
-    expect(useEditorStore.getState().palette.entries.find((entry) => entry.index === added.index)).toMatchObject({
+    current.updatePatternSwatch(added.ref, { offsetX: 5, patternId: "hatch-diagonal-2" });
+    expect(useEditorStore.getState().palette.entries.find((entry) => entry.ref === added.ref)).toMatchObject({
       offsetX: 5,
-      patternId: "dots-grid",
+      patternId: "hatch-diagonal-2",
       previewHue: added.previewHue,
     });
 
-    useEditorStore.getState().duplicatePatternSwatch(added.index);
+    useEditorStore.getState().duplicatePatternSwatch(added.ref);
     current = useEditorStore.getState();
-    const dotSwatches = current.palette.entries.filter(
-      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "dots-grid",
+    const diagonalSwatches = current.palette.entries.filter(
+      (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "hatch-diagonal-2",
     );
-    expect(dotSwatches).toHaveLength(2);
-    expect(dotSwatches[0].previewHue).not.toBe(dotSwatches[1].previewHue);
+    expect(diagonalSwatches).toHaveLength(2);
+    expect(diagonalSwatches[0].previewHue).not.toBe(diagonalSwatches[1].previewHue);
     expect(current.undoStack).toHaveLength(3);
 
     current.undo();
-    expect(useEditorStore.getState().palette.entries.filter((entry) => entry.type === "pattern" && entry.patternId === "dots-grid")).toHaveLength(1);
+    expect(useEditorStore.getState().palette.entries.filter((entry) => entry.type === "pattern" && entry.patternId === "hatch-diagonal-2")).toHaveLength(1);
   });
 
   it("rasterizes used pixels before deleting a pattern swatch", () => {
@@ -277,7 +277,7 @@ describe("editor store revision semantics", () => {
     const layer = currentActivePixelLayer();
     if (!layer) throw new Error("Expected active pixel layer");
     layer.surface.data[indexFor(0, 0, layer.surface.width)] = 4;
-    useEditorStore.setState({ activePaletteIndex: 4 });
+    useEditorStore.setState({ activeSwatchRef: 4 });
 
     useEditorStore.getState().deletePatternSwatch(4);
 
@@ -285,8 +285,8 @@ describe("editor store revision semantics", () => {
     const currentLayer = currentActivePixelLayer();
     expect(confirm).toHaveBeenCalled();
     expect(currentLayer?.surface.data[indexFor(0, 0, layer.surface.width)]).toBe(BLACK_PIXEL);
-    expect(state.palette.entries.some((entry) => entry.index === 4)).toBe(false);
-    expect(state.activePaletteIndex).toBe(BLACK_PIXEL);
+    expect(state.palette.entries.some((entry) => entry.ref === 4)).toBe(false);
+    expect(state.activeSwatchRef).toBe(BLACK_PIXEL);
     expect(state.undoStack.at(-1)?.label).toBe("Delete pattern swatch");
   });
 
@@ -298,7 +298,7 @@ describe("editor store revision semantics", () => {
 
     useEditorStore.getState().deletePatternSwatch(4);
 
-    expect(useEditorStore.getState().palette.entries.some((entry) => entry.index === 4)).toBe(true);
+    expect(useEditorStore.getState().palette.entries.some((entry) => entry.ref === 4)).toBe(true);
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
 });
@@ -911,7 +911,7 @@ function resetStore(): void {
     recentProjects: [],
     redoStack: [],
     documentRevision: 0,
-    activePaletteIndex: BLACK_PIXEL,
+    activeSwatchRef: BLACK_PIXEL,
     editTarget: "pixels",
     objectSelection: null,
     rootSelection: null,

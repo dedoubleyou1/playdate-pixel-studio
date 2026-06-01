@@ -1,10 +1,10 @@
 import {
   BLACK_PIXEL,
-  MAX_PALETTE_INDEX,
+  MAX_SWATCH_REF,
   TRANSPARENT_PIXEL,
   WHITE_PIXEL,
   type PaletteEntry,
-  type PaletteIndex,
+  type SwatchRef,
   type PatternPaletteEntry,
   type Point,
   type ProjectPalette,
@@ -17,7 +17,7 @@ import {
   samplePatternAt,
 } from "./patterns";
 
-export const FIRST_PATTERN_PALETTE_INDEX = 3;
+export const FIRST_PATTERN_SWATCH_REF = 3;
 const PATTERN_PREVIEW_HUES = [210, 300, 120, 25, 180, 260, 55, 330, 150, 230, 10, 285];
 
 export interface PalettePreviewColor {
@@ -33,33 +33,33 @@ interface PalettePreviewOptions {
 export function defaultProjectPalette(): ProjectPalette {
   return {
     entries: [
-      { id: "alpha", index: TRANSPARENT_PIXEL, name: "Transparent", type: "solid", value: "alpha" },
-      { id: "black", index: BLACK_PIXEL, name: "Black", type: "solid", value: "black" },
-      { id: "white", index: WHITE_PIXEL, name: "White", type: "solid", value: "white" },
+      { id: "alpha", ref: TRANSPARENT_PIXEL, name: "Transparent", type: "solid", value: "alpha" },
+      { id: "black", ref: BLACK_PIXEL, name: "Black", type: "solid", value: "black" },
+      { id: "white", ref: WHITE_PIXEL, name: "White", type: "solid", value: "white" },
       {
-        id: "black-white-25",
-        index: 3,
-        name: "25% Black",
+        id: "bayer-2x2-1",
+        ref: 3,
+        name: "2x2 Bayer 1/4",
         type: "pattern",
-        patternId: "checker-25",
+        patternId: "bayer-2x2-1",
         previewHue: 210,
         ...DEFAULT_PATTERN_SAMPLING,
       },
       {
-        id: "black-white-50",
-        index: 4,
-        name: "50% Black",
+        id: "bayer-2x2-2",
+        ref: 4,
+        name: "2x2 Bayer 2/4",
         type: "pattern",
-        patternId: "checker-50",
+        patternId: "bayer-2x2-2",
         previewHue: 300,
         ...DEFAULT_PATTERN_SAMPLING,
       },
       {
-        id: "black-white-75",
-        index: 5,
-        name: "75% Black",
+        id: "bayer-2x2-3",
+        ref: 5,
+        name: "2x2 Bayer 3/4",
         type: "pattern",
-        patternId: "checker-75",
+        patternId: "bayer-2x2-3",
         previewHue: 120,
         ...DEFAULT_PATTERN_SAMPLING,
       },
@@ -67,25 +67,35 @@ export function defaultProjectPalette(): ProjectPalette {
   };
 }
 
-export function normalizePaletteIndex(value: number): PaletteIndex {
-  if (!Number.isInteger(value) || value < 0 || value > MAX_PALETTE_INDEX) return TRANSPARENT_PIXEL;
+export function normalizeSwatchRef(value: number): SwatchRef {
+  if (!Number.isInteger(value) || value < 0 || value > MAX_SWATCH_REF) return TRANSPARENT_PIXEL;
   return value;
 }
 
-export function paletteEntryForIndex(palette: ProjectPalette, index: PaletteIndex): PaletteEntry | null {
-  return palette.entries.find((entry) => entry.index === index) ?? null;
+export function paletteEntryForRef(palette: ProjectPalette, ref: SwatchRef): PaletteEntry | null {
+  return palette.entries.find((entry) => entry.ref === ref) ?? null;
 }
 
-export function paletteEntryLabel(palette: ProjectPalette, index: PaletteIndex): string {
-  return paletteEntryForIndex(palette, index)?.name ?? "Transparent";
+export function paletteEntryLabel(palette: ProjectPalette, ref: SwatchRef): string {
+  return paletteEntryForRef(palette, ref)?.name ?? "Transparent";
+}
+
+export function swatchRefForNumberShortcut(palette: ProjectPalette, key: string): SwatchRef | null {
+  if (!/^[0-9]$/.test(key)) return null;
+  return swatchShortcutRefs(palette)[Number(key)] ?? null;
+}
+
+export function numberShortcutForSwatchRef(palette: ProjectPalette, ref: SwatchRef): string | null {
+  const shortcutIndex = swatchShortcutRefs(palette).findIndex((candidate) => candidate === ref);
+  return shortcutIndex >= 0 && shortcutIndex <= 9 ? String(shortcutIndex) : null;
 }
 
 export function projectPaletteKey(palette: ProjectPalette): string {
   return palette.entries
     .map((entry) =>
       entry.type === "solid"
-        ? `${entry.index}:${entry.type}:${entry.value}`
-        : `${entry.index}:${entry.type}:${entry.patternId}:${patternSamplingKey(entry)}:${entry.previewHue}`,
+        ? `${entry.ref}:${entry.id}:${entry.type}:${entry.value}`
+        : `${entry.ref}:${entry.id}:${entry.type}:${entry.patternId}:${patternSamplingKey(entry)}:${entry.previewHue}`,
     )
     .join("|")
     .concat(`:patterns-v${PATTERN_LIBRARY_VERSION}`);
@@ -93,21 +103,21 @@ export function projectPaletteKey(palette: ProjectPalette): string {
 
 export function resolvePaletteEntry(
   palette: ProjectPalette,
-  index: PaletteIndex,
+  ref: SwatchRef,
   point: Point,
 ): typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL {
-  return resolvePaletteIndex(palette, normalizePaletteIndex(index), point, new Set());
+  return resolveSwatchRef(palette, normalizeSwatchRef(ref), point, new Set());
 }
 
 export function resolvePaletteEntryPreviewColor(
   palette: ProjectPalette,
-  index: PaletteIndex,
+  ref: SwatchRef,
   point: Point,
   options: PalettePreviewOptions = {},
 ): PalettePreviewColor | null {
-  const paletteIndex = normalizePaletteIndex(index);
-  const entry = paletteEntryForIndex(palette, paletteIndex);
-  const pixel = resolvePaletteIndex(palette, paletteIndex, point, new Set());
+  const swatchRef = normalizeSwatchRef(ref);
+  const entry = paletteEntryForRef(palette, swatchRef);
+  const pixel = resolveSwatchRef(palette, swatchRef, point, new Set());
 
   if (options.colorizedPatterns && entry?.type === "pattern") {
     const pattern = builtInPattern(entry.patternId);
@@ -121,7 +131,7 @@ export function resolvePaletteEntryPreviewColor(
   return null;
 }
 
-export function solidPaletteValueToIndex(
+export function solidPaletteValueToRef(
   value: SolidPaletteValue,
 ): typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL {
   if (value === "black") return BLACK_PIXEL;
@@ -133,16 +143,22 @@ export function patternSamplingKey(entry: PatternPaletteEntry): string {
   return `${entry.offsetX},${entry.offsetY},${entry.rotation},${entry.reflectX ? 1 : 0},${entry.reflectY ? 1 : 0}`;
 }
 
-export function nextPatternPaletteIndex(palette: ProjectPalette): PaletteIndex | null {
-  const used = new Set(palette.entries.map((entry) => entry.index));
-  for (let index = FIRST_PATTERN_PALETTE_INDEX; index <= MAX_PALETTE_INDEX; index += 1) {
-    if (!used.has(index)) return index;
+export function nextPatternSwatchRef(palette: ProjectPalette): SwatchRef | null {
+  const used = new Set(palette.entries.map((entry) => entry.ref));
+  for (let ref = FIRST_PATTERN_SWATCH_REF; ref <= MAX_SWATCH_REF; ref += 1) {
+    if (!used.has(ref)) return ref;
   }
   return null;
 }
 
-export function firstPatternPaletteIndex(palette: ProjectPalette): PaletteIndex | null {
-  return palette.entries.find((entry) => entry.type === "pattern")?.index ?? null;
+function swatchShortcutRefs(palette: ProjectPalette): SwatchRef[] {
+  const fixedEntries = [
+    palette.entries.find((entry) => entry.type === "solid" && entry.value === "alpha"),
+    palette.entries.find((entry) => entry.type === "solid" && entry.value === "black"),
+    palette.entries.find((entry) => entry.type === "solid" && entry.value === "white"),
+  ].filter((entry): entry is PaletteEntry => Boolean(entry));
+  const fixedRefs = new Set(fixedEntries.map((entry) => entry.ref));
+  return [...fixedEntries.map((entry) => entry.ref), ...palette.entries.filter((entry) => !fixedRefs.has(entry.ref)).map((entry) => entry.ref)];
 }
 
 export function nextPatternPreviewHue(palette: ProjectPalette): number {
@@ -164,7 +180,7 @@ export function nextDuplicatePatternPreviewHue(palette: ProjectPalette, sourceHu
 export function normalizedPatternEntry(entry: PatternPaletteEntry): PatternPaletteEntry {
   return {
     ...entry,
-    patternId: builtInPattern(entry.patternId) ? entry.patternId : "checker-50",
+    patternId: builtInPattern(entry.patternId) ? entry.patternId : "bayer-2x2-2",
     offsetX: normalizeInteger(entry.offsetX),
     offsetY: normalizeInteger(entry.offsetY),
     rotation: entry.rotation === 90 || entry.rotation === 180 || entry.rotation === 270 ? entry.rotation : 0,
@@ -174,18 +190,18 @@ export function normalizedPatternEntry(entry: PatternPaletteEntry): PatternPalet
   };
 }
 
-function resolvePaletteIndex(
+function resolveSwatchRef(
   palette: ProjectPalette,
-  index: PaletteIndex,
+  ref: SwatchRef,
   point: Point,
-  seen: Set<PaletteIndex>,
+  seen: Set<SwatchRef>,
 ): typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL {
-  if (seen.has(index)) return TRANSPARENT_PIXEL;
-  seen.add(index);
+  if (seen.has(ref)) return TRANSPARENT_PIXEL;
+  seen.add(ref);
 
-  const entry = paletteEntryForIndex(palette, index);
+  const entry = paletteEntryForRef(palette, ref);
   if (!entry) return TRANSPARENT_PIXEL;
-  if (entry.type === "solid") return solidPaletteValueToIndex(entry.value);
+  if (entry.type === "solid") return solidPaletteValueToRef(entry.value);
 
   return samplePatternAt(entry.patternId, point, entry) ? BLACK_PIXEL : WHITE_PIXEL;
 }

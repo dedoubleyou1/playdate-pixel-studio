@@ -25,7 +25,7 @@ export { contextLabel, hasActiveSelection, selectActiveSelection };
 export const useEditorStore = create<EditorStoreState>((set, get) => ({
   ...createInitialSnapshot(),
   activeTool: "pencil",
-  activePaletteIndex: BLACK_PIXEL,
+  activeSwatchRef: BLACK_PIXEL,
   brushSize: 1,
   brushShape: "square",
   mirrorX: false,

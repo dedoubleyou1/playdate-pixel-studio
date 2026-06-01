@@ -160,7 +160,7 @@ describe("panel selectors", () => {
     paletteChanged.root.layers = [createObjectInstanceLayer(1, "Object", "object-1")];
     paletteChanged.palette = {
       entries: paletteChanged.palette.entries.map((entry) =>
-        entry.index === BLACK_PIXEL && entry.type === "solid" ? { ...entry, value: "white" } : entry,
+        entry.ref === BLACK_PIXEL && entry.type === "solid" ? { ...entry, value: "white" } : entry,
       ),
     };
     expect(selectLayerThumbnailKey(paletteChanged, "root", 1)).not.toBe(layerKey);

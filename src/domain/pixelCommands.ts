@@ -3,7 +3,7 @@ import {
   type BinaryMaskSurface,
   type BrushShape,
   type CanvasToolPreview,
-  type PaletteIndex,
+  type SwatchRef,
   type PixelLayer,
   type Point,
   type Tool,
@@ -15,7 +15,7 @@ export interface PixelToolSettings {
   brushShape: BrushShape;
   mirrorX: boolean;
   mirrorY: boolean;
-  paletteIndex: PaletteIndex;
+  swatchRef: SwatchRef;
   selectionMask?: BinaryMaskSurface | null;
 }
 
@@ -73,7 +73,7 @@ export function applyPixelToolStart(
   }
 
   if (isFillTool(tool)) {
-    return { changed: floodFill(layer, point, paletteIndexForTool(tool, settings), settings.selectionMask) };
+    return { changed: floodFill(layer, point, swatchRefForTool(tool, settings), settings.selectionMask) };
   }
 
   return { changed: false };
@@ -118,12 +118,12 @@ function brushOptions(tool: Tool, settings: PixelToolSettings): BrushOptions {
     size: settings.brushSize,
     mirrorX: settings.mirrorX,
     mirrorY: settings.mirrorY,
-    paletteIndex: paletteIndexForTool(tool, settings),
+    swatchRef: swatchRefForTool(tool, settings),
     selectionMask: settings.selectionMask,
   };
 }
 
-export function paletteIndexForTool(tool: Tool, settings: PixelToolSettings): PaletteIndex {
+export function swatchRefForTool(tool: Tool, settings: PixelToolSettings): SwatchRef {
   if (tool === "eraser") return TRANSPARENT_PIXEL;
-  return settings.paletteIndex;
+  return settings.swatchRef;
 }

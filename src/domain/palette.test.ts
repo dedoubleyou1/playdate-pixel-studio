@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   defaultProjectPalette,
   paletteEntryLabel,
+  numberShortcutForSwatchRef,
   resolvePaletteEntry,
   resolvePaletteEntryPreviewColor,
-  solidPaletteValueToIndex,
+  solidPaletteValueToRef,
+  swatchRefForNumberShortcut,
 } from "./palette";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type { ProjectPalette } from "./types";
@@ -18,7 +20,7 @@ describe("palette resolver", () => {
     expect(resolvePaletteEntry(palette, WHITE_PIXEL, { x: 0, y: 0 })).toBe(WHITE_PIXEL);
   });
 
-  it("resolves the built-in black-over-white pattern ramp", () => {
+  it("resolves the built-in 2x2 Bayer ramp", () => {
     const palette = defaultProjectPalette();
 
     expect(resolvePaletteEntry(palette, 3, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
@@ -26,22 +28,49 @@ describe("palette resolver", () => {
     expect(resolvePaletteEntry(palette, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
     expect(resolvePaletteEntry(palette, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
     expect(resolvePaletteEntry(palette, 4, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 5, { x: 0, y: 1 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 5, { x: 1, y: 1 })).toBe(WHITE_PIXEL);
+    expect(resolvePaletteEntry(palette, 5, { x: 0, y: 1 })).toBe(WHITE_PIXEL);
+    expect(resolvePaletteEntry(palette, 5, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
+  });
+
+  it("resolves swatch refs independently of palette entry order", () => {
+    const palette = defaultProjectPalette();
+    const reordered: ProjectPalette = {
+      entries: [palette.entries[4], palette.entries[0], palette.entries[5], palette.entries[1], palette.entries[3], palette.entries[2]],
+    };
+
+    expect(resolvePaletteEntry(reordered, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolvePaletteEntry(reordered, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(paletteEntryLabel(reordered, BLACK_PIXEL)).toBe("Black");
+  });
+
+  it("assigns number shortcuts with fixed solid slots and ordered pattern slots", () => {
+    const palette = defaultProjectPalette();
+    const reordered: ProjectPalette = {
+      entries: [palette.entries[4], palette.entries[0], palette.entries[5], palette.entries[1], palette.entries[3], palette.entries[2]],
+    };
+
+    expect(swatchRefForNumberShortcut(reordered, "0")).toBe(TRANSPARENT_PIXEL);
+    expect(swatchRefForNumberShortcut(reordered, "1")).toBe(BLACK_PIXEL);
+    expect(swatchRefForNumberShortcut(reordered, "2")).toBe(WHITE_PIXEL);
+    expect(swatchRefForNumberShortcut(reordered, "3")).toBe(4);
+    expect(swatchRefForNumberShortcut(reordered, "4")).toBe(5);
+    expect(swatchRefForNumberShortcut(reordered, "5")).toBe(3);
+    expect(numberShortcutForSwatchRef(reordered, 3)).toBe("5");
+    expect(swatchRefForNumberShortcut(reordered, "d")).toBeNull();
   });
 
   it("applies pattern sampling offsets visually", () => {
     const palette: ProjectPalette = {
       entries: [
-        { id: "alpha", index: 0, name: "Transparent", type: "solid", value: "alpha" },
-        { id: "black", index: 1, name: "Black", type: "solid", value: "black" },
-        { id: "white", index: 2, name: "White", type: "solid", value: "white" },
+        { id: "alpha", ref: 0, name: "Transparent", type: "solid", value: "alpha" },
+        { id: "black", ref: 1, name: "Black", type: "solid", value: "black" },
+        { id: "white", ref: 2, name: "White", type: "solid", value: "white" },
         {
           id: "offset",
-          index: 3,
+          ref: 3,
           name: "Offset",
           type: "pattern",
-          patternId: "checker-50",
+          patternId: "bayer-2x2-2",
           previewHue: 210,
           offsetX: 1,
           offsetY: 0,
@@ -59,15 +88,15 @@ describe("palette resolver", () => {
   it("applies pattern rotations and reflections", () => {
     const palette: ProjectPalette = {
       entries: [
-        { id: "alpha", index: 0, name: "Transparent", type: "solid", value: "alpha" },
-        { id: "black", index: 1, name: "Black", type: "solid", value: "black" },
-        { id: "white", index: 2, name: "White", type: "solid", value: "white" },
+        { id: "alpha", ref: 0, name: "Transparent", type: "solid", value: "alpha" },
+        { id: "black", ref: 1, name: "Black", type: "solid", value: "black" },
+        { id: "white", ref: 2, name: "White", type: "solid", value: "white" },
         {
           id: "rotated",
-          index: 3,
+          ref: 3,
           name: "Rotated",
           type: "pattern",
-          patternId: "hatch-vertical",
+          patternId: "hatch-vertical-1",
           previewHue: 210,
           offsetX: 0,
           offsetY: 0,
@@ -77,10 +106,10 @@ describe("palette resolver", () => {
         },
         {
           id: "reflected",
-          index: 4,
+          ref: 4,
           name: "Reflected",
           type: "pattern",
-          patternId: "stair-step",
+          patternId: "hatch-diagonal-1",
           previewHue: 300,
           offsetX: 0,
           offsetY: 0,
@@ -101,7 +130,7 @@ describe("palette resolver", () => {
 
     expect(resolvePaletteEntry(palette, 99, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
     expect(paletteEntryLabel(palette, 99)).toBe("Transparent");
-    expect(solidPaletteValueToIndex("white")).toBe(WHITE_PIXEL);
+    expect(solidPaletteValueToRef("white")).toBe(WHITE_PIXEL);
   });
 
   it("resolves colorized pattern previews from swatch hues", () => {
@@ -135,15 +164,15 @@ describe("palette resolver", () => {
   it("keeps colorized preview hues on swatches when pattern IDs change", () => {
     const palette: ProjectPalette = {
       entries: [
-        { id: "alpha", index: 0, name: "Transparent", type: "solid", value: "alpha" },
-        { id: "black", index: 1, name: "Black", type: "solid", value: "black" },
-        { id: "white", index: 2, name: "White", type: "solid", value: "white" },
+        { id: "alpha", ref: 0, name: "Transparent", type: "solid", value: "alpha" },
+        { id: "black", ref: 1, name: "Black", type: "solid", value: "black" },
+        { id: "white", ref: 2, name: "White", type: "solid", value: "white" },
         {
-          id: "blue-dots",
-          index: 3,
-          name: "Blue Dots",
+          id: "blue-hatch",
+          ref: 3,
+          name: "Blue Hatch",
           type: "pattern",
-          patternId: "dots-grid",
+          patternId: "hatch-diagonal-1",
           previewHue: 210,
           offsetX: 0,
           offsetY: 0,
@@ -152,11 +181,11 @@ describe("palette resolver", () => {
           rotation: 0,
         },
         {
-          id: "magenta-dots",
-          index: 4,
-          name: "Magenta Dots",
+          id: "magenta-hatch",
+          ref: 4,
+          name: "Magenta Hatch",
           type: "pattern",
-          patternId: "dots-grid",
+          patternId: "hatch-diagonal-1",
           previewHue: 300,
           offsetX: 0,
           offsetY: 0,
@@ -178,4 +207,5 @@ describe("palette resolver", () => {
       b: 128,
     });
   });
+
 });

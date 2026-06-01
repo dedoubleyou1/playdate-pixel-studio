@@ -6,7 +6,7 @@ import type { EditorStoreSet, EditorStoreState } from "../editorStoreTypes";
 type InteractionActions = Pick<
   EditorStoreState,
   | "setTool"
-  | "setActivePaletteIndex"
+  | "setActiveSwatchRef"
   | "setBrushSize"
   | "setBrushShape"
   | "setMirrorX"
@@ -46,10 +46,10 @@ export function createInteractionActions(set: EditorStoreSet): InteractionAction
         };
       }),
 
-    setActivePaletteIndex: (activePaletteIndex) =>
+    setActiveSwatchRef: (activeSwatchRef) =>
       set((state) => ({
-        activePaletteIndex,
-        status: `${paletteEntryLabel(state.palette, activePaletteIndex)} selected`,
+        activeSwatchRef,
+        status: `${paletteEntryLabel(state.palette, activeSwatchRef)} selected`,
       })),
 
     setBrushSize: (brushSize) => set({ brushSize }),

@@ -29,7 +29,7 @@ describe("project schema", () => {
     expect(document.width).toBe(PLAYDATE_WIDTH);
     expect(document.height).toBe(PLAYDATE_HEIGHT);
     expect(document.snapshot.palette.entries).toHaveLength(snapshot.palette.entries.length);
-    expect(document.snapshot.palette.entries[3]).toMatchObject({ type: "pattern", patternId: "checker-25" });
+    expect(document.snapshot.palette.entries[3]).toMatchObject({ type: "pattern", patternId: "bayer-2x2-1" });
     expect(document.snapshot.root.layers[0]).toMatchObject({ pixelEditable: true, contentRevision: 0 });
     expect("locked" in document.snapshot.root.layers[0]).toBe(false);
     expect("opacity" in document.snapshot.root.layers[0]).toBe(false);
@@ -122,7 +122,7 @@ describe("project schema", () => {
       index: 3,
       name: "Legacy Dither",
       type: "dither",
-      patternId: "checker-50",
+      patternId: "missing-local-dither",
       foregroundIndex: BLACK_PIXEL,
       backgroundIndex: WHITE_PIXEL,
     };
@@ -131,11 +131,11 @@ describe("project schema", () => {
 
     expect(restored.palette.entries[3]).toMatchObject({
       id: "legacy-dither",
-      index: 3,
+      ref: 3,
       name: "Legacy Dither",
       offsetX: 0,
       offsetY: 0,
-      patternId: "checker-50",
+      patternId: "bayer-2x2-2",
       previewHue: 210,
       reflectX: false,
       reflectY: false,
@@ -203,7 +203,36 @@ describe("project schema", () => {
     });
   });
 
-  it("repairs missing pattern IDs and duplicate palette indexes", () => {
+  it("migrates legacy palette index fields to swatch refs", () => {
+    const document = serializeProject(
+      {
+        palette: createDefaultPalette(),
+        root: createRootStack(),
+        objects: [],
+        activeContext: { type: "root" },
+      },
+      "project-1",
+      "Legacy Indexes",
+    ) as unknown as {
+      schemaVersion: 9;
+      snapshot: {
+        palette: {
+          entries: Array<Record<string, unknown>>;
+        };
+      };
+    };
+    document.schemaVersion = 9;
+    for (const entry of document.snapshot.palette.entries) {
+      entry.index = entry.ref;
+      delete entry.ref;
+    }
+
+    const restored = deserializeProject(document as never);
+
+    expect(restored.palette.entries.map((entry) => entry.ref)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
+  it("repairs missing pattern IDs and duplicate swatch refs", () => {
     const document = serializeProject(
       {
         palette: createDefaultPalette(),
@@ -218,11 +247,11 @@ describe("project schema", () => {
     const secondPattern = document.snapshot.palette.entries[4];
     if (firstPattern.type !== "pattern" || secondPattern.type !== "pattern") throw new Error("Expected pattern swatches");
     firstPattern.patternId = "missing-pattern";
-    secondPattern.index = firstPattern.index;
+    secondPattern.ref = firstPattern.ref;
 
     const restored = deserializeProject(document);
 
-    expect(restored.palette.entries[3]).toMatchObject({ patternId: "checker-50" });
-    expect(new Set(restored.palette.entries.map((entry) => entry.index)).size).toBe(restored.palette.entries.length);
+    expect(restored.palette.entries[3]).toMatchObject({ patternId: "bayer-2x2-2" });
+    expect(new Set(restored.palette.entries.map((entry) => entry.ref)).size).toBe(restored.palette.entries.length);
   });
 });

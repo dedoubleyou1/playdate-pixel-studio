@@ -17,7 +17,7 @@ const defaultSettings: PixelToolSettings = {
   brushShape: "square",
   mirrorX: false,
   mirrorY: false,
-  paletteIndex: BLACK_PIXEL,
+  swatchRef: BLACK_PIXEL,
 };
 
 describe("pixel command helpers", () => {
@@ -48,7 +48,7 @@ describe("pixel command helpers", () => {
     expect(
       applyPixelToolStart(layer, { x: 2, y: 2 }, "pencil", {
         ...defaultSettings,
-        paletteIndex: WHITE_PIXEL,
+        swatchRef: WHITE_PIXEL,
       }).changed,
     ).toBe(true);
     expect(layer.surface.data[indexFor(2, 2)]).toBe(WHITE_PIXEL);
@@ -72,7 +72,7 @@ describe("pixel command helpers", () => {
     expect(
       applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", {
         ...defaultSettings,
-        paletteIndex: 3,
+        swatchRef: 3,
       }).changed,
     ).toBe(true);
 
@@ -108,7 +108,7 @@ describe("pixel command helpers", () => {
     expect(applyPixelToolStart(layer, { x: 0, y: 0 }, "pencil", settings).changed).toBe(false);
     expect(applyPixelToolStart(layer, { x: 1, y: 1 }, "pencil", settings).changed).toBe(true);
     expect(applyPixelToolFinish(layer, { x: 0, y: 0 }, { x: 4, y: 0 }, "line", settings).changed).toBe(false);
-    expect(applyPixelToolStart(layer, { x: 2, y: 2 }, "fill", { ...settings, paletteIndex: WHITE_PIXEL }).changed).toBe(
+    expect(applyPixelToolStart(layer, { x: 2, y: 2 }, "fill", { ...settings, swatchRef: WHITE_PIXEL }).changed).toBe(
       true,
     );
 

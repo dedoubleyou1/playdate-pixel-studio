@@ -1,7 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "./constants";
 import { cloneBinaryMaskSurface } from "./masks";
 import { defaultProjectPalette } from "./palette";
-import { MAX_PALETTE_INDEX, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
+import { MAX_SWATCH_REF, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type {
   EditContext,
   EditorSnapshot,
@@ -181,7 +181,7 @@ function normalizeSurfaceData(data: Uint8Array, expectedLength: number): Uint8Ar
 }
 
 function normalizePixelValue(value: number): PixelValue {
-  return Number.isInteger(value) && value >= 0 && value <= MAX_PALETTE_INDEX ? value : TRANSPARENT_PIXEL;
+  return Number.isInteger(value) && value >= 0 && value <= MAX_SWATCH_REF ? value : TRANSPARENT_PIXEL;
 }
 
 function clonePalette(palette: ProjectPalette): ProjectPalette {

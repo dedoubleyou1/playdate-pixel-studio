@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import {
-  paletteEntryForIndex,
+  paletteEntryForRef,
   projectPaletteKey,
   resolvePaletteEntryPreviewColor,
 } from "../domain/palette";
@@ -30,7 +30,7 @@ function PixelSwatch({
   swatchSize?: number;
   value: PixelValue;
 }): React.JSX.Element {
-  const entry = palette ? paletteEntryForIndex(palette, value) : null;
+  const entry = palette ? paletteEntryForRef(palette, value) : null;
   const style =
     entry?.type === "pattern" && palette
       ? ditherSwatchStyle(palette, entry.patternId, value, sampleSize, swatchSize, colorizedPatterns)

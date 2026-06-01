@@ -5,8 +5,8 @@ import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import { drawBrushAt, drawEllipse, drawInterpolatedStroke, drawLine, drawRect, floodFill } from "./pixelOps";
 
 describe("pixel operations", () => {
-  const pencilOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, paletteIndex: BLACK_PIXEL };
-  const eraserOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, paletteIndex: TRANSPARENT_PIXEL };
+  const pencilOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, swatchRef: BLACK_PIXEL };
+  const eraserOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, swatchRef: TRANSPARENT_PIXEL };
 
   it("draws pencil, eraser, and palette-index brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
@@ -25,7 +25,7 @@ describe("pixel operations", () => {
         shape: "square",
         mirrorX: false,
         mirrorY: false,
-        paletteIndex: 3,
+        swatchRef: 3,
       },
     );
     expect(layer.surface.data[indexFor(11, 11)]).toBe(3);
@@ -44,7 +44,7 @@ describe("pixel operations", () => {
           shape: "square",
           mirrorX: false,
           mirrorY: false,
-          paletteIndex: WHITE_PIXEL,
+          swatchRef: WHITE_PIXEL,
         },
       ),
     ).toBe(true);

@@ -10,7 +10,7 @@ export function pixelToolSettings(): PixelToolSettings {
     brushShape: state.brushShape,
     mirrorX: state.mirrorX,
     mirrorY: state.mirrorY,
-    paletteIndex: state.activePaletteIndex,
+    swatchRef: state.activeSwatchRef,
     selectionMask: currentSelection()?.mask ?? null,
   };
 }
