@@ -111,6 +111,30 @@ describe("composeImageData", () => {
     expect(layer.surface.data[indexFor(1, 1)]).toBe(BLACK_PIXEL);
   });
 
+  it("resolves pattern swatches in layer move previews at the destination coordinates", () => {
+    const layer = createLayer(1, "Layer", 2, 1);
+    layer.surface.data[indexFor(0, 0, 2)] = 4;
+
+    const image = composeImageData([layer], createImageData, {
+      baseShade: 192,
+      height: 1,
+      movePreview: { layerIndex: 0, dx: 1, dy: 0 },
+      width: 2,
+    });
+    const colorized = composeImageData([layer], createImageData, {
+      baseShade: 192,
+      colorizedPatterns: true,
+      height: 1,
+      movePreview: { layerIndex: 0, dx: 1, dy: 0 },
+      width: 2,
+    });
+
+    expect(redAtWidth(image, 2, 0, 0)).toBe(192);
+    expect(redAtWidth(image, 2, 1, 0)).toBe(255);
+    expect(pixelAt(colorized.data, 2, 1, 0)).toEqual([255, 191, 255, 255]);
+    expect(layer.surface.data[indexFor(0, 0, 2)]).toBe(4);
+  });
+
   it("renders selection move previews without moving unselected pixels", () => {
     const layer = createLayer(1, "Layer", 4, 4);
     layer.surface.data[indexFor(1, 1, 4)] = BLACK_PIXEL;

@@ -228,7 +228,7 @@ function compositePixelSurface(
       if (!alphaMaskAllows(alphaMask, x, y) || (skipMask && alphaMaskAllows(skipMask, x, y))) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = surface.data[sourceIndex];
-      const sourceShade = pixelToShade(resolvePaletteEntry(palette, pixel, { x, y }));
+      const sourceShade = pixelToShade(resolvePaletteEntry(palette, pixel, { x: targetX, y: targetY }));
       if (sourceShade === null) continue;
       const targetIndex = targetY * width + targetX;
       frame.shades[targetIndex] = sourceShade;
@@ -323,7 +323,7 @@ function compositeColorPixelSurface(
       if (!alphaMaskAllows(alphaMask, x, y) || (skipMask && alphaMaskAllows(skipMask, x, y))) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = surface.data[sourceIndex];
-      const sourceColor = resolvePaletteEntryPreviewColor(palette, pixel, { x, y }, { colorizedPatterns });
+      const sourceColor = resolvePaletteEntryPreviewColor(palette, pixel, { x: targetX, y: targetY }, { colorizedPatterns });
       if (!sourceColor) continue;
       const targetIndex = targetY * width + targetX;
       compositeColorAt(frame, targetIndex, sourceColor.r, sourceColor.g, sourceColor.b);
