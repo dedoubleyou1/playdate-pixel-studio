@@ -1,6 +1,7 @@
 import { snapshotsEqual } from "../../domain/commands";
 import {
   addPixelLayer,
+  activePixelLayerUsesPatternSwatches,
   clearActivePixelLayer,
   deleteActiveLayer,
   duplicateActiveLayer,
@@ -460,10 +461,21 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
     },
 
     invertActiveLayer: () => {
+      const current = get();
+      const currentStack = activeStack(current);
+      const rasterizesPatterns = activePixelLayerUsesPatternSwatches(currentStack, current.palette);
+      if (
+        rasterizesPatterns &&
+        typeof window !== "undefined" &&
+        !window.confirm("This will rasterize pattern swatches on the active layer before inverting it. Continue?")
+      ) {
+        set({ status: "Invert layer cancelled" });
+        return;
+      }
       const before = snapshotFrom(get());
       set((state) => {
         const stack = activeStack(state);
-        const result = invertActivePixelLayer(stack);
+        const result = invertActivePixelLayer(stack, state.palette);
         if (!hasLayerStackMutation(result)) return { status: result.status };
         return {
           ...replaceActiveStack(state, result.stack),

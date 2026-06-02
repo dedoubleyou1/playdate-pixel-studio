@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { indexFor } from "./pixelGeometry";
+import { defaultProjectPalette } from "./palette";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import {
   addPixelLayer,
@@ -105,6 +106,24 @@ describe("layer commands", () => {
     if (clearedLayer.type !== "pixel") throw new Error("Expected pixel layer");
     expect(clearedLayer.surface.data.every((pixel) => pixel === TRANSPARENT_PIXEL)).toBe(true);
     expect(clearedLayer.contentRevision).toBe(invertedLayer.contentRevision + 1);
+  });
+
+  it("rasterizes pattern swatches before inverting active pixel layers", () => {
+    const stack = createRootStack();
+    const layer = stack.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected pixel layer");
+    layer.surface.data[indexFor(0, 0)] = 4;
+    layer.surface.data[indexFor(1, 0)] = 4;
+
+    const inverted = invertActivePixelLayer(stack, defaultProjectPalette());
+    expect(hasLayerStackMutation(inverted)).toBe(true);
+    if (!hasLayerStackMutation(inverted)) throw new Error("Expected inverted layer stack");
+    const invertedLayer = inverted.stack.layers[0];
+    if (invertedLayer.type !== "pixel") throw new Error("Expected pixel layer");
+
+    expect(inverted.status).toBe("Pattern swatches rasterized and layer inverted");
+    expect(invertedLayer.surface.data[indexFor(0, 0)]).toBe(WHITE_PIXEL);
+    expect(invertedLayer.surface.data[indexFor(1, 0)]).toBe(BLACK_PIXEL);
   });
 
   it("translates pixel layers with clipping", () => {

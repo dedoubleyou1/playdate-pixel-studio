@@ -1,7 +1,8 @@
 import { clampLayerIndex, cloneLayer, createLayer, isPixelEditableLayer } from "./layers";
 import { translateBinaryMaskSurface } from "./masks";
+import { rasterizeSwatchRefsInSurface, surfaceUsesSwatchRefs } from "./rasterization";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
-import type { Layer, LayerStack, PixelLayer, PixelValue } from "./types";
+import type { Layer, LayerStack, PixelLayer, PixelValue, ProjectPalette, SwatchRef } from "./types";
 
 export interface LayerStackMutation {
   stack: LayerStack;
@@ -182,23 +183,34 @@ export function clearActivePixelLayer(stack: LayerStack): LayerStackMutationResu
   };
 }
 
-export function invertActivePixelLayer(stack: LayerStack): LayerStackMutationResult {
+export function activePixelLayerUsesPatternSwatches(stack: LayerStack, palette: ProjectPalette): boolean {
+  const layer = stack.layers[stack.activeLayerIndex];
+  if (!isPixelEditableLayer(layer)) return false;
+  const patternRefs = patternSwatchRefs(palette);
+  return patternRefs.size > 0 && surfaceUsesSwatchRefs(layer.surface, patternRefs);
+}
+
+export function invertActivePixelLayer(stack: LayerStack, palette?: ProjectPalette): LayerStackMutationResult {
   const layer = stack.layers[stack.activeLayerIndex];
   if (!isPixelEditableLayer(layer)) {
     return { status: "Active layer does not support pixel drawing" };
   }
-  if (!layer.surface.data.some((pixel) => pixel === BLACK_PIXEL || pixel === WHITE_PIXEL)) {
+  const patternRefs = palette ? patternSwatchRefs(palette) : new Set<SwatchRef>();
+  const rasterized = palette
+    ? rasterizeSwatchRefsInSurface(layer.surface, palette, patternRefs)
+    : { changed: false, value: layer.surface };
+  if (!rasterized.value.data.some((pixel) => pixel === BLACK_PIXEL || pixel === WHITE_PIXEL)) {
     return { status: "Layer has no black or white pixels to invert" };
   }
 
-  const data = new Uint8Array(layer.surface.data.length);
-  for (let pixel = 0; pixel < layer.surface.data.length; pixel += 1) {
+  const data = new Uint8Array(rasterized.value.data);
+  for (let pixel = 0; pixel < rasterized.value.data.length; pixel += 1) {
     data[pixel] =
-      layer.surface.data[pixel] === BLACK_PIXEL
+      rasterized.value.data[pixel] === BLACK_PIXEL
         ? WHITE_PIXEL
-        : layer.surface.data[pixel] === WHITE_PIXEL
+        : rasterized.value.data[pixel] === WHITE_PIXEL
           ? BLACK_PIXEL
-          : TRANSPARENT_PIXEL;
+          : rasterized.value.data[pixel];
   }
 
   return {
@@ -210,7 +222,7 @@ export function invertActivePixelLayer(stack: LayerStack): LayerStackMutationRes
           : candidate,
       ),
     },
-    status: "Layer inverted",
+    status: rasterized.changed ? "Pattern swatches rasterized and layer inverted" : "Layer inverted",
   };
 }
 
@@ -246,4 +258,8 @@ function translatePixelLayer(layer: PixelLayer, dx: number, dy: number): PixelLa
       data,
     },
   };
+}
+
+function patternSwatchRefs(palette: ProjectPalette): ReadonlySet<SwatchRef> {
+  return new Set(palette.entries.filter((entry) => entry.type === "pattern").map((entry) => entry.ref));
 }

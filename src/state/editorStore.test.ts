@@ -324,6 +324,42 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().palette.entries.some((entry) => entry.ref === 4)).toBe(true);
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
+
+  it("confirms and rasterizes pattern swatches before inverting a layer", () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal("window", { confirm });
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(0, 0, layer.surface.width)] = 4;
+    layer.surface.data[indexFor(1, 0, layer.surface.width)] = 4;
+
+    useEditorStore.getState().invertActiveLayer();
+
+    const state = useEditorStore.getState();
+    const currentLayer = currentActivePixelLayer();
+    expect(confirm).toHaveBeenCalledWith(
+      "This will rasterize pattern swatches on the active layer before inverting it. Continue?",
+    );
+    expect(currentLayer?.surface.data[indexFor(0, 0, layer.surface.width)]).toBe(WHITE_PIXEL);
+    expect(currentLayer?.surface.data[indexFor(1, 0, layer.surface.width)]).toBe(BLACK_PIXEL);
+    expect(state.status).toBe("Invert layer");
+    expect(state.undoStack.at(-1)?.label).toBe("Invert layer");
+  });
+
+  it("can cancel inverting a layer when pattern swatches would be rasterized", () => {
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("window", { confirm });
+    const layer = currentActivePixelLayer();
+    if (!layer) throw new Error("Expected active pixel layer");
+    layer.surface.data[indexFor(0, 0, layer.surface.width)] = 4;
+
+    useEditorStore.getState().invertActiveLayer();
+
+    expect(confirm).toHaveBeenCalled();
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0, layer.surface.width)]).toBe(4);
+    expect(useEditorStore.getState().status).toBe("Invert layer cancelled");
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+  });
 });
 
 describe("editor store pending commands", () => {
