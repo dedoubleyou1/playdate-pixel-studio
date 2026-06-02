@@ -3,8 +3,8 @@ import {
   defaultProjectPalette,
   paletteEntryLabel,
   numberShortcutForSwatchRef,
-  resolvePaletteEntry,
-  resolvePaletteEntryPreviewColor,
+  resolveSwatchAtSamplePoint,
+  resolveSwatchPreviewColorAtSamplePoint,
   solidPaletteValueToRef,
   swatchRefForNumberShortcut,
 } from "./palette";
@@ -15,21 +15,21 @@ describe("palette resolver", () => {
   it("resolves solid alpha, black, and white entries", () => {
     const palette = defaultProjectPalette();
 
-    expect(resolvePaletteEntry(palette, TRANSPARENT_PIXEL, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
-    expect(resolvePaletteEntry(palette, BLACK_PIXEL, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, WHITE_PIXEL, { x: 0, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, TRANSPARENT_PIXEL, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, BLACK_PIXEL, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, WHITE_PIXEL, { x: 0, y: 0 })).toBe(WHITE_PIXEL);
   });
 
   it("resolves the built-in 2x2 Bayer ramp", () => {
     const palette = defaultProjectPalette();
 
-    expect(resolvePaletteEntry(palette, 3, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 3, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
-    expect(resolvePaletteEntry(palette, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
-    expect(resolvePaletteEntry(palette, 4, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 5, { x: 0, y: 1 })).toBe(WHITE_PIXEL);
-    expect(resolvePaletteEntry(palette, 5, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 4, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 5, { x: 0, y: 1 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 5, { x: 1, y: 1 })).toBe(BLACK_PIXEL);
   });
 
   it("resolves swatch refs independently of palette entry order", () => {
@@ -38,8 +38,8 @@ describe("palette resolver", () => {
       entries: [palette.entries[4], palette.entries[0], palette.entries[5], palette.entries[1], palette.entries[3], palette.entries[2]],
     };
 
-    expect(resolvePaletteEntry(reordered, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(reordered, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(reordered, 4, { x: 0, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(reordered, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
     expect(paletteEntryLabel(reordered, BLACK_PIXEL)).toBe("Black");
   });
 
@@ -81,8 +81,8 @@ describe("palette resolver", () => {
       ],
     };
 
-    expect(resolvePaletteEntry(palette, 3, { x: 0, y: 0 })).toBe(WHITE_PIXEL);
-    expect(resolvePaletteEntry(palette, 3, { x: 1, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 0, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 1, y: 0 })).toBe(BLACK_PIXEL);
   });
 
   it("applies pattern rotations and reflections", () => {
@@ -120,15 +120,15 @@ describe("palette resolver", () => {
       ],
     };
 
-    expect(resolvePaletteEntry(palette, 3, { x: 1, y: 0 })).toBe(BLACK_PIXEL);
-    expect(resolvePaletteEntry(palette, 3, { x: 0, y: 1 })).toBe(WHITE_PIXEL);
-    expect(resolvePaletteEntry(palette, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 1, y: 0 })).toBe(BLACK_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 3, { x: 0, y: 1 })).toBe(WHITE_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 4, { x: 1, y: 0 })).toBe(WHITE_PIXEL);
   });
 
   it("normalizes unknown entries to alpha labels and values", () => {
     const palette = defaultProjectPalette();
 
-    expect(resolvePaletteEntry(palette, 99, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
+    expect(resolveSwatchAtSamplePoint(palette, 99, { x: 0, y: 0 })).toBe(TRANSPARENT_PIXEL);
     expect(paletteEntryLabel(palette, 99)).toBe("Transparent");
     expect(solidPaletteValueToRef("white")).toBe(WHITE_PIXEL);
   });
@@ -136,28 +136,28 @@ describe("palette resolver", () => {
   it("resolves colorized pattern previews from swatch hues", () => {
     const palette = defaultProjectPalette();
 
-    expect(resolvePaletteEntryPreviewColor(palette, 3, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, 3, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 0,
       g: 64,
       b: 128,
     });
-    expect(resolvePaletteEntryPreviewColor(palette, 3, { x: 1, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, 3, { x: 1, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 191,
       g: 223,
       b: 255,
     });
-    expect(resolvePaletteEntryPreviewColor(palette, BLACK_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, BLACK_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 0,
       g: 0,
       b: 0,
     });
-    expect(resolvePaletteEntryPreviewColor(palette, WHITE_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, WHITE_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 255,
       g: 255,
       b: 255,
     });
     expect(
-      resolvePaletteEntryPreviewColor(palette, TRANSPARENT_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true }),
+      resolveSwatchPreviewColorAtSamplePoint(palette, TRANSPARENT_PIXEL, { x: 0, y: 0 }, { colorizedPatterns: true }),
     ).toBeNull();
   });
 
@@ -196,12 +196,12 @@ describe("palette resolver", () => {
       ],
     };
 
-    expect(resolvePaletteEntryPreviewColor(palette, 3, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, 3, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 0,
       g: 64,
       b: 128,
     });
-    expect(resolvePaletteEntryPreviewColor(palette, 4, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
+    expect(resolveSwatchPreviewColorAtSamplePoint(palette, 4, { x: 0, y: 0 }, { colorizedPatterns: true })).toEqual({
       r: 128,
       g: 0,
       b: 128,

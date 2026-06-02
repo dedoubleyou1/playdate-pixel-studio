@@ -101,23 +101,23 @@ export function projectPaletteKey(palette: ProjectPalette): string {
     .concat(`:patterns-v${PATTERN_LIBRARY_VERSION}`);
 }
 
-export function resolvePaletteEntry(
+export function resolveSwatchAtSamplePoint(
   palette: ProjectPalette,
   ref: SwatchRef,
-  point: Point,
+  samplePoint: Point,
 ): typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL {
-  return resolveSwatchRef(palette, normalizeSwatchRef(ref), point, new Set());
+  return resolveSwatchRef(palette, normalizeSwatchRef(ref), samplePoint, new Set());
 }
 
-export function resolvePaletteEntryPreviewColor(
+export function resolveSwatchPreviewColorAtSamplePoint(
   palette: ProjectPalette,
   ref: SwatchRef,
-  point: Point,
+  samplePoint: Point,
   options: PalettePreviewOptions = {},
 ): PalettePreviewColor | null {
   const swatchRef = normalizeSwatchRef(ref);
   const entry = paletteEntryForRef(palette, swatchRef);
-  const pixel = resolveSwatchRef(palette, swatchRef, point, new Set());
+  const pixel = resolveSwatchRef(palette, swatchRef, samplePoint, new Set());
 
   if (options.colorizedPatterns && entry?.type === "pattern") {
     const pattern = builtInPattern(entry.patternId);
@@ -193,7 +193,7 @@ export function normalizedPatternEntry(entry: PatternPaletteEntry): PatternPalet
 function resolveSwatchRef(
   palette: ProjectPalette,
   ref: SwatchRef,
-  point: Point,
+  samplePoint: Point,
   seen: Set<SwatchRef>,
 ): typeof TRANSPARENT_PIXEL | typeof BLACK_PIXEL | typeof WHITE_PIXEL {
   if (seen.has(ref)) return TRANSPARENT_PIXEL;
@@ -203,7 +203,7 @@ function resolveSwatchRef(
   if (!entry) return TRANSPARENT_PIXEL;
   if (entry.type === "solid") return solidPaletteValueToRef(entry.value);
 
-  return samplePatternAt(entry.patternId, point, entry) ? BLACK_PIXEL : WHITE_PIXEL;
+  return samplePatternAt(entry.patternId, samplePoint, entry) ? BLACK_PIXEL : WHITE_PIXEL;
 }
 
 function positiveModulo(value: number, divisor: number): number {

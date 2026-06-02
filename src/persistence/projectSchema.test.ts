@@ -49,33 +49,6 @@ describe("project schema", () => {
     );
   });
 
-  it("drops legacy layer opacity when deserializing and reserializing", () => {
-    const snapshot: EditorSnapshot = {
-      palette: createDefaultPalette(),
-      root: createRootStack(),
-      objects: [createObjectDefinition("object-1", "Object 1", 16, 16)],
-      activeContext: { type: "root" },
-    };
-    const legacyDocument = serializeProject(snapshot, "project-1", "Legacy Project") as unknown as {
-      schemaVersion: 7;
-      snapshot: {
-        root: { layers: Array<Record<string, unknown>> };
-        objects: Array<{ layers: Array<Record<string, unknown>> }>;
-      };
-    };
-    legacyDocument.schemaVersion = 7;
-    legacyDocument.snapshot.root.layers[0].opacity = 25;
-    legacyDocument.snapshot.objects[0].layers[0].opacity = 50;
-
-    const restored = deserializeProject(legacyDocument as never);
-    const reserialized = serializeProject(restored, "project-1", "Legacy Project");
-
-    expect("opacity" in restored.root.layers[0]).toBe(false);
-    expect("opacity" in restored.objects[0].layers[0]).toBe(false);
-    expect("opacity" in reserialized.snapshot.root.layers[0]).toBe(false);
-    expect("opacity" in reserialized.snapshot.objects[0].layers[0]).toBe(false);
-  });
-
   it("clamps invalid active layer indexes while deserializing", () => {
     const snapshot: EditorSnapshot = {
       palette: createDefaultPalette(),
@@ -96,52 +69,6 @@ describe("project schema", () => {
 
     expect(restored.root.activeLayerIndex).toBe(0);
     expect(restored.objects[0].activeLayerIndex).toBe(0);
-  });
-
-  it("migrates legacy dither palette entries into pattern swatches", () => {
-    const document = serializeProject(
-      {
-        palette: createDefaultPalette(),
-        root: createRootStack(),
-        objects: [],
-        activeContext: { type: "root" },
-      },
-      "project-1",
-      "Legacy Dither",
-    ) as unknown as {
-      schemaVersion: 8;
-      snapshot: {
-        palette: {
-          entries: Array<Record<string, unknown>>;
-        };
-      };
-    };
-    document.schemaVersion = 8;
-    document.snapshot.palette.entries[3] = {
-      id: "legacy-dither",
-      index: 3,
-      name: "Legacy Dither",
-      type: "dither",
-      patternId: "missing-local-dither",
-      foregroundIndex: BLACK_PIXEL,
-      backgroundIndex: WHITE_PIXEL,
-    };
-
-    const restored = deserializeProject(document as never);
-
-    expect(restored.palette.entries[3]).toMatchObject({
-      id: "legacy-dither",
-      ref: 3,
-      name: "Legacy Dither",
-      offsetX: 0,
-      offsetY: 0,
-      patternId: "bayer-2x2-2",
-      previewHue: 210,
-      reflectX: false,
-      reflectY: false,
-      rotation: 0,
-      type: "pattern",
-    });
   });
 
   it("repairs missing and duplicated swatch preview hues while deserializing", () => {
@@ -201,35 +128,6 @@ describe("project schema", () => {
       reflectY: false,
       rotation: 90,
     });
-  });
-
-  it("migrates legacy palette index fields to swatch refs", () => {
-    const document = serializeProject(
-      {
-        palette: createDefaultPalette(),
-        root: createRootStack(),
-        objects: [],
-        activeContext: { type: "root" },
-      },
-      "project-1",
-      "Legacy Indexes",
-    ) as unknown as {
-      schemaVersion: 9;
-      snapshot: {
-        palette: {
-          entries: Array<Record<string, unknown>>;
-        };
-      };
-    };
-    document.schemaVersion = 9;
-    for (const entry of document.snapshot.palette.entries) {
-      entry.index = entry.ref;
-      delete entry.ref;
-    }
-
-    const restored = deserializeProject(document as never);
-
-    expect(restored.palette.entries.map((entry) => entry.ref)).toEqual([0, 1, 2, 3, 4, 5]);
   });
 
   it("repairs missing pattern IDs and duplicate swatch refs", () => {

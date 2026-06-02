@@ -1,6 +1,6 @@
 import { clampLayerIndex, cloneLayer, createLayer, isPixelEditableLayer } from "./layers";
 import { translateBinaryMaskSurface } from "./masks";
-import { rasterizeSwatchRefsInSurface, surfaceUsesSwatchRefs } from "./rasterization";
+import { rasterizeSwatchRefsInSurfaceAtOrigin, surfaceUsesSwatchRefs } from "./rasterization";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "./types";
 import type { Layer, LayerStack, PixelLayer, PixelValue, ProjectPalette, SwatchRef } from "./types";
 
@@ -197,7 +197,7 @@ export function invertActivePixelLayer(stack: LayerStack, palette?: ProjectPalet
   }
   const patternRefs = palette ? patternSwatchRefs(palette) : new Set<SwatchRef>();
   const rasterized = palette
-    ? rasterizeSwatchRefsInSurface(layer.surface, palette, patternRefs)
+    ? rasterizeSwatchRefsInSurfaceAtOrigin(layer.surface, palette, patternRefs)
     : { changed: false, value: layer.surface };
   if (!rasterized.value.data.some((pixel) => pixel === BLACK_PIXEL || pixel === WHITE_PIXEL)) {
     return { status: "Layer has no black or white pixels to invert" };

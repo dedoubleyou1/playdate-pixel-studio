@@ -8,7 +8,7 @@ describe("pixel operations", () => {
   const pencilOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, swatchRef: BLACK_PIXEL };
   const eraserOptions = { shape: "square" as const, size: 1, mirrorX: false, mirrorY: false, swatchRef: TRANSPARENT_PIXEL };
 
-  it("draws pencil, eraser, and palette-index brush pixels", () => {
+  it("draws pencil, eraser, and swatch-ref brush pixels", () => {
     const layer = createLayer(1, "Layer 1");
 
     expect(drawBrushAt(layer, { x: 10, y: 10 }, pencilOptions)).toBe(true);
@@ -103,7 +103,7 @@ describe("pixel operations", () => {
     expect(layer.surface.data[indexFor(0, 0)]).toBe(0);
   });
 
-  it("flood fills with palette indexes", () => {
+  it("flood fills with swatch refs", () => {
     const layer = createLayer(1, "Layer 1");
 
     expect(floodFill(layer, { x: 0, y: 0 }, 3)).toBe(true);

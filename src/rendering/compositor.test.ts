@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_WIDTH } from "../domain/constants";
-import { createLayer, createSurface } from "../domain/layers";
+import { createLayer, createObjectDefinition, createObjectInstanceLayer, createSurface } from "../domain/layers";
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
@@ -61,7 +61,7 @@ describe("composeImageData", () => {
     expect(redAt(transparent, 1, 1)).toBe(192);
   });
 
-  it("resolves dither palette indexes at composition time", () => {
+  it("resolves pattern swatch refs at composition time", () => {
     const layer = createLayer(1, "Layer");
     layer.surface.data[indexFor(0, 0)] = 4;
     layer.surface.data[indexFor(1, 0)] = 4;
@@ -75,7 +75,7 @@ describe("composeImageData", () => {
     expect(layer.surface.data[indexFor(1, 0)]).toBe(4);
   });
 
-  it("can colorize dither patterns for editor previews without changing shade composition", () => {
+  it("can colorize pattern swatches for editor previews without changing shade composition", () => {
     const layer = createLayer(1, "Layer");
     layer.surface.data[indexFor(0, 0)] = 3;
     layer.surface.data[indexFor(1, 0)] = 3;
@@ -156,6 +156,42 @@ describe("composeImageData", () => {
     expect(redAtWidth(image, 4, 2, 1)).toBe(0);
     expect(redAtWidth(image, 4, 3, 1)).toBe(0);
     expect(layer.surface.data[indexFor(1, 1, 4)]).toBe(BLACK_PIXEL);
+  });
+
+  it("resolves pattern swatches in selection move previews at the destination coordinates", () => {
+    const layer = createLayer(1, "Layer", 2, 1);
+    layer.surface.data[indexFor(0, 0, 2)] = 4;
+    const mask = createBinaryMaskSurface(2, 1);
+    mask.data[indexFor(0, 0, 2)] = 1;
+    const floating = createSurface(2, 1);
+    floating.data[indexFor(0, 0, 2)] = 4;
+
+    const image = composeImageData([layer], createImageData, {
+      baseShade: 192,
+      height: 1,
+      selectionMovePreview: { layerIndex: 0, dx: 1, dy: 0, mask, surface: floating },
+      width: 2,
+    });
+
+    expect(redAtWidth(image, 2, 0, 0)).toBe(192);
+    expect(redAtWidth(image, 2, 1, 0)).toBe(255);
+    expect(layer.surface.data[indexFor(0, 0, 2)]).toBe(4);
+  });
+
+  it("keeps object pattern swatches in object-local sample space when instances move", () => {
+    const object = createObjectDefinition("object-1", "Object", 1, 1);
+    object.layers[0].surface.data[0] = 4;
+    const instance = createObjectInstanceLayer(1, "Object", object.id);
+    instance.x = 1;
+
+    const image = composeImageData([instance], createImageData, {
+      height: 1,
+      objects: [object],
+      width: 2,
+    });
+
+    expect(redAtWidth(image, 2, 0, 0)).toBe(255);
+    expect(redAtWidth(image, 2, 1, 0)).toBe(0);
   });
 
   it("can render implicit full-layer move previews with translated alpha masks", () => {

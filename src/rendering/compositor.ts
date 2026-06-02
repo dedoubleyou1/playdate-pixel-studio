@@ -1,6 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { alphaMaskAllows } from "../domain/masks";
-import { defaultProjectPalette, resolvePaletteEntry } from "../domain/palette";
+import { defaultProjectPalette, resolveSwatchAtSamplePoint } from "../domain/palette";
 import { BLACK_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { BinaryMaskSurface, Layer, ObjectDefinition, ObjectInstanceLayer, PixelSurface, PixelValue } from "../domain/types";
 import type { ProjectPalette } from "../domain/types";
@@ -128,7 +128,7 @@ export function drawPixelSurfaceThumbnail(
       height: surface.height,
       shadeAt: (x, y) =>
         alphaMaskAllows(alphaMask, x, y)
-          ? pixelToThumbnailShade(resolvePaletteEntry(palette, surface.data[y * surface.width + x], { x, y }))
+          ? pixelToThumbnailShade(resolveSwatchAtSamplePoint(palette, surface.data[y * surface.width + x], { x, y }))
           : TRANSPARENT_PREVIEW_SHADE,
       width: surface.width,
     },

@@ -66,7 +66,7 @@ describe("pixel command helpers", () => {
     expect(applyPixelToolStart(layer, { x: 0, y: 0 }, "fill", defaultSettings).changed).toBe(false);
   });
 
-  it("applies the active palette index to fill tools", () => {
+  it("applies the active swatch ref to fill tools", () => {
     const layer = createLayer(1, "Layer 1");
 
     expect(

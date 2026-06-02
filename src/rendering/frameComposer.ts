@@ -1,5 +1,5 @@
 import { alphaMaskAllows } from "../domain/masks.ts";
-import { defaultProjectPalette, resolvePaletteEntry, resolvePaletteEntryPreviewColor } from "../domain/palette.ts";
+import { defaultProjectPalette, resolveSwatchAtSamplePoint, resolveSwatchPreviewColorAtSamplePoint } from "../domain/palette.ts";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types.ts";
 import type {
   BinaryMaskSurface,
@@ -228,7 +228,7 @@ function compositePixelSurface(
       if (!alphaMaskAllows(alphaMask, x, y) || (skipMask && alphaMaskAllows(skipMask, x, y))) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = surface.data[sourceIndex];
-      const sourceShade = pixelToShade(resolvePaletteEntry(palette, pixel, { x: targetX, y: targetY }));
+      const sourceShade = pixelToShade(resolveSwatchAtSamplePoint(palette, pixel, { x: targetX, y: targetY }));
       if (sourceShade === null) continue;
       const targetIndex = targetY * width + targetX;
       frame.shades[targetIndex] = sourceShade;
@@ -323,7 +323,7 @@ function compositeColorPixelSurface(
       if (!alphaMaskAllows(alphaMask, x, y) || (skipMask && alphaMaskAllows(skipMask, x, y))) continue;
       const sourceIndex = y * sourceWidth + x;
       const pixel = surface.data[sourceIndex];
-      const sourceColor = resolvePaletteEntryPreviewColor(palette, pixel, { x: targetX, y: targetY }, { colorizedPatterns });
+      const sourceColor = resolveSwatchPreviewColorAtSamplePoint(palette, pixel, { x: targetX, y: targetY }, { colorizedPatterns });
       if (!sourceColor) continue;
       const targetIndex = targetY * width + targetX;
       compositeColorAt(frame, targetIndex, sourceColor.r, sourceColor.g, sourceColor.b);
@@ -404,7 +404,7 @@ function initializeBackground(
 ): void {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const backgroundShade = pixelToShade(resolvePaletteEntry(palette, background, { x, y }));
+      const backgroundShade = pixelToShade(resolveSwatchAtSamplePoint(palette, background, { x, y }));
       const index = y * width + x;
       frame.shades[index] = backgroundShade ?? transparentShade;
       if (backgroundShade !== null) {
@@ -425,7 +425,7 @@ function initializeColorBackground(
 ): void {
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
-      const backgroundColor = resolvePaletteEntryPreviewColor(palette, background, { x, y }, { colorizedPatterns });
+      const backgroundColor = resolveSwatchPreviewColorAtSamplePoint(palette, background, { x, y }, { colorizedPatterns });
       const index = y * width + x;
       frame.red[index] = backgroundColor?.r ?? transparentShade;
       frame.green[index] = backgroundColor?.g ?? transparentShade;

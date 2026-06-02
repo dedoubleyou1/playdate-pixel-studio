@@ -1,4 +1,4 @@
-import { resolvePaletteEntry } from "./palette";
+import { resolveSwatchAtSamplePoint } from "./palette";
 import { TRANSPARENT_PIXEL, type LayerStack, type SwatchRef, type PixelLayer, type PixelSurface, type ProjectPalette } from "./types";
 
 export interface RasterizationResult<T> {
@@ -6,19 +6,19 @@ export interface RasterizationResult<T> {
   value: T;
 }
 
-export function rasterizeSwatchRefAtPoint(
+export function rasterizeSwatchAtSamplePoint(
   palette: ProjectPalette,
   swatchRef: SwatchRef,
-  point: { x: number; y: number },
+  samplePoint: { x: number; y: number },
 ): SwatchRef {
-  return resolvePaletteEntry(palette, swatchRef, point);
+  return resolveSwatchAtSamplePoint(palette, swatchRef, samplePoint);
 }
 
-export function rasterizeSwatchRefsInSurface(
+export function rasterizeSwatchRefsInSurfaceAtOrigin(
   surface: PixelSurface,
   palette: ProjectPalette,
   targetRefs: ReadonlySet<SwatchRef>,
-  origin: { x: number; y: number } = { x: 0, y: 0 },
+  sampleOrigin: { x: number; y: number } = { x: 0, y: 0 },
 ): RasterizationResult<PixelSurface> {
   let changed = false;
   const data = new Uint8Array(surface.data);
@@ -28,7 +28,7 @@ export function rasterizeSwatchRefsInSurface(
       const index = y * surface.width + x;
       const swatchRef = data[index];
       if (!targetRefs.has(swatchRef)) continue;
-      const resolved = rasterizeSwatchRefAtPoint(palette, swatchRef, { x: x + origin.x, y: y + origin.y });
+      const resolved = rasterizeSwatchAtSamplePoint(palette, swatchRef, { x: x + sampleOrigin.x, y: y + sampleOrigin.y });
       if (resolved !== swatchRef) {
         data[index] = resolved;
         changed = true;
@@ -56,7 +56,7 @@ export function rasterizeSwatchRefsInLayerStack(
   let changed = false;
   const layers = stack.layers.map((layer) => {
     if (layer.type !== "pixel") return layer;
-    const rasterized = rasterizeSwatchRefsInSurface(layer.surface, palette, targetRefs);
+    const rasterized = rasterizeSwatchRefsInSurfaceAtOrigin(layer.surface, palette, targetRefs);
     if (!rasterized.changed) return layer;
     changed = true;
     return {
@@ -88,7 +88,7 @@ function rasterizedBackgroundLayer(stack: LayerStack, palette: ProjectPalette): 
   const data = new Uint8Array(stack.width * stack.height);
   for (let y = 0; y < stack.height; y += 1) {
     for (let x = 0; x < stack.width; x += 1) {
-      data[y * stack.width + x] = rasterizeSwatchRefAtPoint(palette, stack.background, { x, y });
+      data[y * stack.width + x] = rasterizeSwatchAtSamplePoint(palette, stack.background, { x, y });
     }
   }
 

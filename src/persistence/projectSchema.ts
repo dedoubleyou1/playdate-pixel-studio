@@ -1,7 +1,6 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
-import { DEFAULT_PATTERN_SAMPLING, builtInPattern } from "../domain/patterns";
 import { normalizedPatternEntry, nextDuplicatePatternPreviewHue, nextPatternSwatchRef, nextPatternPreviewHue } from "../domain/palette";
 import type {
   EditContext,
@@ -12,7 +11,6 @@ import type {
   ObjectInstanceLayer,
   PaletteEntry,
   SwatchRef,
-  PatternPaletteEntry,
   PatternRotation,
   PixelLayer,
   PixelValue,
@@ -27,7 +25,6 @@ import {
 } from "./serializedSurface";
 
 export const PROJECT_SCHEMA_VERSION = 10;
-const SUPPORTED_PROJECT_SCHEMA_VERSIONS = new Set([6, 7, 8, 9, PROJECT_SCHEMA_VERSION]);
 
 export interface SerializedBaseLayer {
   id: number;
@@ -61,24 +58,8 @@ export interface SerializedLayerStack {
   layers: SerializedLayer[];
 }
 
-interface SerializedDitherPaletteEntry {
-  id: string;
-  index: SwatchRef;
-  name: string;
-  type: "dither";
-  patternId: string;
-  foregroundIndex: SwatchRef;
-  backgroundIndex: SwatchRef;
-}
-
-type SerializedPaletteEntry =
-  | PaletteEntry
-  | SerializedDitherPaletteEntry
-  | (Omit<SolidPaletteEntry, "ref"> & { index: SwatchRef; ref?: SwatchRef })
-  | (Omit<PatternPaletteEntry, "ref"> & { index: SwatchRef; ref?: SwatchRef });
-
 export interface SerializedProjectPalette {
-  entries: SerializedPaletteEntry[];
+  entries: PaletteEntry[];
 }
 
 export interface SerializedObjectDefinition extends SerializedLayerStack {
@@ -88,7 +69,7 @@ export interface SerializedObjectDefinition extends SerializedLayerStack {
 }
 
 export interface PlaydateProjectDocument {
-  schemaVersion: 6 | 7 | 8 | 9 | 10;
+  schemaVersion: typeof PROJECT_SCHEMA_VERSION;
   id: string;
   name: string;
   width: number;
@@ -126,7 +107,7 @@ export function serializeProject(snapshot: EditorSnapshot, id: string, name: str
 }
 
 export function deserializeProject(document: PlaydateProjectDocument): EditorSnapshot {
-  if (!SUPPORTED_PROJECT_SCHEMA_VERSIONS.has(document.schemaVersion)) {
+  if (document.schemaVersion !== PROJECT_SCHEMA_VERSION) {
     throw new Error("Unsupported project schema version.");
   }
 
@@ -148,7 +129,7 @@ export function exportProjectJson(document: PlaydateProjectDocument): string {
 
 export function parseProjectJson(json: string): PlaydateProjectDocument {
   const parsed = JSON.parse(json) as PlaydateProjectDocument;
-  if (!parsed || typeof parsed !== "object" || !SUPPORTED_PROJECT_SCHEMA_VERSIONS.has(parsed.schemaVersion)) {
+  if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== PROJECT_SCHEMA_VERSION) {
     throw new Error("The selected file is not a Playdate Pixel Studio project.");
   }
   return parsed;
@@ -189,11 +170,11 @@ function deserializePalette(palette: SerializedProjectPalette): ProjectPalette {
   });
 }
 
-function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
+function deserializePaletteEntry(entry: PaletteEntry): PaletteEntry {
   if (entry.type === "solid") {
     return {
       id: entry.id,
-      ref: serializedSwatchRef(entry),
+      ref: entry.ref,
       name: entry.name,
       type: "solid",
       value: entry.value,
@@ -202,7 +183,7 @@ function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
   if (entry.type === "pattern") {
     return normalizedPatternEntry({
       id: entry.id,
-      ref: serializedSwatchRef(entry),
+      ref: entry.ref,
       name: entry.name,
       type: "pattern",
       patternId: entry.patternId,
@@ -214,24 +195,7 @@ function deserializePaletteEntry(entry: SerializedPaletteEntry): PaletteEntry {
       reflectY: Boolean(entry.reflectY),
     });
   }
-
-  return migrateDitherEntry(entry);
-}
-
-// Temporary unreleased-project migration shim.
-// This exists only to move local test projects from the old dither shape to
-// pattern swatches and can be deleted before release once local data is migrated.
-function migrateDitherEntry(entry: SerializedDitherPaletteEntry): PatternPaletteEntry {
-  const patternId = builtInPattern(entry.patternId) ? entry.patternId : "bayer-2x2-2";
-  return normalizedPatternEntry({
-    id: entry.id,
-    ref: entry.index,
-    name: entry.name,
-    type: "pattern",
-    patternId,
-    previewHue: Number.NaN,
-    ...DEFAULT_PATTERN_SAMPLING,
-  });
+  throw new Error("Unsupported palette entry type.");
 }
 
 function repairPalette(palette: ProjectPalette): ProjectPalette {
@@ -261,11 +225,6 @@ function repairSolidEntry(entry: SolidPaletteEntry): SolidPaletteEntry {
 
 function nextAvailableRef(palette: ProjectPalette): SwatchRef {
   return nextPatternSwatchRef(palette) ?? TRANSPARENT_PIXEL;
-}
-
-function serializedSwatchRef(entry: { index?: SwatchRef; ref?: SwatchRef }): SwatchRef {
-  if (Number.isInteger(entry.ref)) return entry.ref as SwatchRef;
-  return entry.index ?? TRANSPARENT_PIXEL;
 }
 
 function repairPatternPreviewHue(

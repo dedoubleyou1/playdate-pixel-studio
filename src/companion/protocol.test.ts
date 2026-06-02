@@ -40,7 +40,7 @@ describe("Playdate companion protocol", () => {
     expect(frame.payload.every((byte) => byte === 0x00)).toBe(true);
   });
 
-  it("resolves dither palette indexes before packing physical frames", () => {
+  it("resolves pattern swatch refs before packing physical frames", () => {
     const layer = createLayer(1, "Dither");
     layer.surface.data[indexFor(0, 0)] = 4;
     layer.surface.data[indexFor(1, 0)] = 4;

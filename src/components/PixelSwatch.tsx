@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import {
   paletteEntryForRef,
   projectPaletteKey,
-  resolvePaletteEntryPreviewColor,
+  resolveSwatchPreviewColorAtSamplePoint,
 } from "../domain/palette";
 import { builtInPattern } from "../domain/patterns";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
@@ -13,7 +13,7 @@ const SWATCH_CLASSES: Record<number, string> = {
   [BLACK_PIXEL]: "bg-foreground",
   [WHITE_PIXEL]: "bg-background",
 };
-const ditherSwatchImageCache = new Map<string, string>();
+const patternSwatchImageCache = new Map<string, string>();
 
 function PixelSwatch({
   className,
@@ -33,7 +33,7 @@ function PixelSwatch({
   const entry = palette ? paletteEntryForRef(palette, value) : null;
   const style =
     entry?.type === "pattern" && palette
-      ? ditherSwatchStyle(palette, entry.patternId, value, sampleSize, swatchSize, colorizedPatterns)
+      ? patternSwatchStyle(palette, entry.patternId, value, sampleSize, swatchSize, colorizedPatterns)
       : undefined;
 
   return (
@@ -49,7 +49,7 @@ function PixelSwatch({
   );
 }
 
-function ditherSwatchStyle(
+function patternSwatchStyle(
   palette: ProjectPalette,
   patternId: string,
   value: PixelValue,
@@ -57,7 +57,7 @@ function ditherSwatchStyle(
   swatchSize: number,
   colorizedPatterns: boolean,
 ): React.CSSProperties {
-  const image = ditherSwatchImage(palette, patternId, value, sampleSize, swatchSize, colorizedPatterns);
+  const image = patternSwatchImage(palette, patternId, value, sampleSize, swatchSize, colorizedPatterns);
   if (!image) return {};
 
   return {
@@ -70,7 +70,7 @@ function ditherSwatchStyle(
   };
 }
 
-function ditherSwatchImage(
+function patternSwatchImage(
   palette: ProjectPalette,
   patternId: string,
   value: PixelValue,
@@ -86,7 +86,7 @@ function ditherSwatchImage(
   const size = Math.max(1, Math.floor(sampleSize));
   const outputSize = Math.max(size, Math.floor(swatchSize));
   const cacheKey = `${projectPaletteKey(palette)}:${patternId}:${value}:${size}:${outputSize}:${colorizedPatterns}`;
-  const cached = ditherSwatchImageCache.get(cacheKey);
+  const cached = patternSwatchImageCache.get(cacheKey);
   if (cached) return cached;
 
   const canvas = document.createElement("canvas");
@@ -98,14 +98,14 @@ function ditherSwatchImage(
   const cellSize = outputSize / size;
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
-      const color = resolvePaletteEntryPreviewColor(palette, value, { x, y }, { colorizedPatterns });
+      const color = resolveSwatchPreviewColorAtSamplePoint(palette, value, { x, y }, { colorizedPatterns });
       context.fillStyle = color ? `rgb(${color.r} ${color.g} ${color.b})` : "#d4d4d8";
       context.fillRect(x * cellSize, y * cellSize, cellSize, cellSize);
     }
   }
 
   const image = canvas.toDataURL("image/png");
-  ditherSwatchImageCache.set(cacheKey, image);
+  patternSwatchImageCache.set(cacheKey, image);
   return image;
 }
 
