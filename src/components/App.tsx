@@ -29,6 +29,7 @@ export function App(): React.JSX.Element {
   const copySelection = useEditorStore((state) => state.copySelection);
   const cutSelection = useEditorStore((state) => state.cutSelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
+  const setColorizedPatternsModifierActive = useEditorStore((state) => state.setColorizedPatternsModifierActive);
 
   useEffect(() => {
     let canceled = false;
@@ -44,6 +45,10 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        setColorizedPatternsModifierActive(true);
+      }
+
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === "z") {
         event.preventDefault();
@@ -140,7 +145,39 @@ export function App(): React.JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [clearSelection, copySelection, cutSelection, newProject, pasteClipboard, redo, saveProject, setActiveSwatchRef, setTool, undo]);
+  }, [
+    clearSelection,
+    copySelection,
+    cutSelection,
+    newProject,
+    pasteClipboard,
+    redo,
+    saveProject,
+    setActiveSwatchRef,
+    setColorizedPatternsModifierActive,
+    setTool,
+    undo,
+  ]);
+
+  useEffect(() => {
+    const clearShiftPreview = () => setColorizedPatternsModifierActive(false);
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") clearShiftPreview();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") clearShiftPreview();
+    };
+
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", clearShiftPreview);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", clearShiftPreview);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearShiftPreview();
+    };
+  }, [setColorizedPatternsModifierActive]);
 
   if (!projectReady) {
     return <EditorShell aria-label="Opening recent project" />;

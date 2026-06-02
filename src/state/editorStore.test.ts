@@ -8,7 +8,13 @@ import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMask
 import { beginGestureTransaction } from "../input/gestureTransaction";
 import { parseEditorClipboardJson, serializeEditorClipboard } from "../persistence/clipboardSchema";
 import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
-import { currentActiveLayer, currentActivePixelLayer, hasActiveSelection, useEditorStore } from "./editorStore";
+import {
+  currentActiveLayer,
+  currentActivePixelLayer,
+  effectiveColorizedPatternsVisible,
+  hasActiveSelection,
+  useEditorStore,
+} from "./editorStore";
 
 const projectDbMock = vi.hoisted(() => ({
   deleteProjectDocument: vi.fn(),
@@ -146,6 +152,23 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().viewRevision).toBe(1);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("increments only view revision for temporary colorized pattern inversion", () => {
+    const state = useEditorStore.getState();
+
+    expect(effectiveColorizedPatternsVisible(state)).toBe(false);
+
+    state.setColorizedPatternsModifierActive(true);
+
+    expect(useEditorStore.getState().colorizedPatternsModifierActive).toBe(true);
+    expect(effectiveColorizedPatternsVisible(useEditorStore.getState())).toBe(true);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+
+    useEditorStore.getState().setColorizedPatternsVisible(true);
+    expect(effectiveColorizedPatternsVisible(useEditorStore.getState())).toBe(false);
   });
 
   it("increments only view revision when switching edit contexts", () => {
@@ -286,7 +309,7 @@ describe("editor store revision semantics", () => {
     expect(confirm).toHaveBeenCalled();
     expect(currentLayer?.surface.data[indexFor(0, 0, layer.surface.width)]).toBe(BLACK_PIXEL);
     expect(state.palette.entries.some((entry) => entry.ref === 4)).toBe(false);
-    expect(state.activeSwatchRef).toBe(BLACK_PIXEL);
+    expect(state.activeSwatchRef).toBe(3);
     expect(state.undoStack.at(-1)?.label).toBe("Delete pattern swatch");
   });
 
@@ -901,6 +924,7 @@ function resetStore(): void {
   useEditorStore.setState({
     canRedo: false,
     canUndo: false,
+    colorizedPatternsModifierActive: false,
     colorizedPatternsVisible: false,
     currentProjectId: null,
     hasUnsavedChanges: false,

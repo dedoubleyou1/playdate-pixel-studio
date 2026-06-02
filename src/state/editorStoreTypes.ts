@@ -57,6 +57,7 @@ export interface EditorSessionState {
   gridVisible: boolean;
   gridSize: number;
   colorizedPatternsVisible: boolean;
+  colorizedPatternsModifierActive: boolean;
   zoom: number;
   status: string;
   cursorLabel: string;
@@ -102,6 +103,7 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   setGridVisible: (visible: boolean) => void;
   setGridSize: (size: number) => void;
   setColorizedPatternsVisible: (visible: boolean) => void;
+  setColorizedPatternsModifierActive: (active: boolean) => void;
   setZoom: (zoom: number) => void;
   setStatus: (status: string) => void;
   setCursorLabel: (label: string) => void;

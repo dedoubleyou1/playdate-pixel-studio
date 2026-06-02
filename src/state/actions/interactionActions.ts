@@ -14,6 +14,7 @@ type InteractionActions = Pick<
   | "setGridVisible"
   | "setGridSize"
   | "setColorizedPatternsVisible"
+  | "setColorizedPatternsModifierActive"
   | "setZoom"
   | "setStatus"
   | "setCursorLabel"
@@ -68,6 +69,13 @@ export function createInteractionActions(set: EditorStoreSet): InteractionAction
         state.colorizedPatternsVisible === colorizedPatternsVisible
           ? {}
           : { colorizedPatternsVisible, viewRevision: state.viewRevision + 1 },
+      ),
+
+    setColorizedPatternsModifierActive: (colorizedPatternsModifierActive) =>
+      set((state) =>
+        state.colorizedPatternsModifierActive === colorizedPatternsModifierActive
+          ? {}
+          : { colorizedPatternsModifierActive, viewRevision: state.viewRevision + 1 },
       ),
 
     setZoom: (zoom) => set({ zoom }),

@@ -9,7 +9,7 @@ import {
 import { activeStack } from "../domain/layers";
 import { EditorCanvas } from "../rendering/editorCanvas";
 import type { SelectionOverlayHandle } from "../components/SelectionOverlay";
-import { useEditorStore } from "../state/editorStore";
+import { effectiveColorizedPatternsVisible, useEditorStore } from "../state/editorStore";
 import {
   idleGestureState,
   isActiveGesture,
@@ -44,7 +44,7 @@ export function useCanvasEditor(
     editorCanvasRef.current?.render({
       activeLayerIndex: currentStack.activeLayerIndex,
       background: currentStack.background,
-      colorizedPatterns: current.colorizedPatternsVisible,
+      colorizedPatterns: effectiveColorizedPatternsVisible(current),
       editTarget: current.editTarget,
       layers: currentStack.layers,
       movePreview: request.layerMovePreview ?? null,

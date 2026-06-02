@@ -22,6 +22,12 @@ import type { EditorDocument, EditorSessionState, EditorStoreState } from "./edi
 export type { EditorDocument, EditorSessionState, EditorStoreState };
 export { contextLabel, hasActiveSelection, selectActiveSelection };
 
+export function effectiveColorizedPatternsVisible(
+  state: Pick<EditorSessionState, "colorizedPatternsModifierActive" | "colorizedPatternsVisible">,
+): boolean {
+  return state.colorizedPatternsVisible !== state.colorizedPatternsModifierActive;
+}
+
 export const useEditorStore = create<EditorStoreState>((set, get) => ({
   ...createInitialSnapshot(),
   activeTool: "pencil",
@@ -33,6 +39,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   gridVisible: false,
   gridSize: 1,
   colorizedPatternsVisible: false,
+  colorizedPatternsModifierActive: false,
   zoom: 2,
   status: "Pencil ready",
   cursorLabel: "x: -- y: --",

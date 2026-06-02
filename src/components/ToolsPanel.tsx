@@ -41,7 +41,7 @@ import type {
 import { EditorControlRow, EditorPanel, EditorPane, EditorPaneTitle } from "./layout/editor-layout";
 import { PixelSwatch } from "./PixelSwatch";
 import { PlaydateStreamMenu } from "./PlaydateStreamMenu";
-import { useEditorStore } from "../state/editorStore";
+import { effectiveColorizedPatternsVisible, useEditorStore } from "../state/editorStore";
 
 interface ToolButtonConfig {
   tool: Tool;
@@ -87,7 +87,7 @@ export function ToolsPanel(): React.JSX.Element {
   const activeTool = useEditorStore((state) => state.activeTool);
   const setTool = useEditorStore((state) => state.setTool);
   const palette = useEditorStore((state) => state.palette);
-  const colorizedPatternsVisible = useEditorStore((state) => state.colorizedPatternsVisible);
+  const colorizedPatternsVisible = useEditorStore(effectiveColorizedPatternsVisible);
   const activeSwatchRef = useEditorStore((state) => state.activeSwatchRef);
   const setActiveSwatchRef = useEditorStore((state) => state.setActiveSwatchRef);
   const addPatternSwatch = useEditorStore((state) => state.addPatternSwatch);

@@ -125,6 +125,15 @@ export function snapshotUsesSwatchRef(snapshot: EditorSnapshot, ref: SwatchRef):
 
 export function fallbackActiveSwatchRef(palette: ProjectPalette, deletedRef: SwatchRef): SwatchRef {
   if (palette.entries.some((entry) => entry.ref === deletedRef)) return deletedRef;
-  if (palette.entries.some((entry) => entry.ref === BLACK_PIXEL)) return BLACK_PIXEL;
-  return palette.entries.find((entry) => entry.ref <= MAX_SWATCH_REF)?.ref ?? BLACK_PIXEL;
+  const nearest = palette.entries
+    .filter((entry) => entry.ref <= MAX_SWATCH_REF)
+    .reduce<SwatchRef | null>((closest, entry) => {
+      if (closest === null) return entry.ref;
+      const entryDistance = Math.abs(entry.ref - deletedRef);
+      const closestDistance = Math.abs(closest - deletedRef);
+      if (entryDistance < closestDistance) return entry.ref;
+      if (entryDistance === closestDistance && entry.ref < closest) return entry.ref;
+      return closest;
+    }, null);
+  return nearest ?? BLACK_PIXEL;
 }
