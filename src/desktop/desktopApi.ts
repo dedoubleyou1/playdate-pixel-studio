@@ -198,7 +198,9 @@ export async function openCompanionPdxInSimulator(): Promise<DesktopFileResult> 
 
 export async function startDesktopStream(): Promise<DesktopStreamStatus> {
   const desktopApi = requireDesktopApi();
-  return desktopApi.stream.start();
+  const result = await desktopApi.stream.start();
+  if (!result.ok) throw new Error(result.error ?? "Unable to start the Playdate stream.");
+  return result;
 }
 
 export async function stopDesktopStream(): Promise<DesktopStreamStatus> {

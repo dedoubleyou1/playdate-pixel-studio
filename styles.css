@@ -275,6 +275,14 @@ body {
   color: var(--destructive);
 }
 
+.stream-error {
+  padding: 10px;
+  border: 1px solid rgba(179, 38, 30, 0.32);
+  border-radius: 8px;
+  background: rgba(179, 38, 30, 0.08);
+  color: var(--destructive);
+}
+
 .stream-readout-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

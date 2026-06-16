@@ -661,6 +661,9 @@ async function pathExists(filePath: string): Promise<boolean> {
 }
 
 function errorMessage(error: unknown): string {
+  if (error instanceof Error && /EADDRINUSE|address already in use/i.test(error.message)) {
+    return "Playdate stream port 9138 is already in use. Close the other Playdate Pixel Studio window or stop its stream, then try again.";
+  }
   return error instanceof Error ? error.message : "Unexpected desktop app error.";
 }
 

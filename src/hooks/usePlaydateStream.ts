@@ -24,6 +24,7 @@ export interface PlaydateStreamController {
   enabled: boolean;
   streamState: PlaydateStreamState;
   streamStatusLabel: string;
+  streamError: string | null;
   streamActionDisabled: boolean;
   streamInfo: PlaydateStreamInfo | null;
   primaryHost: string;
@@ -34,6 +35,7 @@ export interface PlaydateStreamController {
 export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): PlaydateStreamController {
   const [enabled, setEnabled] = useState(false);
   const [streamState, setStreamState] = useState<PlaydateStreamState>("idle");
+  const [streamError, setStreamError] = useState<string | null>(null);
   const [streamInfo, setStreamInfo] = useState<PlaydateStreamInfo | null>(null);
   const [devices, setDevices] = useState<PlaydateStreamDevice[]>([]);
   const latestFrameRef = useRef(frameSource);
@@ -56,6 +58,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
   }, []);
 
   const toggleStream = useCallback((): void => {
+    setStreamError(null);
     if (enabled) {
       setStreamState("stopping");
       resetStreamSnapshot();
@@ -83,6 +86,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
         setStreamInfo(nextStreamInfo);
         setDevices(nextStreamInfo.devices ?? []);
+        setStreamError(null);
         setStreamState("online");
       } catch {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
@@ -112,12 +116,13 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
         .then((result) => {
           if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
           setStreamState("online");
+          setStreamError(null);
           lastPostedRevisionRef.current = result.revision;
           void refreshStreamInfo();
         })
         .catch((error: unknown) => {
           if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
-          console.warn(error instanceof Error ? error.message : "Unable to stream to the Playdate.");
+          setStreamError(errorMessage(error, "Unable to stream to the Playdate."));
           setStreamState("offline");
         })
         .finally(() => {
@@ -141,7 +146,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
         }, 3000);
       } catch (error) {
         if (controller.signal.aborted || streamRunIdRef.current !== runId) return;
-        console.warn(error instanceof Error ? error.message : "Unable to start the Playdate stream.");
+        setStreamError(errorMessage(error, "Unable to start the Playdate stream."));
         setStreamState("offline");
         setEnabled(false);
       }
@@ -173,6 +178,7 @@ export function usePlaydateStream(frameSource: PlaydateStreamFrameSource): Playd
     enabled,
     streamState,
     streamStatusLabel,
+    streamError,
     streamActionDisabled,
     streamInfo,
     primaryHost,
@@ -194,6 +200,10 @@ export function statusLabelForState(state: PlaydateStreamState): string {
     case "idle":
       return "Idle";
   }
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.trim().length > 0 ? error.message : fallback;
 }
 
 function createStreamId(): string {

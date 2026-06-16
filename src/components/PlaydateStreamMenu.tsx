@@ -75,6 +75,8 @@ export function PlaydateStreamMenu({ align = "end", className }: PlaydateStreamM
           </div>
         </div>
 
+        {stream.streamError ? <div className="stream-error text-sm">{stream.streamError}</div> : null}
+
         {stream.enabled ? (
           <>
             <div className="stream-readout-grid">
