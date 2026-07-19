@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import { createDefaultPalette, createObjectDefinition, createRootStack } from "../domain/layers";
+import {
+  createDefaultPalette,
+  createObjectDefinition,
+  createObjectInstanceLayer,
+  createRootStack,
+} from "../domain/layers";
+import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL } from "../domain/types";
 import type { EditorSnapshot } from "../domain/types";
@@ -47,6 +53,85 @@ describe("project schema", () => {
     expect(() => parseProjectJson(JSON.stringify({ schemaVersion: 1 }))).toThrow(
       /not a Playdate Pixel Studio project/,
     );
+  });
+
+  it("rejects hostile dimensions before allocating surface storage", () => {
+    const document = createValidDocument();
+    document.snapshot.objects[0].width = 1_000_000_000;
+
+    expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/object 0 width is out of range/);
+  });
+
+  it("rejects truncated surface data instead of silently zero-filling it", () => {
+    const document = createValidDocument();
+    const layer = document.snapshot.root.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected a pixel layer");
+    layer.surface.data = layer.surface.data.slice(0, -4);
+
+    expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/surface data length is invalid/);
+  });
+
+  it("rejects missing required solid palette entries", () => {
+    const document = createValidDocument();
+    document.snapshot.palette.entries = document.snapshot.palette.entries.filter(
+      (entry) => entry.ref !== WHITE_PIXEL,
+    );
+
+    expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/required white palette entry is missing/);
+  });
+
+  it("rejects invalid pixel and alpha-mask values", () => {
+    const invalidPixelDocument = createValidDocument();
+    const pixelLayer = invalidPixelDocument.snapshot.root.layers[0];
+    if (pixelLayer.type !== "pixel") throw new Error("Expected a pixel layer");
+    pixelLayer.surface.data = replaceFirstBase64Byte(pixelLayer.surface.data, 63);
+    expect(() => parseProjectJson(JSON.stringify(invalidPixelDocument))).toThrow(/missing palette entry/);
+
+    const invalidMaskDocument = createValidDocument();
+    const maskLayer = invalidMaskDocument.snapshot.root.layers[0];
+    if (maskLayer.type !== "pixel") throw new Error("Expected a pixel layer");
+    maskLayer.alphaMask = { ...maskLayer.surface, data: replaceFirstBase64Byte(maskLayer.surface.data, 2) };
+    expect(() => parseProjectJson(JSON.stringify(invalidMaskDocument))).toThrow(/non-binary value/);
+  });
+
+  it("rejects dangling object references and edit contexts", () => {
+    const instanceDocument = createValidDocument();
+    instanceDocument.snapshot.root.layers.push({
+      type: "object",
+      id: 2,
+      name: "Missing object",
+      visible: true,
+      pixelEditable: false,
+      contentRevision: 0,
+      objectId: "missing-object",
+      x: 0,
+      y: 0,
+    });
+    expect(() => parseProjectJson(JSON.stringify(instanceDocument))).toThrow(/references a missing object/);
+
+    const contextDocument = createValidDocument();
+    contextDocument.snapshot.activeContext = { type: "object", objectId: "missing-object" };
+    expect(() => parseProjectJson(JSON.stringify(contextDocument))).toThrow(/references a missing object/);
+  });
+
+  it("accepts an object-instance alpha mask whose dimensions predate an object resize", () => {
+    const snapshot: EditorSnapshot = {
+      palette: createDefaultPalette(),
+      root: createRootStack(),
+      objects: [createObjectDefinition("object-1", "Object 1", 16, 16)],
+      activeContext: { type: "root" },
+    };
+    const instance = createObjectInstanceLayer(2, "Object 1", "object-1");
+    instance.alphaMask = createBinaryMaskSurface(8, 8, true);
+    snapshot.root.layers.push(instance);
+    snapshot.root.nextLayerId = 3;
+
+    const parsed = parseProjectJson(JSON.stringify(serializeProject(snapshot, "project-1", "Masked object")));
+    const restored = deserializeProject(parsed);
+    const restoredInstance = restored.root.layers[1];
+
+    expect(restoredInstance.type).toBe("object");
+    expect(restoredInstance.alphaMask).toMatchObject({ width: 8, height: 8 });
   });
 
   it("clamps invalid active layer indexes while deserializing", () => {
@@ -153,3 +238,18 @@ describe("project schema", () => {
     expect(new Set(restored.palette.entries.map((entry) => entry.ref)).size).toBe(restored.palette.entries.length);
   });
 });
+
+function createValidDocument() {
+  const snapshot: EditorSnapshot = {
+    palette: createDefaultPalette(),
+    root: createRootStack(),
+    objects: [createObjectDefinition("object-1", "Object 1", 16, 16)],
+    activeContext: { type: "root" },
+  };
+  return serializeProject(snapshot, "project-1", "Test Project");
+}
+
+function replaceFirstBase64Byte(base64: string, value: number): string {
+  const binary = atob(base64);
+  return btoa(String.fromCharCode(value) + binary.slice(1));
+}

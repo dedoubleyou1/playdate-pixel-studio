@@ -193,6 +193,71 @@ describe("editor store saveProject", () => {
   });
 });
 
+describe("editor store importProjectFile", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetStore();
+  });
+
+  it("re-keys imported projects so an existing local id cannot be overwritten", async () => {
+    const importedDocument = serializeProject(
+      {
+        palette: useEditorStore.getState().palette,
+        root: useEditorStore.getState().root,
+        objects: useEditorStore.getState().objects,
+        activeContext: useEditorStore.getState().activeContext,
+      },
+      "existing-local-id",
+      "Imported project",
+    );
+    const importedId = "11111111-1111-4111-8111-111111111111";
+    const randomUUID = vi.spyOn(crypto, "randomUUID").mockReturnValue(importedId);
+    projectDbMock.saveProjectDocument.mockImplementation((document: PlaydateProjectDocument) =>
+      Promise.resolve({ id: document.id, name: document.name, updatedAt: document.updatedAt }),
+    );
+
+    await useEditorStore.getState().importProjectFile(textFile(JSON.stringify(importedDocument)));
+    randomUUID.mockRestore();
+
+    expect(projectDbMock.saveProjectDocument).toHaveBeenCalledOnce();
+    const savedDocument = projectDbMock.saveProjectDocument.mock.calls[0][0] as PlaydateProjectDocument;
+    expect(savedDocument.id).toBe(importedId);
+    expect(savedDocument.id).not.toBe(importedDocument.id);
+    expect(useEditorStore.getState()).toMatchObject({
+      currentProjectId: importedId,
+      projectName: "Imported project",
+      status: "Project imported",
+    });
+  });
+
+  it("does not persist or replace editor state when an imported document is invalid", async () => {
+    const originalRoot = useEditorStore.getState().root;
+    const invalidDocument = serializeProject(
+      {
+        palette: useEditorStore.getState().palette,
+        root: originalRoot,
+        objects: useEditorStore.getState().objects,
+        activeContext: useEditorStore.getState().activeContext,
+      },
+      "invalid-project",
+      "Invalid project",
+    );
+    const layer = invalidDocument.snapshot.root.layers[0];
+    if (layer.type !== "pixel") throw new Error("Expected a pixel layer");
+    layer.surface.data = layer.surface.data.slice(0, -4);
+
+    await useEditorStore.getState().importProjectFile(textFile(JSON.stringify(invalidDocument)));
+
+    expect(projectDbMock.saveProjectDocument).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().root).toBe(originalRoot);
+    expect(useEditorStore.getState()).toMatchObject({
+      currentProjectId: null,
+      projectName: "Untitled Playdate Art",
+      status: "Unable to import project file",
+    });
+  });
+});
+
 describe("editor store revision semantics", () => {
   beforeEach(() => {
     resetStore();
@@ -1088,4 +1153,8 @@ function resetStore(): void {
     undoStack: [],
     viewRevision: 0,
   });
+}
+
+function textFile(text: string): File {
+  return { text: () => Promise.resolve(text) } as File;
 }
