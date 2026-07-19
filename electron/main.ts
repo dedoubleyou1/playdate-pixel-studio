@@ -183,7 +183,7 @@ function installRendererSecurity(window: BrowserWindow, target: RendererTarget):
 
   const policy = rendererContentSecurityPolicy(target);
   window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
-    if (details.resourceType !== "mainFrame") {
+    if (details.resourceType !== "mainFrame" || !isTrustedRendererNavigation(details.url, target)) {
       callback({});
       return;
     }
