@@ -426,6 +426,26 @@ describe("editor store revision semantics", () => {
     expect(useEditorStore.getState().viewRevision).toBe(revision);
   });
 
+  it("invalidates only when a clamped active-layer index changes", () => {
+    useEditorStore.setState((state) => ({
+      root: {
+        ...state.root,
+        activeLayerIndex: 0,
+        layers: [createLayer(1, "First", 2, 1), createLayer(2, "Second", 2, 1)],
+      },
+      viewRevision: 0,
+    }));
+
+    useEditorStore.getState().setActiveLayer(99);
+    expect(useEditorStore.getState()).toMatchObject({
+      viewRevision: 1,
+      root: { activeLayerIndex: 1 },
+    });
+
+    useEditorStore.getState().setActiveLayer(99);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+  });
+
   it("duplicates object definitions with cloned layer data", () => {
     const object = createObjectDefinition("object-1", "Object 1", 8, 8);
     object.layers[0].surface.data[indexFor(2, 3, object.width)] = BLACK_PIXEL;
