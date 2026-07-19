@@ -50,9 +50,7 @@ describe("project schema", () => {
 
   it("rejects unsupported imported files", () => {
     expect(() => parseProjectJson("{}")).toThrow(/not a Playdate Pixel Studio project/);
-    expect(() => parseProjectJson(JSON.stringify({ schemaVersion: 1 }))).toThrow(
-      /not a Playdate Pixel Studio project/,
-    );
+    expect(() => parseProjectJson(JSON.stringify({ schemaVersion: 1 }))).toThrow(/not a Playdate Pixel Studio project/);
   });
 
   it("rejects hostile dimensions before allocating surface storage", () => {
@@ -73,9 +71,7 @@ describe("project schema", () => {
 
   it("rejects missing required solid palette entries", () => {
     const document = createValidDocument();
-    document.snapshot.palette.entries = document.snapshot.palette.entries.filter(
-      (entry) => entry.ref !== WHITE_PIXEL,
-    );
+    document.snapshot.palette.entries = document.snapshot.palette.entries.filter((entry) => entry.ref !== WHITE_PIXEL);
 
     expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/required white palette entry is missing/);
   });
@@ -228,7 +224,8 @@ describe("project schema", () => {
     );
     const firstPattern = document.snapshot.palette.entries[3];
     const secondPattern = document.snapshot.palette.entries[4];
-    if (firstPattern.type !== "pattern" || secondPattern.type !== "pattern") throw new Error("Expected pattern swatches");
+    if (firstPattern.type !== "pattern" || secondPattern.type !== "pattern")
+      throw new Error("Expected pattern swatches");
     firstPattern.patternId = "missing-pattern";
     secondPattern.ref = firstPattern.ref;
 

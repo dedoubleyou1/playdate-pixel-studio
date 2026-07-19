@@ -1,13 +1,12 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
-import {
-  BLACK_PIXEL,
-  MAX_SWATCH_REF,
-  TRANSPARENT_PIXEL,
-  WHITE_PIXEL,
-  type SolidPaletteValue,
-} from "../domain/types";
+import { BLACK_PIXEL, MAX_SWATCH_REF, TRANSPARENT_PIXEL, WHITE_PIXEL, type SolidPaletteValue } from "../domain/types";
 import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
-import { normalizedPatternEntry, nextDuplicatePatternPreviewHue, nextPatternSwatchRef, nextPatternPreviewHue } from "../domain/palette";
+import {
+  normalizedPatternEntry,
+  nextDuplicatePatternPreviewHue,
+  nextPatternSwatchRef,
+  nextPatternPreviewHue,
+} from "../domain/palette";
 import type {
   EditContext,
   EditorSnapshot,
