@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EDITOR_CLIPBOARD_KIND, EDITOR_CLIPBOARD_SCHEMA_VERSION, type EditorClipboard } from "../domain/clipboard";
-import { createObjectDefinition, createObjectInstanceLayer, createSurface } from "../domain/layers";
+import {
+  activeStack,
+  createLayer,
+  createObjectDefinition,
+  createObjectInstanceLayer,
+  createSurface,
+} from "../domain/layers";
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL, type PatternPaletteEntry } from "../domain/types";
@@ -20,6 +26,7 @@ import {
   hasActiveSelection,
   useEditorStore,
 } from "./editorStore";
+import { EditorCanvas } from "../rendering/editorCanvas";
 
 const projectDbMock = vi.hoisted(() => ({
   deleteProjectDocument: vi.fn(),
@@ -348,6 +355,75 @@ describe("editor store revision semantics", () => {
 
     useEditorStore.getState().switchToRoot();
     expect(useEditorStore.getState().viewRevision).toBe(6);
+  });
+
+  it("invalidates and repaints the alpha-mask canvas when the active layer changes", () => {
+    const firstLayer = createLayer(1, "First", 2, 1);
+    firstLayer.alphaMask = createBinaryMaskSurface(2, 1, true);
+    const secondLayer = createLayer(2, "Second", 2, 1);
+    secondLayer.alphaMask = createBinaryMaskSurface(2, 1);
+    useEditorStore.setState((state) => ({
+      editTarget: "alphaMask",
+      root: {
+        ...state.root,
+        width: 2,
+        height: 1,
+        activeLayerIndex: 0,
+        layers: [firstLayer, secondLayer],
+      },
+    }));
+
+    const renderedImages: ImageData[] = [];
+    const context = {
+      createImageData: (width: number, height: number) => ({
+        data: new Uint8ClampedArray(width * height * 4),
+        width,
+        height,
+      }),
+      putImageData: (image: ImageData) => renderedImages.push(image),
+    };
+    const canvas = {
+      getContext: () => context,
+    } as unknown as HTMLCanvasElement;
+    const editorCanvas = new EditorCanvas(canvas, 2, 1);
+    const renderCurrentMask = () => {
+      const state = useEditorStore.getState();
+      const stack = activeStack(state);
+      editorCanvas.render({
+        activeLayerIndex: stack.activeLayerIndex,
+        background: stack.background,
+        editTarget: state.editTarget,
+        layers: stack.layers,
+        objects: state.objects,
+        preview: null,
+      });
+    };
+
+    let observedViewRevision = useEditorStore.getState().viewRevision;
+    const unsubscribe = useEditorStore.subscribe((state) => {
+      if (state.viewRevision === observedViewRevision) return;
+      observedViewRevision = state.viewRevision;
+      renderCurrentMask();
+    });
+    renderCurrentMask();
+
+    useEditorStore.getState().setActiveLayer(1);
+    unsubscribe();
+
+    expect(renderedImages).toHaveLength(2);
+    expect(Array.from(renderedImages[0].data)).toEqual([255, 255, 255, 255, 255, 255, 255, 255]);
+    expect(Array.from(renderedImages[1].data)).toEqual([0, 0, 0, 255, 0, 0, 0, 255]);
+    expect(useEditorStore.getState().documentRevision).toBe(0);
+    expect(useEditorStore.getState().viewRevision).toBe(1);
+    expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
+  });
+
+  it("does not invalidate the canvas when the active layer is unchanged", () => {
+    const revision = useEditorStore.getState().viewRevision;
+
+    useEditorStore.getState().setActiveLayer(0);
+
+    expect(useEditorStore.getState().viewRevision).toBe(revision);
   });
 
   it("duplicates object definitions with cloned layer data", () => {
