@@ -11,6 +11,7 @@ describe("gesture shortcut guards", () => {
     { key: "y", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "s", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "d", primaryModifier: true, shiftKey: false, textEditing: false },
+    { key: "k", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "n", primaryModifier: true, shiftKey: true, textEditing: false },
     { key: "x", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "v", primaryModifier: true, shiftKey: false, textEditing: false },
@@ -20,7 +21,6 @@ describe("gesture shortcut guards", () => {
 
   it.each([
     { key: "z", primaryModifier: false, shiftKey: false, textEditing: false },
-    { key: "k", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "c", primaryModifier: true, shiftKey: false, textEditing: false },
     { key: "x", primaryModifier: true, shiftKey: false, textEditing: true },
     { key: "v", primaryModifier: true, shiftKey: false, textEditing: true },

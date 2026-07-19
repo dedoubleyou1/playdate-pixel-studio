@@ -26,7 +26,15 @@ const BLOCKED_DESKTOP_MENU_COMMANDS = new Set<DesktopMenuCommand["id"]>([
 
 export function isRendererShortcutBlockedDuringGesture(shortcut: RendererShortcut): boolean {
   if (!shortcut.primaryModifier) return false;
-  if (shortcut.key === "z" || shortcut.key === "y" || shortcut.key === "s" || shortcut.key === "d") return true;
+  if (
+    shortcut.key === "z" ||
+    shortcut.key === "y" ||
+    shortcut.key === "s" ||
+    shortcut.key === "d" ||
+    shortcut.key === "k"
+  ) {
+    return true;
+  }
   if (shortcut.shiftKey && shortcut.key === "n") return true;
   return !shortcut.textEditing && (shortcut.key === "x" || shortcut.key === "v");
 }
