@@ -6,6 +6,7 @@ export interface GestureTransaction {
   commit: (changed: boolean, status?: string) => void;
   discard: () => void;
   label: string;
+  rollback: () => void;
 }
 
 export type EditorGestureState =

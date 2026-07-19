@@ -66,6 +66,48 @@ describe("editor gesture controller", () => {
     expect(currentActivePixelLayer()?.surface.data[indexFor(4, 0)]).toBe(TRANSPARENT_PIXEL);
   });
 
+  it("rolls back cancelled pixel strokes without dirtying the document", () => {
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 0)]).toBe(BLACK_PIXEL);
+
+    gesture = cancelEditorGesture(gesture, bridge);
+
+    expect(gesture).toBe(idleGestureState);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(TRANSPARENT_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 0)]).toBe(TRANSPARENT_PIXEL);
+    expect(useEditorStore.getState()).toMatchObject({
+      documentRevision: 0,
+      hasUnsavedChanges: false,
+      pendingCommand: null,
+    });
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(bridge.requestCanvasRender).toHaveBeenLastCalledWith();
+  });
+
+  it("removes alpha masks created by cancelled gestures", () => {
+    useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+
+    expect(currentActiveLayer()?.alphaMask?.data[indexFor(0, 0)]).toBe(0);
+    expect(currentActiveLayer()?.alphaMask?.data[indexFor(1, 0)]).toBe(0);
+
+    gesture = cancelEditorGesture(gesture, bridge);
+
+    expect(gesture).toBe(idleGestureState);
+    expect(currentActiveLayer()?.alphaMask).toBeUndefined();
+    expect(useEditorStore.getState()).toMatchObject({
+      documentRevision: 0,
+      hasUnsavedChanges: false,
+      pendingCommand: null,
+    });
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(bridge.requestCanvasRender).toHaveBeenLastCalledWith();
+  });
+
   it("commits alpha mask creation through the gesture transaction", () => {
     useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
 

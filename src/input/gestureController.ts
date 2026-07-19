@@ -89,7 +89,7 @@ export function cancelEditorGesture(gesture: EditorGestureState, bridge: Gesture
     return cancelMoveGesture(bridge);
   }
   state.setCanvasToolPreview(null);
-  state.discardPendingCommand();
+  gesture.transaction.rollback();
   bridge.requestCanvasRender();
   return idleGestureState;
 }
