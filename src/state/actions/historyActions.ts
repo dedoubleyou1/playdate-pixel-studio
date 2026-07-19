@@ -53,6 +53,7 @@ export function createHistoryActions(set: EditorStoreSet, get: EditorStoreGet): 
 
     undo: () =>
       set((state) => {
+        if (state.gestureActive) return {};
         const command = state.undoStack.at(-1);
         if (!command) return {};
         const undoStack = state.undoStack.slice(0, -1);
@@ -79,6 +80,7 @@ export function createHistoryActions(set: EditorStoreSet, get: EditorStoreGet): 
 
     redo: () =>
       set((state) => {
+        if (state.gestureActive) return {};
         const command = state.redoStack.at(-1);
         if (!command) return {};
         const redoStack = state.redoStack.slice(0, -1);

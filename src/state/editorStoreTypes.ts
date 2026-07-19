@@ -65,6 +65,7 @@ export interface EditorSessionState {
   previewMode: PreviewMode;
   canvasToolPreview: CanvasToolPreview | null;
   activeSelectionCombineMode: SelectionCombineMode | null;
+  gestureActive: boolean;
   editTarget: EditTarget;
   rootSelection: SelectionState | null;
   objectSelection: SelectionState | null;

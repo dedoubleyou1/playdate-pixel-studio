@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL } from "../domain/types";
 import { currentActiveLayer, currentActivePixelLayer, useEditorStore } from "../state/editorStore";
-import { beginEditorGesture, cancelEditorGesture, finishEditorGesture, updateEditorGesture } from "./gestureController";
+import {
+  beginEditorGesture,
+  cancelEditorGesture,
+  clearEditorGestureActivity,
+  finishEditorGesture,
+  updateEditorGesture,
+} from "./gestureController";
 import {
   idleGestureState,
   selectionCombineModeForModifiers,
@@ -21,6 +27,7 @@ describe("editor gesture controller", () => {
       canvasToolPreview: null,
       documentRevision: 0,
       editTarget: "pixels",
+      gestureActive: false,
       hasUnsavedChanges: false,
       objectSelection: null,
       pendingCommand: null,
@@ -41,11 +48,13 @@ describe("editor gesture controller", () => {
     const layer = currentActivePixelLayer();
     if (!layer) throw new Error("Expected pixel layer");
     let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    expect(useEditorStore.getState().gestureActive).toBe(true);
 
     gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
     gesture = finishEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
 
     expect(gesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().gestureActive).toBe(false);
     expect(layer.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
     expect(layer.surface.data[indexFor(1, 0)]).toBe(BLACK_PIXEL);
     expect(useEditorStore.getState().documentRevision).toBe(1);
@@ -61,6 +70,7 @@ describe("editor gesture controller", () => {
     gesture = cancelEditorGesture(gesture, bridge);
 
     expect(gesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().gestureActive).toBe(false);
     expect(useEditorStore.getState().canvasToolPreview).toBeNull();
     expect(useEditorStore.getState().pendingCommand).toBeNull();
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
@@ -120,6 +130,37 @@ describe("editor gesture controller", () => {
     });
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
     expect(bridge.requestCanvasRender).toHaveBeenLastCalledWith();
+  });
+
+  it("keeps undo from interrupting a live gesture transaction", () => {
+    let previousGesture = beginEditorGesture({ point: { x: 4, y: 0 }, shiftKey: false }, bridge);
+    previousGesture = finishEditorGesture(previousGesture, { point: { x: 4, y: 0 }, shiftKey: false }, bridge);
+    expect(previousGesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+
+    let activeGesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    expect(useEditorStore.getState().gestureActive).toBe(true);
+    expect(useEditorStore.getState().pendingCommand).not.toBeNull();
+
+    useEditorStore.getState().undo();
+
+    expect(useEditorStore.getState().pendingCommand).not.toBeNull();
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+
+    activeGesture = finishEditorGesture(activeGesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+    expect(activeGesture).toBe(idleGestureState);
+    expect(useEditorStore.getState().gestureActive).toBe(false);
+    expect(useEditorStore.getState().undoStack).toHaveLength(2);
+  });
+
+  it("clears shared gesture activity when the canvas lifecycle ends", () => {
+    beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    expect(useEditorStore.getState().gestureActive).toBe(true);
+
+    clearEditorGestureActivity();
+
+    expect(useEditorStore.getState().gestureActive).toBe(false);
   });
 
   it("commits alpha mask creation through the gesture transaction", () => {
