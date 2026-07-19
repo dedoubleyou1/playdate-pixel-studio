@@ -1,6 +1,5 @@
 export interface CanvasPointerStartEvent {
   button: number;
-  isPrimary: boolean;
   pointerId: number;
 }
 
@@ -16,7 +15,7 @@ export class CanvasPointerSession {
   private activePointerId: number | null = null;
 
   begin(event: CanvasPointerStartEvent): boolean {
-    if (this.activePointerId !== null || !event.isPrimary || event.button !== 0) return false;
+    if (this.activePointerId !== null || event.button !== 0) return false;
     this.activePointerId = event.pointerId;
     return true;
   }
