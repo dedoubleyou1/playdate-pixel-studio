@@ -4,7 +4,8 @@ import type { GestureTransaction } from "./gestureTypes";
 
 export function beginGestureTransaction(label: string): GestureTransaction {
   useEditorStore.getState().beginCommand(label);
-  const before = useEditorStore.getState().pendingCommand?.before;
+  const pendingCommand = useEditorStore.getState().pendingCommand;
+  const before = pendingCommand?.before;
   return {
     label,
     commit: (changed, status) => {
@@ -16,10 +17,7 @@ export function beginGestureTransaction(label: string): GestureTransaction {
       useEditorStore.getState().discardPendingCommand();
     },
     rollback: () => {
-      if (!before) {
-        useEditorStore.getState().discardPendingCommand();
-        return;
-      }
+      if (!before || useEditorStore.getState().pendingCommand !== pendingCommand) return;
       useEditorStore.setState({
         ...snapshotState(before),
         pendingCommand: null,

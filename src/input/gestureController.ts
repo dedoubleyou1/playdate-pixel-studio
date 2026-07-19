@@ -3,7 +3,12 @@ import type { EditorSnapshot } from "../domain/types";
 import { beginAlphaMaskGesture, finishAlphaMaskGesture, updateAlphaMaskGesture } from "./alphaMaskGestures";
 import { beginMoveGesture, cancelMoveGesture, finishMoveGesture, updateMoveGesture } from "./moveGestures";
 import { beginPixelGesture, finishPixelGesture, updatePixelGesture } from "./pixelGestures";
-import { beginSelectionGesture, cancelSelectionGesture, finishSelectionGesture, updateSelectionGesture } from "./selectionGestures";
+import {
+  beginSelectionGesture,
+  cancelSelectionGesture,
+  finishSelectionGesture,
+  updateSelectionGesture,
+} from "./selectionGestures";
 import {
   idleGestureState,
   isSelectionTool,
@@ -14,10 +19,7 @@ import {
 } from "./gestureTypes";
 import { useEditorStore } from "../state/editorStore";
 
-export function beginEditorGesture(
-  event: EditorGestureEvent,
-  bridge: GestureRenderBridge,
-): EditorGestureState {
+export function beginEditorGesture(event: EditorGestureEvent, bridge: GestureRenderBridge): EditorGestureState {
   const state = useEditorStore.getState();
   const tool = state.activeTool;
   const point = event.point;
@@ -89,7 +91,8 @@ export function cancelEditorGesture(gesture: EditorGestureState, bridge: Gesture
     return cancelMoveGesture(bridge);
   }
   state.setCanvasToolPreview(null);
-  gesture.transaction.rollback();
+  if (gesture.changed) gesture.transaction.rollback();
+  else gesture.transaction.discard();
   bridge.requestCanvasRender();
   return idleGestureState;
 }
