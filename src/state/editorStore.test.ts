@@ -4,7 +4,11 @@ import { createObjectDefinition, createObjectInstanceLayer, createSurface } from
 import { createBinaryMaskSurface } from "../domain/masks";
 import { indexFor } from "../domain/pixelGeometry";
 import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL, type PatternPaletteEntry } from "../domain/types";
-import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMaskGesture } from "../input/alphaMaskGestures";
+import {
+  beginAlphaMaskGesture,
+  ensureDraftActiveLayerAlphaMask,
+  finishAlphaMaskGesture,
+} from "../input/alphaMaskGestures";
 import { beginGestureTransaction } from "../input/gestureTransaction";
 import { parseEditorClipboardJson, serializeEditorClipboard } from "../persistence/clipboardSchema";
 import { serializeProject, type PlaydateProjectDocument, type ProjectSummary } from "../persistence/projectSchema";
@@ -159,6 +163,33 @@ describe("editor store saveProject", () => {
     expect(state.hasUnsavedChanges).toBe(false);
     expect(state.status).toBe("Project loaded");
     expect(state.recentProjects).toContainEqual(expect.objectContaining({ id: "project-a" }));
+  });
+
+  it("ignores a stale project load that resolves after a newer load", async () => {
+    const projectB = serializeProject(currentSnapshot(), "project-b", "Project B");
+    const projectC = serializeProject(currentSnapshot(), "project-c", "Project C");
+    let resolveB: (document: PlaydateProjectDocument) => void = () => {};
+    let resolveC: (document: PlaydateProjectDocument) => void = () => {};
+    projectDbMock.loadProjectDocument.mockImplementation(
+      (id: string) =>
+        new Promise<PlaydateProjectDocument>((resolve) => {
+          if (id === "project-b") resolveB = resolve;
+          if (id === "project-c") resolveC = resolve;
+        }),
+    );
+
+    const loadB = useEditorStore.getState().loadProject("project-b");
+    const loadC = useEditorStore.getState().loadProject("project-c");
+    resolveC(projectC);
+    await loadC;
+    resolveB(projectB);
+    await loadB;
+
+    expect(useEditorStore.getState()).toMatchObject({
+      currentProjectId: "project-c",
+      projectName: "Project C",
+      status: "Project loaded",
+    });
   });
 });
 
@@ -328,7 +359,13 @@ describe("editor store revision semantics", () => {
   it("adds, edits, duplicates, and undoes pattern swatches", () => {
     const state = useEditorStore.getState();
 
-    state.addPatternSwatch("hatch-vertical-1", { offsetX: 2, offsetY: 1, reflectX: false, reflectY: true, rotation: 90 });
+    state.addPatternSwatch("hatch-vertical-1", {
+      offsetX: 2,
+      offsetY: 1,
+      reflectX: false,
+      reflectY: true,
+      rotation: 90,
+    });
     let current = useEditorStore.getState();
     const added = current.palette.entries.find(
       (entry): entry is PatternPaletteEntry => entry.type === "pattern" && entry.patternId === "hatch-vertical-1",
@@ -354,7 +391,11 @@ describe("editor store revision semantics", () => {
     expect(current.undoStack).toHaveLength(3);
 
     current.undo();
-    expect(useEditorStore.getState().palette.entries.filter((entry) => entry.type === "pattern" && entry.patternId === "hatch-diagonal-2")).toHaveLength(1);
+    expect(
+      useEditorStore
+        .getState()
+        .palette.entries.filter((entry) => entry.type === "pattern" && entry.patternId === "hatch-diagonal-2"),
+    ).toHaveLength(1);
   });
 
   it("rasterizes used pixels before deleting a pattern swatch", () => {
@@ -718,7 +759,12 @@ describe("editor store selection and alpha masks", () => {
     expect(clipboard?.origin).toEqual({ x: 1, y: 1 });
     expect(clipboard?.surface.width).toBe(2);
     expect(clipboard?.surface.height).toBe(2);
-    expect(Array.from(clipboard?.surface.data ?? [])).toEqual([BLACK_PIXEL, WHITE_PIXEL, TRANSPARENT_PIXEL, TRANSPARENT_PIXEL]);
+    expect(Array.from(clipboard?.surface.data ?? [])).toEqual([
+      BLACK_PIXEL,
+      WHITE_PIXEL,
+      TRANSPARENT_PIXEL,
+      TRANSPARENT_PIXEL,
+    ]);
     expect(Array.from(clipboard?.mask.data ?? [])).toEqual([1, 1, 1, 0]);
     expect(useEditorStore.getState().documentRevision).toBe(0);
     expect(useEditorStore.getState().hasUnsavedChanges).toBe(false);
@@ -935,11 +981,10 @@ describe("editor store selection and alpha masks", () => {
   it("creates one undo command and document revision for changed mask painting", () => {
     useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
     const startRevision = useEditorStore.getState().documentRevision;
-    const gesture = beginAlphaMaskGesture(
-      { x: 0, y: 0 },
-      "eraser",
-      { requestCanvasRender: vi.fn(), requestSelectionOverlayRender: vi.fn() },
-    );
+    const gesture = beginAlphaMaskGesture({ x: 0, y: 0 }, "eraser", {
+      requestCanvasRender: vi.fn(),
+      requestSelectionOverlayRender: vi.fn(),
+    });
     if (gesture.type !== "drawingAlphaMask") throw new Error("Expected alpha mask gesture");
     finishAlphaMaskGesture(gesture, {
       point: { x: 0, y: 0 },

@@ -39,8 +39,9 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
     const document = parseProjectJson(text);
     const snapshot = deserializeProject(document);
     const normalizedDocument = serializeProject(snapshot, document.id, document.name);
+    const importGeneration = ++projectGeneration;
     const saved = await saveProjectDocument(normalizedDocument);
-    projectGeneration += 1;
+    if (projectGeneration !== importGeneration) return;
     set((state) => ({
       ...snapshotState(snapshot),
       projectName: document.name,
@@ -144,14 +145,15 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
     },
 
     loadProject: async (id) => {
+      const loadGeneration = ++projectGeneration;
       try {
         const document = await loadProjectDocument(id);
+        if (projectGeneration !== loadGeneration) return;
         if (!document) {
           set({ status: "Project was not found" });
           return;
         }
         const snapshot = deserializeProject(document);
-        projectGeneration += 1;
         set((state) => ({
           ...snapshotState(snapshot),
           projectName: document.name,
@@ -176,13 +178,15 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
           hasUnsavedChanges: false,
         }));
       } catch {
-        set({ status: "Unable to load project" });
+        if (projectGeneration === loadGeneration) set({ status: "Unable to load project" });
       }
     },
 
     loadMostRecentProject: async () => {
+      const loadGeneration = ++projectGeneration;
       try {
         const recentProjects = await listProjectSummaries();
+        if (projectGeneration !== loadGeneration) return;
         const mostRecentProject = recentProjects[0];
         set({ recentProjects });
 
@@ -192,13 +196,13 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
         }
 
         const document = await loadProjectDocument(mostRecentProject.id);
+        if (projectGeneration !== loadGeneration) return;
         if (!document) {
           set({ status: "Most recent project was not found" });
           return;
         }
 
         const snapshot = deserializeProject(document);
-        projectGeneration += 1;
         set((state) => ({
           ...snapshotState(snapshot),
           projectName: document.name,
@@ -224,7 +228,9 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
           recentProjects,
         }));
       } catch {
-        set({ recentProjects: [], status: "Unable to read local projects" });
+        if (projectGeneration === loadGeneration) {
+          set({ recentProjects: [], status: "Unable to read local projects" });
+        }
       }
     },
 
