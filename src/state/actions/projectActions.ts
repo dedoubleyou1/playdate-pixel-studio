@@ -33,11 +33,14 @@ type ProjectActions = Pick<
 >;
 
 export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): ProjectActions {
+  let projectGeneration = 0;
+
   const importProjectText = async (text: string): Promise<void> => {
     const document = parseProjectJson(text);
     const snapshot = deserializeProject(document);
     const normalizedDocument = serializeProject(snapshot, document.id, document.name);
     const saved = await saveProjectDocument(normalizedDocument);
+    projectGeneration += 1;
     set((state) => ({
       ...snapshotState(snapshot),
       projectName: document.name,
@@ -67,6 +70,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
   return {
     newProject: () => {
       const snapshot = createInitialSnapshot();
+      projectGeneration += 1;
       set((state) => ({
         ...snapshot,
         projectName: "Untitled Playdate Art",
@@ -105,25 +109,37 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
       ),
 
     saveProject: async () => {
+      const projectGenerationBeingSaved = projectGeneration;
+      const state = get();
+      const id = state.currentProjectId ?? crypto.randomUUID();
+
+      if (state.currentProjectId === null) {
+        set({ currentProjectId: id });
+      }
+
       try {
-        const state = get();
-        const id = state.currentProjectId ?? crypto.randomUUID();
         const documentRevisionBeingSaved = state.documentRevision;
-        const document = serializeProject(snapshotFrom(get()), id, state.projectName);
+        const document = serializeProject(snapshotFrom(state), id, state.projectName);
         const summary = await saveProjectDocument(document);
         set((current) => {
+          const recentProjects = mergeSummary(current.recentProjects, summary);
+          if (projectGeneration !== projectGenerationBeingSaved || current.currentProjectId !== id) {
+            return { recentProjects };
+          }
+
           const savedDocumentRevision = Math.max(current.savedDocumentRevision, documentRevisionBeingSaved);
           const allCurrentChangesSaved = current.documentRevision <= savedDocumentRevision;
           return {
-            currentProjectId: id,
             savedDocumentRevision,
             hasUnsavedChanges: allCurrentChangesSaved ? false : current.hasUnsavedChanges,
             status: allCurrentChangesSaved ? "Project saved locally" : current.status,
-            recentProjects: mergeSummary(current.recentProjects, summary),
+            recentProjects,
           };
         });
       } catch {
-        set({ status: "Unable to save project locally" });
+        if (projectGeneration === projectGenerationBeingSaved && get().currentProjectId === id) {
+          set({ status: "Unable to save project locally" });
+        }
       }
     },
 
@@ -135,6 +151,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
           return;
         }
         const snapshot = deserializeProject(document);
+        projectGeneration += 1;
         set((state) => ({
           ...snapshotState(snapshot),
           projectName: document.name,
@@ -181,6 +198,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
         }
 
         const snapshot = deserializeProject(document);
+        projectGeneration += 1;
         set((state) => ({
           ...snapshotState(snapshot),
           projectName: document.name,

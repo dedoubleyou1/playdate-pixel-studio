@@ -7,10 +7,11 @@ import { BLACK_PIXEL, TRANSPARENT_PIXEL, WHITE_PIXEL, type PatternPaletteEntry }
 import { beginAlphaMaskGesture, ensureDraftActiveLayerAlphaMask, finishAlphaMaskGesture } from "../input/alphaMaskGestures";
 import { beginGestureTransaction } from "../input/gestureTransaction";
 import { parseEditorClipboardJson, serializeEditorClipboard } from "../persistence/clipboardSchema";
-import type { PlaydateProjectDocument, ProjectSummary } from "../persistence/projectSchema";
+import { serializeProject, type PlaydateProjectDocument, type ProjectSummary } from "../persistence/projectSchema";
 import {
   currentActiveLayer,
   currentActivePixelLayer,
+  currentSnapshot,
   effectiveColorizedPatternsVisible,
   hasActiveSelection,
   useEditorStore,
@@ -96,6 +97,68 @@ describe("editor store saveProject", () => {
     expect(state.hasUnsavedChanges).toBe(false);
     expect(state.savedDocumentRevision).toBe(5);
     expect(state.status).toBe("Project saved locally");
+  });
+
+  it("does not attach a completed save to a new project", async () => {
+    let resolveSave: () => void = () => {};
+    projectDbMock.saveProjectDocument.mockImplementation(
+      (document: PlaydateProjectDocument) =>
+        new Promise<ProjectSummary>((resolve) => {
+          resolveSave = () => resolve({ id: document.id, name: document.name, updatedAt: document.updatedAt });
+        }),
+    );
+    useEditorStore.setState({
+      currentProjectId: "project-a",
+      documentRevision: 3,
+      hasUnsavedChanges: true,
+      projectName: "Project A",
+      status: "Saving Project A",
+    });
+
+    const savePromise = useEditorStore.getState().saveProject();
+    useEditorStore.getState().newProject();
+    resolveSave();
+    await savePromise;
+
+    const state = useEditorStore.getState();
+    expect(state.currentProjectId).toBeNull();
+    expect(state.projectName).toBe("Untitled Playdate Art");
+    expect(state.savedDocumentRevision).toBe(4);
+    expect(state.hasUnsavedChanges).toBe(false);
+    expect(state.status).toBe("New project");
+    expect(state.recentProjects).toContainEqual(expect.objectContaining({ id: "project-a" }));
+  });
+
+  it("does not attach a completed save to a project loaded while saving", async () => {
+    let resolveSave: () => void = () => {};
+    projectDbMock.saveProjectDocument.mockImplementation(
+      (document: PlaydateProjectDocument) =>
+        new Promise<ProjectSummary>((resolve) => {
+          resolveSave = () => resolve({ id: document.id, name: document.name, updatedAt: document.updatedAt });
+        }),
+    );
+    const loadedDocument = serializeProject(currentSnapshot(), "project-b", "Project B");
+    projectDbMock.loadProjectDocument.mockResolvedValue(loadedDocument);
+    useEditorStore.setState({
+      currentProjectId: "project-a",
+      documentRevision: 3,
+      hasUnsavedChanges: true,
+      projectName: "Project A",
+      status: "Saving Project A",
+    });
+
+    const savePromise = useEditorStore.getState().saveProject();
+    await useEditorStore.getState().loadProject("project-b");
+    resolveSave();
+    await savePromise;
+
+    const state = useEditorStore.getState();
+    expect(state.currentProjectId).toBe("project-b");
+    expect(state.projectName).toBe("Project B");
+    expect(state.savedDocumentRevision).toBe(4);
+    expect(state.hasUnsavedChanges).toBe(false);
+    expect(state.status).toBe("Project loaded");
+    expect(state.recentProjects).toContainEqual(expect.objectContaining({ id: "project-a" }));
   });
 });
 
