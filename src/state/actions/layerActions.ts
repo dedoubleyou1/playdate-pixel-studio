@@ -389,9 +389,11 @@ export function createLayerActions(set: EditorStoreSet, get: EditorStoreGet): La
         const stack = activeStack(state);
         const nextActiveLayerIndex = clampLayerIndex(activeLayerIndex, stack.layers.length);
         const layer = stack.layers[nextActiveLayerIndex];
+        const activeLayerChanged = nextActiveLayerIndex !== stack.activeLayerIndex;
         return {
           ...setActiveStackActiveLayerIndex(state, nextActiveLayerIndex),
           status: layer?.type === "object" ? "Object instances are linked; edit the source object." : state.status,
+          viewRevision: activeLayerChanged ? state.viewRevision + 1 : state.viewRevision,
         };
       });
     },
