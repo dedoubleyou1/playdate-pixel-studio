@@ -1,8 +1,11 @@
 import { useEditorStore } from "../state/editorStore";
+import { snapshotState } from "../state/editorStoreHelpers";
 import type { GestureTransaction } from "./gestureTypes";
 
 export function beginGestureTransaction(label: string): GestureTransaction {
   useEditorStore.getState().beginCommand(label);
+  const pendingCommand = useEditorStore.getState().pendingCommand;
+  const before = pendingCommand?.before;
   return {
     label,
     commit: (changed, status) => {
@@ -12,6 +15,13 @@ export function beginGestureTransaction(label: string): GestureTransaction {
     },
     discard: () => {
       useEditorStore.getState().discardPendingCommand();
+    },
+    rollback: () => {
+      if (!before || useEditorStore.getState().pendingCommand !== pendingCommand) return;
+      useEditorStore.setState({
+        ...snapshotState(before),
+        pendingCommand: null,
+      });
     },
   };
 }

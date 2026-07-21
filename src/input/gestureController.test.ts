@@ -54,6 +54,7 @@ describe("editor gesture controller", () => {
 
   it("discards cancelled shape gestures without undo history", () => {
     useEditorStore.setState({ activeTool: "line" });
+    const rootBefore = useEditorStore.getState().root;
     let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
     gesture = updateEditorGesture(gesture, { point: { x: 4, y: 0 }, shiftKey: false }, bridge);
 
@@ -63,7 +64,62 @@ describe("editor gesture controller", () => {
     expect(useEditorStore.getState().canvasToolPreview).toBeNull();
     expect(useEditorStore.getState().pendingCommand).toBeNull();
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(useEditorStore.getState().root).toBe(rootBefore);
     expect(currentActivePixelLayer()?.surface.data[indexFor(4, 0)]).toBe(TRANSPARENT_PIXEL);
+  });
+
+  it("does not restore a cancelled gesture after its pending command was cleared", () => {
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+    useEditorStore.getState().discardPendingCommand();
+
+    cancelEditorGesture(gesture, bridge);
+
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 0)]).toBe(BLACK_PIXEL);
+    expect(useEditorStore.getState().pendingCommand).toBeNull();
+  });
+
+  it("rolls back cancelled pixel strokes without dirtying the document", () => {
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(BLACK_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 0)]).toBe(BLACK_PIXEL);
+
+    gesture = cancelEditorGesture(gesture, bridge);
+
+    expect(gesture).toBe(idleGestureState);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(0, 0)]).toBe(TRANSPARENT_PIXEL);
+    expect(currentActivePixelLayer()?.surface.data[indexFor(1, 0)]).toBe(TRANSPARENT_PIXEL);
+    expect(useEditorStore.getState()).toMatchObject({
+      documentRevision: 0,
+      hasUnsavedChanges: false,
+      pendingCommand: null,
+    });
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(bridge.requestCanvasRender).toHaveBeenLastCalledWith();
+  });
+
+  it("removes alpha masks created by cancelled gestures", () => {
+    useEditorStore.setState({ activeTool: "eraser", editTarget: "alphaMask" });
+    let gesture = beginEditorGesture({ point: { x: 0, y: 0 }, shiftKey: false }, bridge);
+    gesture = updateEditorGesture(gesture, { point: { x: 1, y: 0 }, shiftKey: false }, bridge);
+
+    expect(currentActiveLayer()?.alphaMask?.data[indexFor(0, 0)]).toBe(0);
+    expect(currentActiveLayer()?.alphaMask?.data[indexFor(1, 0)]).toBe(0);
+
+    gesture = cancelEditorGesture(gesture, bridge);
+
+    expect(gesture).toBe(idleGestureState);
+    expect(currentActiveLayer()?.alphaMask).toBeUndefined();
+    expect(useEditorStore.getState()).toMatchObject({
+      documentRevision: 0,
+      hasUnsavedChanges: false,
+      pendingCommand: null,
+    });
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    expect(bridge.requestCanvasRender).toHaveBeenLastCalledWith();
   });
 
   it("commits alpha mask creation through the gesture transaction", () => {

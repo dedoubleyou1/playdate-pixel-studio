@@ -96,6 +96,10 @@ export function useCanvasEditor(
 
   useEffect(() => {
     return () => {
+      gestureStateRef.current = cancelEditorGesture(gestureStateRef.current, {
+        requestCanvasRender,
+        requestSelectionOverlayRender,
+      });
       if (renderFrameRef.current !== null) {
         window.cancelAnimationFrame(renderFrameRef.current);
         renderFrameRef.current = null;
@@ -105,7 +109,7 @@ export function useCanvasEditor(
         selectionOverlayFrameRef.current = null;
       }
     };
-  }, []);
+  }, [requestCanvasRender, requestSelectionOverlayRender]);
 
   const beginStroke = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
