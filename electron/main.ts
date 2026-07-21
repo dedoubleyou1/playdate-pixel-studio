@@ -10,13 +10,20 @@ import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import {
   startPlaydateStreamServer,
   type PlaydateStreamFrameRequest,
   type PlaydateStreamServerHandle,
 } from "../companion/stream/server.ts";
+import {
+  isTrustedRendererNavigation,
+  rendererContentSecurityPolicy,
+  resolveRendererTarget,
+  withContentSecurityPolicy,
+  type RendererTarget,
+} from "./rendererSecurity.ts";
 
 interface SaveBlobRequest {
   filename: string;
@@ -123,15 +130,23 @@ function createMainWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(electronDir, "preload.cjs"),
+      sandbox: true,
     },
   });
 
-  const rendererUrl = process.env.ELECTRON_RENDERER_URL;
-  if (rendererUrl) {
-    loadRendererUrl(mainWindow, rendererUrl);
+  const packagedIndexPath = packagedRendererPath();
+  const rendererTarget = resolveRendererTarget({
+    configuredRendererUrl: process.env.ELECTRON_RENDERER_URL,
+    isPackaged: app.isPackaged,
+    packagedRendererUrl: pathToFileURL(packagedIndexPath).href,
+  });
+  installRendererSecurity(mainWindow, rendererTarget);
+
+  if (rendererTarget.kind === "development") {
+    loadRendererUrl(mainWindow, rendererTarget.url);
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
-    loadPackagedRenderer(mainWindow);
+    loadPackagedRenderer(mainWindow, packagedIndexPath);
   }
 
   mainWindow.on("closed", () => {
@@ -145,12 +160,36 @@ function loadRendererUrl(window: BrowserWindow, rendererUrl: string): void {
   });
 }
 
-function loadPackagedRenderer(window: BrowserWindow): void {
-  const indexPath = app.isPackaged
+function packagedRendererPath(): string {
+  return app.isPackaged
     ? path.join(process.resourcesPath, "app.asar.unpacked", "dist", "index.html")
     : path.join(app.getAppPath(), "dist", "index.html");
+}
+
+function loadPackagedRenderer(window: BrowserWindow, indexPath: string): void {
   void window.loadFile(indexPath).catch((error: unknown) => {
     console.error(`Unable to load packaged renderer ${indexPath}: ${errorMessage(error)}`);
+  });
+}
+
+function installRendererSecurity(window: BrowserWindow, target: RendererTarget): void {
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, navigationUrl) => {
+    if (!isTrustedRendererNavigation(navigationUrl, target)) event.preventDefault();
+  });
+  window.webContents.on("will-redirect", (event, navigationUrl) => {
+    if (!isTrustedRendererNavigation(navigationUrl, target)) event.preventDefault();
+  });
+
+  const policy = rendererContentSecurityPolicy(target);
+  window.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    if (details.resourceType !== "mainFrame" || !isTrustedRendererNavigation(details.url, target)) {
+      callback({});
+      return;
+    }
+    callback({
+      responseHeaders: withContentSecurityPolicy(details.responseHeaders, policy),
+    });
   });
 }
 
