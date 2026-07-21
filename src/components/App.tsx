@@ -11,6 +11,7 @@ import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
 import { swatchRefForNumberShortcut } from "../domain/palette";
 import { useAutosave } from "../hooks/useAutosave";
+import { isRendererShortcutBlockedDuringGesture } from "../input/gestureShortcutGuards";
 import { useEditorStore } from "../state/editorStore";
 
 export function App(): React.JSX.Element {
@@ -50,26 +51,39 @@ export function App(): React.JSX.Element {
       }
 
       const key = event.key.toLowerCase();
-      if ((event.metaKey || event.ctrlKey) && key === "z") {
+      const primaryModifier = event.metaKey || event.ctrlKey;
+      if (
+        useEditorStore.getState().gestureActive &&
+        isRendererShortcutBlockedDuringGesture({
+          key,
+          primaryModifier,
+          shiftKey: event.shiftKey,
+          textEditing: isTextEditingTarget(event.target),
+        })
+      ) {
+        event.preventDefault();
+        return;
+      }
+      if (primaryModifier && key === "z") {
         event.preventDefault();
         if (event.shiftKey) redo();
         else undo();
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && key === "y") {
+      if (primaryModifier && key === "y") {
         event.preventDefault();
         redo();
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && key === "k") {
+      if (primaryModifier && key === "k") {
         event.preventDefault();
         setCommandPaletteOpen((open) => !open);
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && key === "s") {
+      if (primaryModifier && key === "s") {
         event.preventDefault();
         void saveProject();
         return;
@@ -93,13 +107,13 @@ export function App(): React.JSX.Element {
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && key === "d") {
+      if (primaryModifier && key === "d") {
         event.preventDefault();
         clearSelection();
         return;
       }
 
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey && key === "n") {
+      if (primaryModifier && event.shiftKey && key === "n") {
         event.preventDefault();
         newProject();
         return;

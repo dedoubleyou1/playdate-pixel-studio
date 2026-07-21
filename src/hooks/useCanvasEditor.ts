@@ -3,6 +3,7 @@ import {
   activeLayerStackSelector,
   beginEditorGesture,
   cancelEditorGesture,
+  clearEditorGestureActivity,
   finishEditorGesture,
   updateEditorGesture,
 } from "../input/gestureController";
@@ -111,6 +112,8 @@ export function useCanvasEditor(
         window.cancelAnimationFrame(selectionOverlayFrameRef.current);
         selectionOverlayFrameRef.current = null;
       }
+      gestureStateRef.current = idleGestureState;
+      clearEditorGestureActivity();
     };
   }, [requestCanvasRender, requestSelectionOverlayRender]);
 

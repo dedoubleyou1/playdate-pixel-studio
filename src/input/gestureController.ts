@@ -11,6 +11,7 @@ import {
 } from "./selectionGestures";
 import {
   idleGestureState,
+  isActiveGesture,
   isSelectionTool,
   selectionCombineModeForModifiers,
   type EditorGestureEvent,
@@ -25,18 +26,18 @@ export function beginEditorGesture(event: EditorGestureEvent, bridge: GestureRen
   const point = event.point;
 
   if (isSelectionTool(tool)) {
-    return beginSelectionGesture(point, tool, selectionCombineModeForModifiers(event), bridge);
+    return trackGestureActivity(beginSelectionGesture(point, tool, selectionCombineModeForModifiers(event), bridge));
   }
 
   if (tool === "move") {
-    return beginMoveGesture(point);
+    return trackGestureActivity(beginMoveGesture(point));
   }
 
   if (state.editTarget === "alphaMask") {
-    return beginAlphaMaskGesture(point, tool, bridge);
+    return trackGestureActivity(beginAlphaMaskGesture(point, tool, bridge));
   }
 
-  return beginPixelGesture(point, tool, bridge);
+  return trackGestureActivity(beginPixelGesture(point, tool, bridge));
 }
 
 export function updateEditorGesture(
@@ -65,38 +66,47 @@ export function finishEditorGesture(
   event: EditorGestureEvent,
   bridge: GestureRenderBridge,
 ): EditorGestureState {
-  if (gesture.type === "idle") return gesture;
+  if (gesture.type === "idle") return trackGestureActivity(gesture);
   if (gesture.type === "selecting") {
-    return finishSelectionGesture(gesture, event, bridge);
+    return trackGestureActivity(finishSelectionGesture(gesture, event, bridge));
   }
 
   if (gesture.type === "movingPixels" || gesture.type === "movingLayer") {
-    return finishMoveGesture(gesture, event, bridge);
+    return trackGestureActivity(finishMoveGesture(gesture, event, bridge));
   }
 
   if (gesture.type === "drawingAlphaMask") {
-    return finishAlphaMaskGesture(gesture, event);
+    return trackGestureActivity(finishAlphaMaskGesture(gesture, event));
   }
 
-  return finishPixelGesture(gesture, event);
+  return trackGestureActivity(finishPixelGesture(gesture, event));
 }
 
 export function cancelEditorGesture(gesture: EditorGestureState, bridge: GestureRenderBridge): EditorGestureState {
   const state = useEditorStore.getState();
-  if (gesture.type === "idle") return gesture;
+  if (gesture.type === "idle") return trackGestureActivity(gesture);
   if (gesture.type === "selecting") {
-    return cancelSelectionGesture(bridge);
+    return trackGestureActivity(cancelSelectionGesture(bridge));
   }
   if (gesture.type === "movingPixels" || gesture.type === "movingLayer") {
-    return cancelMoveGesture(bridge);
+    return trackGestureActivity(cancelMoveGesture(bridge));
   }
   state.setCanvasToolPreview(null);
   if (gesture.changed) gesture.transaction.rollback();
   else gesture.transaction.discard();
   bridge.requestCanvasRender();
-  return idleGestureState;
+  return trackGestureActivity(idleGestureState);
+}
+
+export function clearEditorGestureActivity(): void {
+  useEditorStore.setState({ gestureActive: false });
 }
 
 export function activeLayerStackSelector(state: Pick<EditorSnapshot, "root" | "objects" | "activeContext">) {
   return activeStack(state);
+}
+
+function trackGestureActivity(gesture: EditorGestureState): EditorGestureState {
+  useEditorStore.setState({ gestureActive: isActiveGesture(gesture) });
+  return gesture;
 }

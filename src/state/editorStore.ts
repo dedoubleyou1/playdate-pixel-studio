@@ -47,6 +47,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   previewMode: "normal",
   canvasToolPreview: null,
   activeSelectionCombineMode: null,
+  gestureActive: false,
   editTarget: "pixels",
   rootSelection: null,
   objectSelection: null,
