@@ -1,6 +1,7 @@
 import { PLAYDATE_HEIGHT, PLAYDATE_WIDTH } from "../domain/constants";
 import { BLACK_PIXEL, MAX_SWATCH_REF, TRANSPARENT_PIXEL, WHITE_PIXEL, type SolidPaletteValue } from "../domain/types";
 import { clampLayerIndex, cloneSnapshot } from "../domain/layers";
+import { builtInPattern } from "../domain/patterns";
 import {
   normalizedPatternEntry,
   nextDuplicatePatternPreviewHue,
@@ -203,7 +204,8 @@ function validatePalette(value: unknown): Set<number> {
       }
       solidEntries.set(ref, entry.value);
     } else if (entry.type === "pattern") {
-      requireNonEmptyString(entry.patternId, `palette entry ${entryIndex} pattern id`);
+      const patternId = requireNonEmptyString(entry.patternId, `palette entry ${entryIndex} pattern id`);
+      if (!builtInPattern(patternId)) invalidProject(`palette entry ${entryIndex} references an unknown pattern`);
       requireFiniteNumber(entry.previewHue, `palette entry ${entryIndex} preview hue`);
       requireInteger(entry.offsetX, `palette entry ${entryIndex} x offset`);
       requireInteger(entry.offsetY, `palette entry ${entryIndex} y offset`);

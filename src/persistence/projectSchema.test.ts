@@ -76,6 +76,15 @@ describe("project schema", () => {
     expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/required white palette entry is missing/);
   });
 
+  it("rejects palette entries that reference unknown patterns", () => {
+    const document = createValidDocument();
+    const entry = document.snapshot.palette.entries[3];
+    if (entry.type !== "pattern") throw new Error("Expected a pattern swatch");
+    entry.patternId = "missing-pattern";
+
+    expect(() => parseProjectJson(JSON.stringify(document))).toThrow(/references an unknown pattern/);
+  });
+
   it("rejects invalid pixel and alpha-mask values", () => {
     const invalidPixelDocument = createValidDocument();
     const pixelLayer = invalidPixelDocument.snapshot.root.layers[0];
