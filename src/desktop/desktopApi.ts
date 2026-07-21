@@ -13,6 +13,16 @@ export interface DesktopFileResult {
   error?: string;
 }
 
+export interface DesktopImageFileResult {
+  ok: boolean;
+  canceled?: boolean;
+  data?: ArrayBuffer;
+  error?: string;
+  fileName?: string;
+  filePath?: string;
+  mimeType?: string;
+}
+
 export interface DesktopStreamStatus {
   ok: boolean;
   running: boolean;
@@ -90,6 +100,7 @@ export type DesktopMenuCommandId =
   | "project:save"
   | "project:open-recent"
   | "project:import"
+  | "project:import-image"
   | "project:export-png"
   | "project:export-json"
   | "project:export-bundle"
@@ -135,6 +146,7 @@ export interface PlaydatePixelDesktopApi {
   files: {
     saveBlob: (request: DesktopSaveBlobRequest) => Promise<DesktopFileResult>;
     openProjectFile: () => Promise<DesktopFileResult>;
+    openImageFile: () => Promise<DesktopImageFileResult>;
     saveCompanionPdx: () => Promise<DesktopFileResult>;
     openCompanionInSimulator: () => Promise<DesktopFileResult>;
   };
@@ -182,6 +194,13 @@ export async function openProjectFileWithDesktopDialog(): Promise<DesktopFileRes
   return result;
 }
 
+export async function openImageFileWithDesktopDialog(): Promise<DesktopImageFileResult> {
+  const desktopApi = requireDesktopApi();
+  const result = await desktopApi.files.openImageFile();
+  if (!result.ok) throw new Error(result.error ?? "Unable to open image file.");
+  return result;
+}
+
 export async function saveCompanionPdxWithDesktopDialog(): Promise<DesktopFileResult> {
   const desktopApi = requireDesktopApi();
   const result = await desktopApi.files.saveCompanionPdx();
@@ -223,9 +242,7 @@ export async function getDesktopStreamDevices(): Promise<{ connectedDevices: num
   return desktopApi.stream.getDevices();
 }
 
-export async function sendDesktopStreamFrame(
-  request: DesktopStreamFrameRequest,
-): Promise<DesktopStreamFrameResult> {
+export async function sendDesktopStreamFrame(request: DesktopStreamFrameRequest): Promise<DesktopStreamFrameResult> {
   const desktopApi = requireDesktopApi();
   const result = await desktopApi.stream.sendFrame(request);
   if (!result.ok) throw new Error(result.error ?? "Unable to stream frame.");

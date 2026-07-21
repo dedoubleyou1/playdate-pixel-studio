@@ -12,6 +12,7 @@ const BLOCKED_DESKTOP_MENU_COMMANDS = new Set<DesktopMenuCommand["id"]>([
   "project:save",
   "project:open-recent",
   "project:import",
+  "project:import-image",
   "project:export-png",
   "project:export-json",
   "project:export-bundle",

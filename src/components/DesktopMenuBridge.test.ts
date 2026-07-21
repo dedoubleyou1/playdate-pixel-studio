@@ -7,6 +7,7 @@ const originalActions = {
   invertActiveLayer: useEditorStore.getState().invertActiveLayer,
   loadProject: useEditorStore.getState().loadProject,
   newProject: useEditorStore.getState().newProject,
+  openImageImportFile: useEditorStore.getState().openImageImportFile,
   saveProject: useEditorStore.getState().saveProject,
   setGridVisible: useEditorStore.getState().setGridVisible,
   undo: useEditorStore.getState().undo,
@@ -17,6 +18,7 @@ describe("desktop menu gesture gating", () => {
   const invertActiveLayer = vi.fn();
   const loadProject = vi.fn(() => Promise.resolve());
   const newProject = vi.fn();
+  const openImageImportFile = vi.fn(() => Promise.resolve());
   const saveProject = vi.fn(() => Promise.resolve());
   const setGridVisible = vi.fn();
   const undo = vi.fn();
@@ -29,6 +31,7 @@ describe("desktop menu gesture gating", () => {
       invertActiveLayer,
       loadProject,
       newProject,
+      openImageImportFile,
       saveProject,
       setGridVisible,
       undo,
@@ -43,6 +46,7 @@ describe("desktop menu gesture gating", () => {
     executeDesktopMenuCommand({ id: "project:new" });
     executeDesktopMenuCommand({ id: "project:save" });
     executeDesktopMenuCommand({ id: "project:open-recent", projectId: "project-1" });
+    executeDesktopMenuCommand({ id: "project:import-image" });
     executeDesktopMenuCommand({ id: "edit:undo" });
     executeDesktopMenuCommand({ id: "edit:clear-layer" });
     executeDesktopMenuCommand({ id: "edit:invert-layer" });
@@ -50,6 +54,7 @@ describe("desktop menu gesture gating", () => {
     expect(newProject).not.toHaveBeenCalled();
     expect(saveProject).not.toHaveBeenCalled();
     expect(loadProject).not.toHaveBeenCalled();
+    expect(openImageImportFile).not.toHaveBeenCalled();
     expect(undo).not.toHaveBeenCalled();
     expect(clearActiveLayer).not.toHaveBeenCalled();
     expect(invertActiveLayer).not.toHaveBeenCalled();
@@ -67,5 +72,13 @@ describe("desktop menu gesture gating", () => {
     executeDesktopMenuCommand({ id: "edit:undo" });
 
     expect(undo).toHaveBeenCalledOnce();
+  });
+
+  it("opens image import after the gesture finishes", () => {
+    useEditorStore.setState({ gestureActive: false });
+
+    executeDesktopMenuCommand({ id: "project:import-image" });
+
+    expect(openImageImportFile).toHaveBeenCalledOnce();
   });
 });

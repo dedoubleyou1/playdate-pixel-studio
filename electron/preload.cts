@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld("pdps", {
     saveBlob: (request: { filename: string; mimeType?: string; data: ArrayBuffer }) =>
       ipcRenderer.invoke("pdps:save-blob", request),
     openProjectFile: () => ipcRenderer.invoke("pdps:open-project-file"),
+    openImageFile: () => ipcRenderer.invoke("pdps:open-image-file"),
     saveCompanionPdx: () => ipcRenderer.invoke("pdps:save-companion-pdx"),
     openCompanionInSimulator: () => ipcRenderer.invoke("pdps:open-companion-in-simulator"),
   },
@@ -23,13 +24,8 @@ contextBridge.exposeInMainWorld("pdps", {
     getHealth: () => ipcRenderer.invoke("pdps:stream-health"),
     getInfo: () => ipcRenderer.invoke("pdps:stream-info"),
     getDevices: () => ipcRenderer.invoke("pdps:stream-devices"),
-    sendFrame: (request: {
-      revision: number;
-      streamId: string;
-      flags: number;
-      payload: ArrayBuffer;
-      crc32: number;
-    }) => ipcRenderer.invoke("pdps:stream-frame", request),
+    sendFrame: (request: { revision: number; streamId: string; flags: number; payload: ArrayBuffer; crc32: number }) =>
+      ipcRenderer.invoke("pdps:stream-frame", request),
   },
   clipboard: {
     writeSelection: (json: string) => ipcRenderer.invoke("pdps:clipboard-write-selection", { json }),

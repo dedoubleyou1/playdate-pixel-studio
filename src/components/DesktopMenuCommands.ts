@@ -22,6 +22,9 @@ export function executeDesktopMenuCommand(command: DesktopMenuCommand): void {
     case "project:import":
       void state.openProjectFile();
       break;
+    case "project:import-image":
+      void state.openImageImportFile();
+      break;
     case "project:export-png":
       void state.exportPng();
       break;

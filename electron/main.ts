@@ -65,6 +65,7 @@ interface DesktopMenuCommand {
     | "project:save"
     | "project:open-recent"
     | "project:import"
+    | "project:import-image"
     | "project:export-png"
     | "project:export-json"
     | "project:export-bundle"
@@ -235,6 +236,36 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(
+    "pdps:open-image-file",
+    async (event): Promise<DesktopActionResult & { data?: ArrayBuffer; mimeType?: string }> => {
+      try {
+        const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
+        const options: OpenDialogOptions = {
+          properties: ["openFile"],
+          filters: [{ name: "Image", extensions: ["png", "gif"] }],
+        };
+        const { canceled, filePaths } = owner
+          ? await dialog.showOpenDialog(owner, options)
+          : await dialog.showOpenDialog(options);
+
+        if (canceled || filePaths.length === 0) return { ok: true, canceled: true };
+
+        const filePath = filePaths[0];
+        const data = await fs.readFile(filePath);
+        return {
+          ok: true,
+          data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+          filePath,
+          fileName: path.basename(filePath),
+          mimeType: mimeTypeForImagePath(filePath),
+        };
+      } catch (error) {
+        return { ok: false, error: errorMessage(error) };
+      }
+    },
+  );
+
   ipcMain.handle("pdps:save-companion-pdx", async (event): Promise<DesktopActionResult> => {
     try {
       const owner = BrowserWindow.fromWebContents(event.sender) ?? mainWindow ?? undefined;
@@ -398,6 +429,10 @@ function createApplicationMenu(): void {
           {
             label: "Import Project",
             click: () => sendMenuCommand({ id: "project:import" }),
+          },
+          {
+            label: "Import Image...",
+            click: () => sendMenuCommand({ id: "project:import-image" }),
           },
           { type: "separator" },
           {
@@ -630,6 +665,12 @@ function filtersForFilename(filename: string): FileFilter[] {
   if (filename.endsWith(".zip")) return [{ name: "ZIP Archive", extensions: ["zip"] }];
   if (filename.endsWith(".json")) return [{ name: "JSON Project", extensions: ["json"] }];
   return [{ name: "All Files", extensions: ["*"] }];
+}
+
+function mimeTypeForImagePath(filePath: string): string {
+  const extension = path.extname(filePath).toLowerCase();
+  if (extension === ".gif") return "image/gif";
+  return "image/png";
 }
 
 function companionPdxPath(): string {

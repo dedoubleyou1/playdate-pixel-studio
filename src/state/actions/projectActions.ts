@@ -1,7 +1,22 @@
-import { createInitialSnapshot, mergeSummary, slugify, snapshotFrom, snapshotState } from "../editorStoreHelpers";
+import { createEditorCommand } from "../../domain/commands";
+import {
+  createInitialSnapshot,
+  mergeSummary,
+  pushCommand,
+  selectionSnapshot,
+  slugify,
+  snapshotFrom,
+  snapshotState,
+} from "../editorStoreHelpers";
 import type { EditorStoreGet, EditorStoreSet, EditorStoreState } from "../editorStoreTypes";
+import { createObjectDefinition, createObjectInstanceLayer } from "../../domain/layers";
+import { createMappedImageImportSurface } from "../../domain/imageImport";
 import { BLACK_PIXEL } from "../../domain/types";
-import { openProjectFileWithDesktopDialog, saveBlobWithDesktopDialog } from "../../desktop/desktopApi";
+import {
+  openImageFileWithDesktopDialog,
+  openProjectFileWithDesktopDialog,
+  saveBlobWithDesktopDialog,
+} from "../../desktop/desktopApi";
 import { canvasToBlob, createProjectBundle, createPlaydatePngCanvas } from "../../export/playdateExport";
 import {
   deleteProjectDocument,
@@ -26,6 +41,10 @@ type ProjectActions = Pick<
   | "deleteProject"
   | "refreshProjects"
   | "exportProjectFile"
+  | "openImageImportFile"
+  | "importImageFile"
+  | "commitImageImport"
+  | "clearPendingImageImportFile"
   | "openProjectFile"
   | "importProjectFile"
   | "exportPng"
@@ -49,6 +68,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
       currentProjectId: importedProjectId,
       savedDocumentRevision: state.documentRevision + 1,
       pendingCommand: null,
+      pendingImageImportFile: null,
       pendingMove: null,
       pendingSelectionMove: null,
       undoStack: [],
@@ -79,6 +99,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
         currentProjectId: null,
         savedDocumentRevision: state.documentRevision + 1,
         pendingCommand: null,
+        pendingImageImportFile: null,
         pendingMove: null,
         pendingSelectionMove: null,
         undoStack: [],
@@ -161,6 +182,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
           currentProjectId: document.id,
           savedDocumentRevision: state.documentRevision + 1,
           pendingCommand: null,
+          pendingImageImportFile: null,
           pendingMove: null,
           pendingSelectionMove: null,
           undoStack: [],
@@ -210,6 +232,7 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
           currentProjectId: document.id,
           savedDocumentRevision: state.documentRevision + 1,
           pendingCommand: null,
+          pendingImageImportFile: null,
           pendingMove: null,
           pendingSelectionMove: null,
           undoStack: [],
@@ -271,6 +294,103 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
       }
     },
 
+    openImageImportFile: async () => {
+      try {
+        if (!window.pdps) {
+          set({ status: "Use the command palette to choose an image file" });
+          return;
+        }
+        const result = await openImageFileWithDesktopDialog();
+        if (result.canceled) return;
+        if (!result.data || !result.fileName || !result.mimeType) {
+          set({ status: "Unable to read image file" });
+          return;
+        }
+        set({
+          pendingImageImportFile: {
+            data: result.data,
+            fileName: result.fileName,
+            mimeType: result.mimeType,
+          },
+          status: "Image ready to import",
+        });
+      } catch {
+        set({ status: "Unable to open image file" });
+      }
+    },
+
+    importImageFile: async (file) => {
+      try {
+        set({
+          pendingImageImportFile: {
+            data: await file.arrayBuffer(),
+            fileName: file.name,
+            mimeType: file.type || mimeTypeForImageFileName(file.name),
+          },
+          status: "Image ready to import",
+        });
+      } catch {
+        set({ status: "Unable to read image file" });
+      }
+    },
+
+    clearPendingImageImportFile: () => {
+      set({ pendingImageImportFile: null });
+    },
+
+    commitImageImport: ({ fileName, mapping, prepared }) => {
+      const before = snapshotFrom(get());
+      const beforeSelection = selectionSnapshot(get());
+      const surface = createMappedImageImportSurface(prepared, mapping);
+      const objectName = imageObjectName(fileName);
+      const object = createObjectDefinition(crypto.randomUUID(), objectName, surface.width, surface.height);
+      object.layers = [
+        {
+          ...object.layers[0],
+          contentRevision: object.layers[0].contentRevision + 1,
+          name: "Imported image",
+          surface,
+        },
+      ];
+
+      set((state) => {
+        const layer = createObjectInstanceLayer(state.root.nextLayerId, object.name, object.id);
+        layer.x = Math.floor((state.root.width - object.width) / 2);
+        layer.y = Math.floor((state.root.height - object.height) / 2);
+        const insertIndex = state.root.activeLayerIndex + 1;
+        const layers = [...state.root.layers];
+        layers.splice(insertIndex, 0, layer);
+
+        return {
+          objects: [...state.objects, object],
+          root: {
+            ...state.root,
+            activeLayerIndex: insertIndex,
+            layers,
+            nextLayerId: state.root.nextLayerId + 1,
+          },
+          activeContext: { type: "root" },
+          canvasToolPreview: null,
+          activeSelectionCombineMode: null,
+          editTarget: "pixels",
+          objectSelection: null,
+          pendingImageImportFile: null,
+          rootSelection: null,
+          status: `Imported ${fileName}`,
+          documentRevision: state.documentRevision + 1,
+          viewRevision: state.viewRevision + 1,
+          hasUnsavedChanges: true,
+        };
+      });
+      pushCommand(
+        set,
+        createEditorCommand(`Import ${objectName}`, before, snapshotFrom(get()), {
+          beforeSelection,
+          afterSelection: selectionSnapshot(get()),
+        }),
+      );
+    },
+
     openProjectFile: async () => {
       try {
         const result = await openProjectFileWithDesktopDialog();
@@ -329,4 +449,13 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
       }
     },
   };
+}
+
+function imageObjectName(fileName: string): string {
+  const withoutExtension = fileName.replace(/\.[^.]+$/, "").trim();
+  return withoutExtension.length > 0 ? withoutExtension : "Imported Image";
+}
+
+function mimeTypeForImageFileName(fileName: string): string {
+  return fileName.toLowerCase().endsWith(".gif") ? "image/gif" : "image/png";
 }

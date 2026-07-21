@@ -7,6 +7,7 @@ import {
   Download,
   FileDown,
   FilePlus2,
+  ImagePlus,
   Move,
   PaintBucket,
   Pencil,
@@ -17,6 +18,7 @@ import {
   SquareDashed,
   Trash2,
 } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { activeLayer, isPixelEditableLayer } from "../domain/layers";
@@ -48,6 +50,8 @@ export function CommandPalette({
   const exportPng = useEditorStore((state) => state.exportPng);
   const exportProjectFile = useEditorStore((state) => state.exportProjectFile);
   const exportBundle = useEditorStore((state) => state.exportBundle);
+  const openImageImportFile = useEditorStore((state) => state.openImageImportFile);
+  const importImageFile = useEditorStore((state) => state.importImageFile);
   const copySelection = useEditorStore((state) => state.copySelection);
   const cutSelection = useEditorStore((state) => state.cutSelection);
   const pasteClipboard = useEditorStore((state) => state.pasteClipboard);
@@ -57,6 +61,7 @@ export function CommandPalette({
   const layerSelected = useEditorStore((state) => Boolean(activeLayer(state)));
   const drawingEnabled = useEditorStore((state) => isPixelEditableLayer(activeLayer(state)));
   const hasSelection = useEditorStore(hasActiveSelection);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   const run = (action: () => void | Promise<unknown>) => {
     void action();
@@ -73,6 +78,14 @@ export function CommandPalette({
         <div className="command-list">
           <CommandButton icon={FilePlus2} label="New project" onClick={() => run(newProject)} />
           <CommandButton icon={Save} label="Save project" onClick={() => run(saveProject)} />
+          <CommandButton
+            icon={ImagePlus}
+            label="Import image"
+            onClick={() => {
+              if (window.pdps) run(openImageImportFile);
+              else imageInputRef.current?.click();
+            }}
+          />
           <CommandButton icon={Download} label="Export PNG" onClick={() => run(exportPng)} />
           <CommandButton icon={FileDown} label="Export project JSON" onClick={() => run(exportProjectFile)} />
           <CommandButton icon={Archive} label="Export project bundle" onClick={() => run(exportBundle)} />
@@ -134,6 +147,20 @@ export function CommandPalette({
             onClick={() => run(() => setActiveSwatchRef(BLACK_PIXEL))}
           />
         </div>
+        <input
+          ref={imageInputRef}
+          className="hidden"
+          type="file"
+          accept="image/png,image/gif"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0];
+            event.currentTarget.value = "";
+            if (file) {
+              void importImageFile(file);
+              onOpenChange(false);
+            }
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

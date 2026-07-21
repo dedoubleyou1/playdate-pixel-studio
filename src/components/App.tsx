@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CanvasStage } from "./CanvasStage";
 import { CommandPalette } from "./CommandPalette";
 import { DesktopMenuBridge } from "./DesktopMenuBridge";
+import { ImageImportDialog } from "./ImageImportDialog";
 import { LayersPanel } from "./LayersPanel";
 import { ToolsPanel } from "./ToolsPanel";
 import { EditorShell, EditorWorkspace } from "./layout/editor-layout";
@@ -122,7 +123,13 @@ export function App(): React.JSX.Element {
       if (isTextEditingTarget(event.target)) return;
 
       const state = useEditorStore.getState();
-      if (!event.metaKey && !event.ctrlKey && !event.altKey && state.editTarget === "pixels" && isPixelEditableLayer(activeLayer(state))) {
+      if (
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        state.editTarget === "pixels" &&
+        isPixelEditableLayer(activeLayer(state))
+      ) {
         const swatchRef = swatchRefForNumberShortcut(state.palette, key);
         if (swatchRef !== null) {
           event.preventDefault();
@@ -210,13 +217,18 @@ export function App(): React.JSX.Element {
         </DragDropProvider>
       </EditorShell>
       <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
+      <ImageImportDialog />
     </TooltipProvider>
   );
 }
 
 function isTextEditingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
     return true;
   }
   return target.isContentEditable;

@@ -51,6 +51,7 @@ export const useEditorStore = create<EditorStoreState>((set, get) => ({
   editTarget: "pixels",
   rootSelection: null,
   objectSelection: null,
+  pendingImageImportFile: null,
   documentRevision: 0,
   savedDocumentRevision: 0,
   viewRevision: 0,

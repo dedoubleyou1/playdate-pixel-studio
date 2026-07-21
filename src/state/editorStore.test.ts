@@ -36,6 +36,7 @@ const projectDbMock = vi.hoisted(() => ({
 }));
 
 const desktopApiMock = vi.hoisted(() => ({
+  openImageFileWithDesktopDialog: vi.fn(),
   openProjectFileWithDesktopDialog: vi.fn(),
   readSelectionFromDesktopClipboard: vi.fn(),
   saveBlobWithDesktopDialog: vi.fn(),
@@ -1216,6 +1217,51 @@ describe("editor store selection and alpha masks", () => {
     expect(layer?.alphaMask?.data[1 * 4 + 1]).toBe(1);
     expect(layer?.alphaMask?.data[0]).toBe(0);
   });
+
+  it("commits mapped image imports as a placed object with one undo command", () => {
+    const state = useEditorStore.getState();
+
+    state.commitImageImport({
+      fileName: "tiny.png",
+      mapping: {
+        "exact:000000": BLACK_PIXEL,
+        "exact:ffffff": WHITE_PIXEL,
+      },
+      prepared: {
+        entries: [
+          { id: "exact:000000", kind: "exact", luminance: 0, pixelCount: 1, representativeColor: { r: 0, g: 0, b: 0 } },
+          {
+            id: "exact:ffffff",
+            kind: "exact",
+            luminance: 255,
+            pixelCount: 1,
+            representativeColor: { r: 255, g: 255, b: 255 },
+          },
+        ],
+        entryIndexByPixel: new Uint16Array([0, 1]),
+        height: 1,
+        mode: "exact",
+        width: 2,
+      },
+    });
+
+    const current = useEditorStore.getState();
+    expect(current.objects).toHaveLength(1);
+    expect(current.objects[0].name).toBe("tiny");
+    expect([...current.objects[0].layers[0].surface.data]).toEqual([BLACK_PIXEL, WHITE_PIXEL]);
+    expect(current.root.layers.at(-1)).toMatchObject({
+      type: "object",
+      objectId: current.objects[0].id,
+      x: 199,
+      y: 119,
+    });
+    expect(current.undoStack).toHaveLength(1);
+
+    current.undo();
+
+    expect(useEditorStore.getState().objects).toHaveLength(0);
+    expect(useEditorStore.getState().root.layers).toHaveLength(1);
+  });
 });
 
 function resetStore(): void {
@@ -1223,6 +1269,7 @@ function resetStore(): void {
   vi.clearAllMocks();
   desktopApiMock.readSelectionFromDesktopClipboard.mockResolvedValue(null);
   desktopApiMock.writeSelectionToDesktopClipboard.mockResolvedValue(true);
+  desktopApiMock.openImageFileWithDesktopDialog.mockResolvedValue({ canceled: true, ok: true });
   desktopApiMock.openProjectFileWithDesktopDialog.mockResolvedValue({ canceled: true, ok: true });
   desktopApiMock.saveBlobWithDesktopDialog.mockResolvedValue(false);
   useEditorStore.getState().newProject();
@@ -1234,6 +1281,7 @@ function resetStore(): void {
     currentProjectId: null,
     hasUnsavedChanges: false,
     pendingCommand: null,
+    pendingImageImportFile: null,
     pendingMove: null,
     pendingSelectionMove: null,
     projectName: "Untitled Playdate Art",

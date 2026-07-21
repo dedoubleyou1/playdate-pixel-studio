@@ -1,4 +1,5 @@
 import type { CommandSelectionSnapshot, EditorCommand } from "../domain/commands";
+import type { ImageImportMapping, PreparedImageImport } from "../domain/imageImport";
 import type {
   BrushShape,
   CanvasToolPreview,
@@ -47,6 +48,18 @@ export interface PendingSelectionMove {
 
 export type EditorDocument = EditorSnapshot;
 
+export interface PendingImageImportFile {
+  data: ArrayBuffer;
+  fileName: string;
+  mimeType: string;
+}
+
+export interface CommitImageImportRequest {
+  fileName: string;
+  mapping: ImageImportMapping;
+  prepared: PreparedImageImport;
+}
+
 export interface EditorSessionState {
   activeTool: Tool;
   activeSwatchRef: SwatchRef;
@@ -69,6 +82,7 @@ export interface EditorSessionState {
   editTarget: EditTarget;
   rootSelection: SelectionState | null;
   objectSelection: SelectionState | null;
+  pendingImageImportFile: PendingImageImportFile | null;
 }
 
 export interface EditorStoreState extends EditorDocument, EditorSessionState {
@@ -112,7 +126,11 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   setActiveSelectionCombineMode: (mode: SelectionCombineMode | null) => void;
   setPreviewMode: (mode: PreviewMode) => void;
   setEditTarget: (target: EditTarget) => void;
-  setSelectionFromRect: (start: { x: number; y: number }, end: { x: number; y: number }, mode?: SelectionCombineMode) => void;
+  setSelectionFromRect: (
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+    mode?: SelectionCombineMode,
+  ) => void;
   setSelectionFromEllipse: (
     start: { x: number; y: number },
     end: { x: number; y: number },
@@ -156,6 +174,7 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   invertActiveLayer: () => void;
   openPreview: () => void;
   closePreview: () => void;
+  clearPendingImageImportFile: () => void;
   newProject: () => void;
   renameProject: (name: string) => void;
   saveProject: () => Promise<void>;
@@ -164,6 +183,9 @@ export interface EditorStoreState extends EditorDocument, EditorSessionState {
   deleteProject: (id: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
   exportProjectFile: () => Promise<void>;
+  openImageImportFile: () => Promise<void>;
+  importImageFile: (file: File) => Promise<void>;
+  commitImageImport: (request: CommitImageImportRequest) => void;
   openProjectFile: () => Promise<void>;
   importProjectFile: (file: File) => Promise<void>;
   exportPng: () => Promise<void>;
