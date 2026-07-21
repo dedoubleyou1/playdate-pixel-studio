@@ -38,14 +38,15 @@ export function createProjectActions(set: EditorStoreSet, get: EditorStoreGet): 
   const importProjectText = async (text: string): Promise<void> => {
     const document = parseProjectJson(text);
     const snapshot = deserializeProject(document);
-    const normalizedDocument = serializeProject(snapshot, document.id, document.name);
+    const importedProjectId = crypto.randomUUID();
+    const normalizedDocument = serializeProject(snapshot, importedProjectId, document.name);
     const importGeneration = ++projectGeneration;
     const saved = await saveProjectDocument(normalizedDocument);
     if (projectGeneration !== importGeneration) return;
     set((state) => ({
       ...snapshotState(snapshot),
       projectName: document.name,
-      currentProjectId: document.id,
+      currentProjectId: importedProjectId,
       savedDocumentRevision: state.documentRevision + 1,
       pendingCommand: null,
       pendingMove: null,
