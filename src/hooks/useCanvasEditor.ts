@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   activeLayerStackSelector,
   beginEditorGesture,
@@ -17,6 +17,7 @@ import {
   type EditorGestureState,
 } from "../input/gestureTypes";
 import type { SelectionOverlaySource } from "../rendering/selectionOverlaySource";
+import { CanvasPointerSession, suppressCanvasContextMenu } from "../input/canvasPointerSession";
 
 export function useCanvasEditor(
   canvas: HTMLCanvasElement | null,
@@ -27,6 +28,7 @@ export function useCanvasEditor(
   onPointerUp: (event: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerCancel: (event: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerLeave: () => void;
+  onContextMenu: (event: React.MouseEvent<HTMLCanvasElement>) => void;
 } {
   const editorCanvasRef = useRef<EditorCanvas | null>(null);
   const renderFrameRef = useRef<number | null>(null);
@@ -34,6 +36,7 @@ export function useCanvasEditor(
   const selectionOverlayFrameRef = useRef<number | null>(null);
   const selectionOverlayModelRef = useRef<SelectionOverlaySource | null>(null);
   const gestureStateRef = useRef<EditorGestureState>(idleGestureState);
+  const [pointerSession] = useState(() => new CanvasPointerSession());
 
   const stack = useEditorStore((state) => activeLayerStackSelector(state));
   const viewRevision = useEditorStore((state) => state.viewRevision);
@@ -114,7 +117,7 @@ export function useCanvasEditor(
   const beginStroke = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const editorCanvas = editorCanvasRef.current;
-      if (!editorCanvas) return;
+      if (!editorCanvas || !pointerSession.begin(event)) return;
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       const gesture = beginEditorGesture(
@@ -124,15 +127,17 @@ export function useCanvasEditor(
       gestureStateRef.current = gesture;
       if (isActiveGesture(gesture)) {
         event.currentTarget.setPointerCapture(event.pointerId);
+      } else {
+        pointerSession.end(event.pointerId);
       }
     },
-    [requestCanvasRender, requestSelectionOverlayRender],
+    [pointerSession, requestCanvasRender, requestSelectionOverlayRender],
   );
 
   const continueStroke = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const editorCanvas = editorCanvasRef.current;
-      if (!editorCanvas) return;
+      if (!editorCanvas || !pointerSession.acceptsMove(event.pointerId)) return;
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       const state = useEditorStore.getState();
       state.setCursorLabel(`x: ${point.x} y: ${point.y}`);
@@ -142,13 +147,17 @@ export function useCanvasEditor(
         { requestCanvasRender, requestSelectionOverlayRender },
       );
     },
-    [requestCanvasRender, requestSelectionOverlayRender],
+    [pointerSession, requestCanvasRender, requestSelectionOverlayRender],
   );
 
   const finishStroke = useCallback(
     (event: React.PointerEvent<HTMLCanvasElement>) => {
       const editorCanvas = editorCanvasRef.current;
-      if (!editorCanvas || !isActiveGesture(gestureStateRef.current)) return;
+      if (!pointerSession.owns(event.pointerId)) return;
+      if (!editorCanvas || !isActiveGesture(gestureStateRef.current)) {
+        pointerSession.end(event.pointerId);
+        return;
+      }
 
       const point = editorCanvas.pointerToPixel(event.nativeEvent);
       gestureStateRef.current = finishEditorGesture(
@@ -156,16 +165,22 @@ export function useCanvasEditor(
         { altKey: event.altKey, point, shiftKey: event.shiftKey },
         { requestCanvasRender, requestSelectionOverlayRender },
       );
+      pointerSession.end(event.pointerId);
     },
-    [requestCanvasRender, requestSelectionOverlayRender],
+    [pointerSession, requestCanvasRender, requestSelectionOverlayRender],
   );
 
-  const cancelStroke = useCallback(() => {
-    gestureStateRef.current = cancelEditorGesture(gestureStateRef.current, {
-      requestCanvasRender,
-      requestSelectionOverlayRender,
-    });
-  }, [requestCanvasRender, requestSelectionOverlayRender]);
+  const cancelStroke = useCallback(
+    (event: React.PointerEvent<HTMLCanvasElement>) => {
+      if (!pointerSession.owns(event.pointerId)) return;
+      gestureStateRef.current = cancelEditorGesture(gestureStateRef.current, {
+        requestCanvasRender,
+        requestSelectionOverlayRender,
+      });
+      pointerSession.end(event.pointerId);
+    },
+    [pointerSession, requestCanvasRender, requestSelectionOverlayRender],
+  );
 
   return useMemo(
     () => ({
@@ -173,6 +188,7 @@ export function useCanvasEditor(
       onPointerMove: continueStroke,
       onPointerUp: finishStroke,
       onPointerCancel: cancelStroke,
+      onContextMenu: suppressCanvasContextMenu,
       onPointerLeave: () => {
         if (!isActiveGesture(gestureStateRef.current)) {
           useEditorStore.getState().setCursorLabel("x: -- y: --");

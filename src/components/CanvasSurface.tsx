@@ -30,6 +30,7 @@ export function CanvasSurface({
       onPointerUp={handlers.onPointerUp}
       onPointerCancel={handlers.onPointerCancel}
       onPointerLeave={handlers.onPointerLeave}
+      onContextMenu={handlers.onContextMenu}
     />
   );
 }
